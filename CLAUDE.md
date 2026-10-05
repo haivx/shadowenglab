@@ -9,13 +9,16 @@ Nguồn sự thật: `docs/product.md`. Đọc file đó trước khi đề xu�
 - **Claude Code:** đề xuất task, hiện thực theo spec, viết test, báo cáo kết quả eval.
 - Không tự ý đổi contract, schema DB, ngưỡng chấm hay model. Nếu cần đổi, dừng lại và đề xuất kèm lý do.
 
-## Quy trình mỗi phase
+## Quy trình (GSD)
 
-1. Đọc `docs/product.md` (mục của phase) và `docs/phases/Px.md`.
-2. Nếu `Px.md` chưa có danh sách task được duyệt: vào plan mode, đề xuất task (mỗi task có tiêu chí hoàn thành đo được), chờ Liam duyệt, rồi ghi vào `Px.md`.
-3. Mỗi task: một branch `px/<slug>`, một PR nhỏ. Tick task trong `Px.md` khi merge.
-4. Quyết định kỹ thuật mới hoặc lệch khỏi `product.md` → thêm ADR `docs/decisions/NNNN-<slug>.md` trong cùng PR.
-5. Từ P3 trở đi: mọi thay đổi về model, ngưỡng hoặc rule phải chạy `make eval` và dán bảng metric vào PR.
+Dự án dùng GSD (gsd-core) để điều phối, xem `docs/decisions/0002-dung-gsd.md` và `docs/gsd/kickoff.md`.
+
+1. Kế hoạch, roadmap và trạng thái nằm trong file của GSD. Đầu vào ban đầu: `docs/gsd/roadmap-seed.md`.
+2. Mỗi phase đi đủ Discuss → Plan → Execute → Verify → Ship. **Không bỏ Discuss**: contract trong `packages/contracts` và quyết định còn mở phải được Liam chốt trước khi Plan.
+3. Verify đối chiếu đúng "tiêu chí hoàn thành" của phase trong roadmap. Từ P3 trở đi: mọi thay đổi về model, ngưỡng hoặc rule phải chạy `make eval` và dán bảng metric vào PR.
+4. Mỗi PR nhỏ, review được tại ranh giới (schema, state machine, output pipeline).
+5. Quyết định kỹ thuật mới hoặc lệch khỏi `docs/product.md` → thêm ADR `docs/decisions/NNNN-<slug>.md` trong cùng PR. Đổi spec sản phẩm: sửa `product.md` trước, rồi cập nhật roadmap GSD.
+6. Song song chỉ cho phần độc lập (ví dụ P4 với P5).
 
 ## Nguyên tắc không được vi phạm
 
@@ -35,7 +38,7 @@ apps/eval/            Next.js app eval (Vercel + Supabase)
 services/audio/       FastAPI (Python 3.11): lesson/, scoring/, rules/
 packages/contracts/   Zod schema dùng chung — nguồn sự thật cho mọi kiểu dữ liệu
 eval/                 export_clips.py, analyze.py, labels.jsonl (gitignored), clips/ (gitignored)
-docs/                 product.md, decisions/, phases/, design/
+docs/                 product.md, flows.md, design/, decisions/, gsd/ (seed + kickoff)
 ```
 
 Kiểu Python ở `services/audio` phải khớp với `packages/contracts` (sinh JSON Schema từ Zod, validate bằng pydantic).

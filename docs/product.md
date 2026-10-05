@@ -301,7 +301,7 @@ shadowenglab/
   docs/
     product.md          # tài liệu này
     decisions/          # ADR
-    phases/             # P0.md … P7.md: task + tiêu chí hoàn thành
+    gsd/                # roadmap-seed.md, kickoff.md (kế hoạch và state do GSD quản lý)
     design/             # export từ Claude Design
   apps/web/             # Next.js app chính
   apps/eval/            # Next.js app eval
@@ -358,9 +358,9 @@ Toàn bộ màn hình của cả hai app được thiết kế bằng Claude Des
 | P6 · Ôn luyện (tuần 9–10) | M5 báo cáo, M6: lặp lại ngắt quãng, TTS đọc chậm, chế độ chỉ ngữ điệu, dashboard tiến bộ, thư viện video | Tự luyện trọn một tuần chỉ bằng app, không cần công cụ nào khác |
 | P7 · Hiệu chỉnh, hoàn thiện (tuần 11) | Fit logistic cho điểm %, chỉnh ngưỡng theo nhãn người chấm, gợi ý bằng LLM, sửa lỗi UX tích luỹ, `report.md` và README | Spearman hệ thống và người chấm xấp xỉ mức đồng thuận giữa hai người chấm. Máy mới: clone, điền `.env`, `make setup && make dev` là dùng được |
 
-### Cách làm việc với Claude Code
+### Cách làm việc với Claude Code và GSD
 
-- Mỗi phase bắt đầu bằng việc Liam viết hoặc cập nhật contract trong `packages/contracts` và file `docs/phases/Px.md` cho phase đó.
+- Việc build được điều phối bằng GSD (`docs/decisions/0002-dung-gsd.md`). Mỗi phase bắt đầu bằng bước Discuss: Liam chốt contract trong `packages/contracts` và các quyết định còn mở.
 - Giao Claude Code hiện thực theo spec. Liam review tại ranh giới: schema, state machine, output của pipeline.
 - Mọi thay đổi về model hoặc ngưỡng từ P3 trở đi phải chạy lại `analyze.py` trước khi merge.
 
@@ -429,6 +429,7 @@ Step 1 khoảng 11 tuần làm solo cùng Claude Code, Step 2 thêm 3–4 tuần
 | Public trên GitHub | README chỉ ghi chung là có human review và chấm thực tế. Audio eval và nhãn thô giữ ngoài repo |
 | Thiết kế UI bằng Claude Design trước khi code | Bản thiết kế là spec giao cho Claude Code |
 | UI v0.2: Radix Colors, nút là chính, hai hệ màu tách biệt (nguồn / điểm) | Xem `docs/design/README.md` |
+| Điều phối build bằng GSD (gsd-core) | Xem `docs/decisions/0002-dung-gsd.md` |
 | Python dùng uv, trình phát dùng XState | Xem `docs/decisions/0001-uv-va-xstate.md` |
 
 ### Rủi ro
