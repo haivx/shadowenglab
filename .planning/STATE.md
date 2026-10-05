@@ -74,7 +74,6 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 1]: Contract chưa chốt — Liam phải chốt `Segment`, `Lesson`, `ScoreResult`, `IssueCode`, `ClipManifest`, `Label` trong Discuss trước khi Plan
 - [Phase 1]: Bộ 3–4 video eval chưa chọn; smoke script dùng tạm một video giọng Mỹ có audio sạch
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
