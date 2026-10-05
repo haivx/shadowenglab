@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design system v0.2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FCFCFD;color:#1C2024;font-family:'Figtree',system-ui,sans-serif}
+a{color:#1C2024}a:hover{color:#60646C}
+button{font:inherit;cursor:pointer}
+kbd{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1;padding:3px 6px;border-radius:5px;background:#F0F0F3;color:#60646C;box-shadow:inset 0 -1px 0 #D9D9E0}
+.ipa{font-family:'Noto Sans',sans-serif}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1240px; box-sizing: border-box; padding: 64px 72px; display: flex; flex-direction: column; gap: 44px; background: #FCFCFD">
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em">ShadowEngLab · v0.2</div>
+    <div style="font-size: 16px; color: #60646C">Radix Colors làm thang màu · shadcn đổi token · ít card, nhiều chữ · nút là chính, phím tắt là phụ</div>
+  </div>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8B8D98">Thang màu · Radix 12 bậc, chỉ dùng các bậc có vai trò</h2>
+    <div style="display: grid; grid-template-columns: 120px repeat(12, minmax(0, 1fr)); gap: 4px; align-items: center; font-size: 12px; color: #60646C">
+      <span style="font-weight: 600; color: #1C2024">slate · nền, chữ</span>
+      <span style="height: 36px; border-radius: 4px; background: #FCFCFD; box-shadow: inset 0 0 0 1px #E8E8EC"></span><span style="height: 36px; border-radius: 4px; background: #F9F9FB"></span><span style="height: 36px; border-radius: 4px; background: #F0F0F3"></span><span style="height: 36px; border-radius: 4px; background: #E8E8EC"></span><span style="height: 36px; border-radius: 4px; background: #E0E1E6"></span><span style="height: 36px; border-radius: 4px; background: #D9D9E0"></span><span style="height: 36px; border-radius: 4px; background: #CDCED6"></span><span style="height: 36px; border-radius: 4px; background: #B9BBC6"></span><span style="height: 36px; border-radius: 4px; background: #8B8D98"></span><span style="height: 36px; border-radius: 4px; background: #80838D"></span><span style="height: 36px; border-radius: 4px; background: #60646C"></span><span style="height: 36px; border-radius: 4px; background: #1C2024"></span>
+      <span style="font-weight: 600; color: #008573">teal · nhận diện bản gốc</span>
+      <span style="height: 36px; border-radius: 4px; background: #FAFEFD; box-shadow: inset 0 0 0 1px #E0F8F3"></span><span style="height: 36px; border-radius: 4px; background: #F3FBF9"></span><span style="height: 36px; border-radius: 4px; background: #E0F8F3"></span><span style="height: 36px; border-radius: 4px; background: #CCF3EA"></span><span style="height: 36px; border-radius: 4px; background: #B8EAE0"></span><span style="height: 36px; border-radius: 4px; background: #A1DED2"></span><span style="height: 36px; border-radius: 4px; background: #83CDC1"></span><span style="height: 36px; border-radius: 4px; background: #53B9AB"></span><span style="height: 36px; border-radius: 4px; background: #12A594"></span><span style="height: 36px; border-radius: 4px; background: #0D9B8A"></span><span style="height: 36px; border-radius: 4px; background: #008573"></span><span style="height: 36px; border-radius: 4px; background: #0D3D38"></span>
+      <span style="font-weight: 600; color: #CC4E00">orange · nhận diện bạn</span>
+      <span style="height: 36px; border-radius: 4px; background: #FEFCFB; box-shadow: inset 0 0 0 1px #FFEFD6"></span><span style="height: 36px; border-radius: 4px; background: #FFF7ED"></span><span style="height: 36px; border-radius: 4px; background: #FFEFD6"></span><span style="height: 36px; border-radius: 4px; background: #FFDFB5"></span><span style="height: 36px; border-radius: 4px; background: #FFD19A"></span><span style="height: 36px; border-radius: 4px; background: #FFC182"></span><span style="height: 36px; border-radius: 4px; background: #F5AE73"></span><span style="height: 36px; border-radius: 4px; background: #EC9455"></span><span style="height: 36px; border-radius: 4px; background: #F76B15"></span><span style="height: 36px; border-radius: 4px; background: #EF5F00"></span><span style="height: 36px; border-radius: 4px; background: #CC4E00"></span><span style="height: 36px; border-radius: 4px; background: #582D1D"></span>
+      <span style="font-weight: 600; color: #218358">green · đủ tốt ≥ 80</span>
+      <span style="height: 36px; border-radius: 4px; background: #FBFEFC; box-shadow: inset 0 0 0 1px #E6F6EB"></span><span style="height: 36px; border-radius: 4px; background: #F4FBF6"></span><span style="height: 36px; border-radius: 4px; background: #E6F6EB"></span><span style="height: 36px; border-radius: 4px; background: #D6F1DF"></span><span style="height: 36px; border-radius: 4px; background: #C4E8D1"></span><span style="height: 36px; border-radius: 4px; background: #ADDDC0"></span><span style="height: 36px; border-radius: 4px; background: #8ECEAA"></span><span style="height: 36px; border-radius: 4px; background: #5BB98B"></span><span style="height: 36px; border-radius: 4px; background: #30A46C"></span><span style="height: 36px; border-radius: 4px; background: #2B9A66"></span><span style="height: 36px; border-radius: 4px; background: #218358"></span><span style="height: 36px; border-radius: 4px; background: #193B2D"></span>
+      <span style="font-weight: 600; color: #AB6400">amber · tạm được 60–79</span>
+      <span style="height: 36px; border-radius: 4px; background: #FEFDFB; box-shadow: inset 0 0 0 1px #FFF7C2"></span><span style="height: 36px; border-radius: 4px; background: #FEFBE9"></span><span style="height: 36px; border-radius: 4px; background: #FFF7C2"></span><span style="height: 36px; border-radius: 4px; background: #FFEE9C"></span><span style="height: 36px; border-radius: 4px; background: #FBE577"></span><span style="height: 36px; border-radius: 4px; background: #F3D673"></span><span style="height: 36px; border-radius: 4px; background: #E9C162"></span><span style="height: 36px; border-radius: 4px; background: #E2A336"></span><span style="height: 36px; border-radius: 4px; background: #FFC53D"></span><span style="height: 36px; border-radius: 4px; background: #FFBA18"></span><span style="height: 36px; border-radius: 4px; background: #AB6400"></span><span style="height: 36px; border-radius: 4px; background: #4F3422"></span>
+      <span style="font-weight: 600; color: #CE2C31">red · kém &lt; 60, đang ghi</span>
+      <span style="height: 36px; border-radius: 4px; background: #FFFCFC; box-shadow: inset 0 0 0 1px #FEEBEC"></span><span style="height: 36px; border-radius: 4px; background: #FFF7F7"></span><span style="height: 36px; border-radius: 4px; background: #FEEBEC"></span><span style="height: 36px; border-radius: 4px; background: #FFDBDC"></span><span style="height: 36px; border-radius: 4px; background: #FFCDCE"></span><span style="height: 36px; border-radius: 4px; background: #FDBDBE"></span><span style="height: 36px; border-radius: 4px; background: #F4A9AA"></span><span style="height: 36px; border-radius: 4px; background: #EB8E90"></span><span style="height: 36px; border-radius: 4px; background: #E5484D"></span><span style="height: 36px; border-radius: 4px; background: #DC3E42"></span><span style="height: 36px; border-radius: 4px; background: #CE2C31"></span><span style="height: 36px; border-radius: 4px; background: #641723"></span>
+      <span></span><span>1 nền</span><span>2</span><span>3 nền phụ</span><span>4</span><span>5</span><span>6 viền</span><span>7</span><span>8</span><span>9 solid</span><span>10</span><span>11 chữ</span><span>12 chữ đậm</span>
+    </div>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px">
+    <section style="display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8B8D98">Câu đang tập · tô màu ngay trong câu (Elsa)</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 32px; font-weight: 600; letter-spacing: -0.01em">
+        <span style="display: inline-flex; flex-direction: column; align-items: center"><span style="color: #CE2C31; border-bottom: 3px solid #E5484D">And</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #CE2C31">41</span></span>
+        <span style="display: inline-flex; flex-direction: column; align-items: center"><span style="color: #1C2024; border-bottom: 3px solid #30A46C">honestly,</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #218358">88</span></span>
+        <span style="display: inline-flex; flex-direction: column; align-items: center"><span style="color: #1C2024; border-bottom: 3px solid #FFC53D">didn’t</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #AB6400">68</span></span>
+        <span style="display: inline-flex; flex-direction: column; align-items: center"><span style="color: #8B8D98; border-bottom: 3px dashed #CDCED6">it</span><span style="font-size: 12px; font-weight: 500; color: #80838D">—</span></span>
+      </div>
+      <div style="font-size: 14px; color: #60646C; line-height: 1.6">Điểm dùng màu đèn giao thông: đỏ = kém (&lt; 60), vàng = tạm được (60–79), xanh lá = đủ tốt (≥ 80), xám gạch đứt = bản gốc không đủ rõ. Luôn có số đi kèm nên không phụ thuộc vào màu. Teal và cam chỉ dùng để nhận diện “Bản gốc” và “Bạn” (đường biểu đồ, nút nghe), không dùng cho điểm.</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid #E8E8EC">
+        <span style="font-size: 13px; font-weight: 600; color: #60646C">Âm của “And” · so từng âm</span>
+        <div style="display: flex; align-items: center; gap: 6px"><span style="width: 64px; font-size: 13px; color: #008573; font-weight: 600">Bản gốc</span><span class="ipa" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #E0F8F3; color: #0D3D38; font-size: 18px">ə</span><span class="ipa" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #E0F8F3; color: #0D3D38; font-size: 18px">n</span><span style="width: 40px; height: 40px; border-radius: 8px; border: 1px dashed #CDCED6"></span></div>
+        <div style="display: flex; align-items: center; gap: 6px"><span style="width: 64px; font-size: 13px; color: #CC4E00; font-weight: 600">Bạn</span><span class="ipa" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #FEEBEC; color: #641723; font-size: 18px; box-shadow: inset 0 0 0 2px #E5484D">æ</span><span class="ipa" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #F0F0F3; color: #1C2024; font-size: 18px">n</span><span class="ipa" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #FEEBEC; color: #641723; font-size: 18px; box-shadow: inset 0 0 0 2px #E5484D">d</span></div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8B8D98">Số lớn (Strava) · nút là chính, phím tắt là gợi ý phụ</h2>
+      <div style="display: flex; align-items: flex-end; gap: 32px">
+        <div style="display: flex; flex-direction: column"><span style="font-size: 64px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: #AB6400">74</span><span style="font-size: 13px; color: #60646C">giống bản gốc</span></div>
+        <div style="display: flex; gap: 24px; padding-bottom: 6px">
+          <div style="display: flex; flex-direction: column"><span style="font-size: 22px; font-weight: 700; color: #218358">86</span><span style="font-size: 12px; color: #60646C">tốc độ</span></div>
+          <div style="display: flex; flex-direction: column"><span style="font-size: 22px; font-weight: 700; color: #CE2C31">58</span><span style="font-size: 12px; color: #60646C">lên xuống</span></div>
+          <div style="display: flex; flex-direction: column"><span style="font-size: 22px; font-weight: 700; color: #AB6400">79</span><span style="font-size: 12px; color: #60646C">giai điệu</span></div>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+        <button type="button" style="height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #1C2024; color: #FFFFFF; font-size: 14px; font-weight: 600">Solid</button>
+        <button type="button" style="height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #F0F0F3; color: #1C2024; font-size: 14px; font-weight: 600">Soft</button>
+        <button type="button" style="height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #CDCED6; background: transparent; color: #1C2024; font-size: 14px; font-weight: 600">Outline</button>
+        <button type="button" style="height: 40px; padding: 0 12px; border-radius: 8px; border: none; background: transparent; color: #60646C; font-size: 14px; font-weight: 600">Ghost</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 20px; border: none; background: #E5484D; color: #FFFFFF; font-size: 14px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFFFFF"></span>Đang ghi 3.1s</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 8px; border: none; background: #E0F8F3; color: #008573; font-size: 14px; font-weight: 600">Bản gốc <kbd>O</kbd></button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 8px; border: none; background: #FFEFD6; color: #CC4E00; font-size: 14px; font-weight: 600">Của bạn <kbd>M</kbd></button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; color: #1C2024; font-size: 15px; font-weight: 600">Ghi lại <kbd>R</kbd></button>
+        <button type="button" style="height: 48px; padding: 0 20px; border-radius: 8px; border: none; background: #1C2024; color: #FFFFFF; font-size: 15px; font-weight: 600">Câu tiếp</button>
+      </div>
+      <div style="font-size: 14px; color: #60646C; line-height: 1.6">Mọi hành động đều có nút bấm, cao 44–48px, có chữ. Phím tắt chỉ hiện dạng gợi ý nhỏ trong nút và trong tooltip. Bo góc 8px (nút), 12px (khối lớn). Không shadow; tách nhóm bằng khoảng trắng và đường kẻ slate4.</div>
+    </section>
+  </div>
+</div>
+</body>
+</html>

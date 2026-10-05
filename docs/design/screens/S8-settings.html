@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FCFCFD;color:#1C2024;font-family:'Figtree',system-ui,sans-serif}
+a{color:#1C2024}a:hover{color:#60646C}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; background: #FCFCFD">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 32px; background: #FFFFFF; border-bottom: 1px solid #E8E8EC">
+    <a href="S1-thu-vien.html" style="font-weight: 800; font-size: 19px; letter-spacing: -0.02em; text-decoration: none; color: #1C2024">ShadowEngLab</a>
+    <nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px">
+      <a href="S1-thu-vien.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; color: #1C2024">Thư viện</a>
+      <a href="S6-on-luyen.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; color: #1C2024">Ôn luyện</a>
+      <a href="S7-tien-bo.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; color: #1C2024">Tiến bộ</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 860px; margin: 0 auto; padding: 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+    <h1 style="margin: 0; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">Settings</h1>
+
+    <section style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <div style="display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-size: 18px; font-weight: 700">API key</h2><span style="font-size: 14px; color: #60646C">Lưu trong <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px">.env</code> trên máy. Chấm điểm không cần key.</span></div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="openai" style="font-size: 14px; font-weight: 600">OpenAI · gợi ý bằng LLM và đọc chậm (TTS)</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <input id="openai" type="password" value="sk-xxxxxxxxxxxxxxxx" style="flex: 1 1 280px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #CDCED6; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #1C2024">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; color: #1C2024; font-size: 14px; font-weight: 600">Kiểm tra</button>
+        </div>
+        <span role="status" style="font-size: 13px; color: #218358; font-weight: 600">Key hợp lệ</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="azure" style="font-size: 14px; font-weight: 600">Azure Speech · tuỳ chọn, lớp tham khảo “đúng chuẩn”</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <input id="azure" type="password" placeholder="Chưa nhập" style="flex: 1 1 280px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #CDCED6; font-size: 14px; color: #1C2024">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; color: #1C2024; font-size: 14px; font-weight: 600">Kiểm tra</button>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">Luyện tập</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px">
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Tốc độ mặc định<select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; font-weight: 400"><option>0.75x</option><option selected>1x</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Số lần lặp<select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; font-weight: 400"><option selected>×1</option><option>×2</option><option>×3</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Thời gian ghi<select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; font-weight: 400"><option>+25%</option><option selected>+50%</option><option>+100%</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Ngưỡng vào hàng ôn<select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; font-weight: 400"><option>60%</option><option selected>70%</option><option>80%</option></select></label>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #F9F9FB">
+        <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Giọng mục tiêu: Anh Mỹ (US)</span><span style="font-size: 13px; color: #60646C">Giọng Anh (UK) sẽ có ở bản sau.</span></span>
+        <span style="padding: 4px 10px; border-radius: 6px; background: #F0F0F3; font-size: 13px; font-weight: 600; color: #60646C">Cố định</span>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">Micro</h2>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px">
+        <label style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Thiết bị<select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; font-weight: 400"><option selected>MacBook Pro Microphone</option><option>[Tai nghe ngoài]</option></select></label>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; color: #1C2024; font-size: 14px; font-weight: 600">Thử micro</button>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 12px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">Model và dữ liệu</h2>
+      <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font-size: 14px">
+        <li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0F0F3"><span>Demucs · tách giọng</span><span style="color: #218358; font-weight: 600">Sẵn sàng</span></li>
+        <li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0F0F3"><span>mlx-whisper · phiên âm</span><span style="color: #218358; font-weight: 600">Sẵn sàng</span></li>
+        <li style="display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid #F0F0F3"><span style="display: flex; justify-content: space-between"><span>wav2vec2-espeak · chấm âm</span><span style="font-weight: 600">Đang tải 64%</span></span><span style="display: block; height: 6px; border-radius: 3px; background: #F0F0F3; overflow: hidden"><span style="display: block; width: 64%; height: 100%; background: #1C2024"></span></span></li>
+        <li style="display: flex; justify-content: space-between; padding: 10px 0"><span>Thư mục dữ liệu</span><code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #60646C">~/shadowenglab-data</code></li>
+      </ul>
+    </section>
+  </main>
+</div>
+</body>
+</html>

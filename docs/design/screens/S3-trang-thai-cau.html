@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trạng thái vùng câu hiện tại</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FCFCFD;color:#1C2024;font-family:'Figtree',system-ui,sans-serif}
+a{color:#1C2024}a:hover{color:#60646C}
+button{font:inherit;cursor:pointer}
+kbd{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1;padding:3px 6px;border-radius:5px;background:#F0F0F3;color:#60646C;box-shadow:inset 0 -1px 0 #D9D9E0}
+.ipa{font-family:'Noto Sans',sans-serif}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1180px; box-sizing: border-box; padding: 56px 64px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; background: #FCFCFD">
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">1 · Đang phát câu mẫu</span>
+    <section style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 15px; background: #E0F8F3; color: #008573; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #12A594"></span>Đang phát bản gốc · lần 1/2</span>
+      <p style="margin: 0; font-size: 26px; font-weight: 500; text-align: center">And honestly, I didn’t expect it to work out.</p>
+      <div style="height: 6px; border-radius: 3px; background: #F0F0F3; overflow: hidden"><div style="width: 45%; height: 100%; background: #12A594"></div></div>
+      <span style="font-size: 13px; color: #60646C; text-align: center">Phát xong sẽ tự chuyển sang lượt của bạn · <kbd>Space</kbd> dừng</span>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">2 · Lượt của bạn, đang ghi</span>
+    <section style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 24px; background: #FFFFFF; border: 2px solid #E5484D; border-radius: 12px">
+      <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 15px; background: #E5484D; color: #FFFFFF; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFFFFF"></span>Đang ghi · còn 3.1s</span>
+      <p style="margin: 0; font-size: 26px; font-weight: 500; text-align: center">And honestly, I didn’t expect it to work out.</p>
+      <div aria-label="Mức âm micro" style="display: flex; align-items: center; justify-content: center; gap: 4px; height: 40px">
+        <span style="width: 5px; height: 10px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 18px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 30px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 22px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 36px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 26px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 14px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 20px; border-radius: 3px; background: #E5484D"></span><span style="width: 5px; height: 8px; border-radius: 3px; background: #F4A9AA"></span><span style="width: 5px; height: 6px; border-radius: 3px; background: #F4A9AA"></span>
+      </div>
+      <span style="font-size: 13px; color: #60646C; text-align: center"><kbd>Space</kbd> hoặc im lặng 1 giây để dừng sớm</span>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">3 · Không thu được tiếng</span>
+    <section style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <p style="margin: 0; font-size: 26px; font-weight: 500; text-align: center; color: #60646C">And honestly, I didn’t expect it to work out.</p>
+      <div role="alert" style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 12px; background: #FFF7C2; border: 1px solid #E9C162; color: #AB6400">
+        <span style="font-size: 15px; font-weight: 700">Không nghe thấy gì trong lượt vừa rồi</span>
+        <span style="font-size: 14px">Kiểm tra micro đang chọn hoặc nói gần hơn. Lượt này không được tính.</span>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 10px">
+        <button type="button" style="height: 44px; padding: 0 18px; border-radius: 8px; border: none; background: #1C2024; color: #FFFFFF; font-size: 15px; font-weight: 600">Ghi lại <kbd>R</kbd></button>
+        <a href="S8-settings.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #CDCED6; text-decoration: none; font-size: 15px; font-weight: 600">Chọn micro</a>
+      </div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">4 · Đang chấm (≤ 3 giây)</span>
+    <section aria-busy="true" style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <p style="margin: 0; font-size: 26px; font-weight: 500; text-align: center">And honestly, I didn’t expect it to work out.</p>
+      <div style="display: flex; gap: 8px; justify-content: center">
+        <span style="width: 56px; height: 40px; border-radius: 8px; background: #F0F0F3"></span><span style="width: 96px; height: 40px; border-radius: 8px; background: #F0F0F3"></span><span style="width: 40px; height: 40px; border-radius: 8px; background: #F0F0F3"></span><span style="width: 76px; height: 40px; border-radius: 8px; background: #F0F0F3"></span><span style="width: 84px; height: 40px; border-radius: 8px; background: #F0F0F3"></span><span style="width: 44px; height: 40px; border-radius: 8px; background: #F0F0F3"></span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px"><span style="height: 72px; border-radius: 12px; background: #F0F0F3"></span><span style="height: 72px; border-radius: 12px; background: #F0F0F3"></span><span style="height: 72px; border-radius: 12px; background: #F0F0F3"></span></div>
+      <span style="font-size: 13px; color: #60646C; text-align: center">Đang so với bản gốc… Bạn có thể nghe lại bản ghi của mình <kbd>M</kbd></span>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">5 · Kết quả tốt, không có lỗi</span>
+    <section style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 17px; font-weight: 700">Kết quả · 91%</span><span style="font-size: 13px; color: #60646C">Lượt 3</span></div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #ADDDC0; background: #E6F6EB; color: #218358; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">So tell me</span><span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #ADDDC0; background: #E6F6EB; color: #218358; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">how it all</span><span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #ADDDC0; background: #E6F6EB; color: #218358; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">started</span>
+      </div>
+      <div style="padding: 14px 16px; border-radius: 12px; background: #E6F6EB; color: #218358; font-size: 15px; font-weight: 600">Rất sát bản gốc. Qua câu tiếp, hoặc thử nói nhanh hơn một chút cho giống nhịp gốc.</div>
+      <div style="display: flex; justify-content: flex-end"><button type="button" style="height: 44px; padding: 0 18px; border-radius: 8px; border: none; background: #1C2024; color: #FFFFFF; font-size: 15px; font-weight: 600">Câu tiếp <kbd>→</kbd></button></div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #60646C">6 · Bản gốc không đủ rõ</span>
+    <section style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E8E8EC; border-radius: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 17px; font-weight: 700">Chỉ chấm ngữ điệu</span><span style="font-size: 13px; color: #60646C">Khớp giai điệu 72%</span></div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px dashed #B9BBC6; background: #F0F0F3; color: #60646C; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">Thank</span><span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px dashed #B9BBC6; background: #F0F0F3; color: #60646C; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">you</span><span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px dashed #B9BBC6; background: #F0F0F3; color: #60646C; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">all</span><span style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px dashed #B9BBC6; background: #F0F0F3; color: #60646C; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center">so much</span>
+      </div>
+      <div role="status" style="padding: 14px 16px; border-radius: 12px; background: #F0F0F3; border: 1px dashed #B9BBC6; color: #60646C; font-size: 14px; line-height: 1.5">Đoạn gốc này có tiếng vỗ tay và nhạc nền nên không chấm được từng âm. Ngữ điệu vẫn so được: bạn lên giọng ở “all” sớm hơn bản gốc.</div>
+      <span style="font-size: 13px; color: #60646C">Chỉ báo những gì đo được chắc chắn: precision trước recall.</span>
+    </section>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rater sign-in and guide</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2;color:#15171A;font-family:'Figtree',system-ui,sans-serif}
+a{color:#15171A}a:hover{color:#4A4F57}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+kbd{font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border:1px solid #C9CDC4;border-bottom-width:2px;border-radius:4px;background:#FFFFFF;color:#4A4F57}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; background: #F4F5F2">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; background: #FFFFFF; border-bottom: 1px solid #D9DCD5">
+    <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">ShadowEngLab · Rating</span>
+    <span style="font-size: 14px; color: #4A4F57">About 45 minutes · you can stop and come back</span>
+  </header>
+  <main style="max-width: 1200px; margin: 0 auto; padding: 32px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <section aria-labelledby="signin" style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 14px; padding: 24px; background: #FFFFFF; border: 1px solid #D9DCD5; border-radius: 14px">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6B7079">E1 · Sign in</span>
+      <h2 id="signin" style="margin: 0; font-size: 20px; font-weight: 700">Sign in with your email</h2>
+      <label for="email" style="font-size: 14px; font-weight: 600">Email</label>
+      <input id="email" type="email" value="rater@example.com" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; font-size: 15px; color: #15171A">
+      <button type="button" style="height: 44px; border-radius: 10px; border: none; background: #15171A; color: #FFFFFF; font-size: 15px; font-weight: 600">Send me a sign-in link</button>
+      <span role="status" style="font-size: 13px; color: #0B5E51; font-weight: 600">Check your inbox. The link works for 1 hour.</span>
+      <span style="font-size: 13px; color: #4A4F57; line-height: 1.5">Not on the invite list? You’ll see “This study is invite-only.” and nothing else.</span>
+    </section>
+
+    <section aria-labelledby="guide" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 28px; background: #FFFFFF; border: 1px solid #D9DCD5; border-radius: 14px">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6B7079">E2 · Before you start</span>
+      <h1 id="guide" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.01em">Rate how close the learner sounds to <em style="font-style: normal; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px">this speaker</em></h1>
+      <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #2E3238">Each clip has an original sentence from a video and a learner imitating it. Don’t judge whether the learner is “correct” English. Judge whether they sound like the original: if the speaker swallows a sound or says “gonna”, the learner should too.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700">The scale, with examples</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid #D9DCD5"><span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500">5</span><span style="font-size: 14px; color: #2E3238">Could pass for the original speaker’s delivery.</span><button type="button" style="height: 40px; border-radius: 8px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 14px; font-weight: 600">Play example</button></div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid #D9DCD5"><span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500">3</span><span style="font-size: 14px; color: #2E3238">Clearly the same sentence, a few noticeable differences.</span><button type="button" style="height: 40px; border-radius: 8px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 14px; font-weight: 600">Play example</button></div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid #D9DCD5"><span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500">1</span><span style="font-size: 14px; color: #2E3238">Sounds very different: rhythm, melody or many sounds are off.</span><button type="button" style="height: 40px; border-radius: 8px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 14px; font-weight: 600">Play example</button></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700">Flag words that sound different</h2>
+        <ul style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 20px; font-size: 14px; line-height: 1.5">
+          <li><span style="font-weight: 700">Sound</span> · a vowel or consonant differs (“and” said fully vs. “’n”)</li>
+          <li><span style="font-weight: 700">Stress</span> · a different word or syllable is emphasized</li>
+          <li><span style="font-weight: 700">Pitch</span> · the voice goes up where the original goes down, or stays flat</li>
+          <li><span style="font-weight: 700">Pause</span> · a break the original doesn’t have, or a missing one</li>
+          <li><span style="font-weight: 700">Speed</span> · this word is noticeably slower or faster</li>
+        </ul>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid #E4E6E1">
+        <span style="font-size: 13px; color: #4A4F57"><kbd>O</kbd> original · <kbd>L</kbd> learner · <kbd>Space</kbd> both · <kbd>1</kbd>–<kbd>5</kbd> score · <kbd>Enter</kbd> next</span>
+        <a href="E3-cham-desktop.html" style="display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: 10px; background: #15171A; color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 600">I understand, start</a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

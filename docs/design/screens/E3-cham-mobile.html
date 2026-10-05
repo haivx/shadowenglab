@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rate clip on phone</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2;color:#15171A;font-family:'Figtree',system-ui,sans-serif}
+a{color:#15171A}a:hover{color:#4A4F57}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F5F2">
+  <header style="display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 12px; background: #FFFFFF; border-bottom: 1px solid #D9DCD5">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">12 / 68</span>
+      <a href="E4-ket-thuc.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #C9CDC4; text-decoration: none; font-size: 14px; font-weight: 600">Save &amp; exit</a>
+    </div>
+    <div style="height: 6px; border-radius: 3px; background: #ECEEEA; overflow: hidden"><div style="width: 18%; height: 100%; background: #15171A"></div></div>
+  </header>
+
+  <div style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <button type="button" style="height: 56px; border-radius: 12px; border: 2px solid #0E7C6B; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 5px; background: #0E7C6B"></span>Original</button>
+      <button type="button" style="height: 56px; border-radius: 12px; border: 2px solid #D9480F; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 5px; background: #D9480F"></span>Learner</button>
+      <button type="button" style="grid-column: span 2; height: 48px; border-radius: 12px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 15px; font-weight: 600">Play both, in order</button>
+    </div>
+
+    <section style="display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #FFFFFF; border: 1px solid #D9DCD5; border-radius: 14px">
+      <span style="font-size: 13px; color: #4A4F57">Tap words that sound different.</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">He</button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">said,</button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">we</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; border-radius: 10px; border: 2px solid #15171A; background: #ECEEEA; font-size: 17px; font-weight: 600">need <span style="padding: 1px 5px; border-radius: 4px; background: #15171A; color: #FFFFFF; font-size: 11px">stress</span></button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">someone</button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">who</button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">can</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; border-radius: 10px; border: 2px solid #15171A; background: #ECEEEA; font-size: 17px; font-weight: 600">do <span style="padding: 1px 5px; border-radius: 4px; background: #15171A; color: #FFFFFF; font-size: 11px">sound</span></button>
+        <button type="button" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #C9CDC4; background: #FFFFFF; font-size: 17px">accents.</button>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #FFFFFF; border: 1px solid #D9DCD5; border-radius: 14px">
+      <span style="font-size: 15px; font-weight: 700">How close to the original?</span>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+        <button type="button" aria-pressed="false" style="height: 52px; border-radius: 12px; border: 1px solid #C9CDC4; background: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 18px">1</button>
+        <button type="button" aria-pressed="false" style="height: 52px; border-radius: 12px; border: 1px solid #C9CDC4; background: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 18px">2</button>
+        <button type="button" aria-pressed="true" style="height: 52px; border-radius: 12px; border: none; background: #15171A; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 18px">3</button>
+        <button type="button" aria-pressed="false" style="height: 52px; border-radius: 12px; border: 1px solid #C9CDC4; background: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 18px">4</button>
+        <button type="button" aria-pressed="false" style="height: 52px; border-radius: 12px; border: 1px solid #C9CDC4; background: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 18px">5</button>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #4A4F57"><span>Very different</span><span>Same delivery</span></div>
+      <span style="font-size: 15px; font-weight: 700">Ending rises/falls like the original?</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+        <label style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; border: 1px solid #C9CDC4; font-size: 15px"><input type="radio" name="final-m" checked> Yes</label>
+        <label style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 10px; border: 1px solid #C9CDC4; font-size: 15px"><input type="radio" name="final-m"> No</label>
+      </div>
+      <label style="display: inline-flex; align-items: center; gap: 8px; height: 44px; font-size: 15px"><input type="checkbox"> I’m not sure</label>
+    </section>
+  </div>
+
+  <div style="padding: 12px 16px 24px; background: #FFFFFF; border-top: 1px solid #D9DCD5">
+    <button type="button" style="width: 100%; height: 56px; border-radius: 14px; border: none; background: #15171A; color: #FFFFFF; font-size: 17px; font-weight: 600">Next clip</button>
+  </div>
+</div>
+</body>
+</html>

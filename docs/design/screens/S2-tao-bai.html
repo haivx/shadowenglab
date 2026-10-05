@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo bài từ YouTube</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FCFCFD;color:#1C2024;font-family:'Figtree',system-ui,sans-serif}
+a{color:#1C2024}a:hover{color:#60646C}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1080px; box-sizing: border-box; padding: 72px; display: flex; gap: 48px; align-items: flex-start; background: rgba(28,32,36,0.55)">
+  <div role="dialog" aria-modal="true" aria-labelledby="create-title" style="flex: 0 0 720px; display: flex; flex-direction: column; gap: 24px; padding: 32px; box-sizing: border-box; background: #FFFFFF; border-radius: 16px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h1 id="create-title" style="margin: 0; font-weight: 800; font-size: 26px">Tạo bài từ YouTube</h1>
+      <a href="S1-thu-vien.html" aria-label="Đóng" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 8px; color: #60646C"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="yt-url" style="font-size: 14px; font-weight: 600">Link YouTube</label>
+      <input id="yt-url" type="url" value="https://www.youtube.com/watch?v=xxxxxxxxxxx" style="height: 48px; padding: 0 14px; border-radius: 8px; border: 1px solid #1C2024; font-size: 15px; color: #1C2024; background: #FFFFFF; box-sizing: border-box">
+    </div>
+
+    <div style="display: flex; gap: 16px; padding: 12px; border-radius: 12px; background: #F9F9FB; border: 1px solid #E8E8EC">
+      <div style="flex: 0 0 160px; aspect-ratio: 16 / 9; border-radius: 8px; background: #111316"></div>
+      <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+        <span style="font-size: 16px; font-weight: 700">[Tiêu đề video lấy từ metadata]</span>
+        <span style="font-size: 14px; color: #60646C">12:30 · [Tên kênh]</span>
+        <span style="font-size: 13px; color: #60646C">Giọng và chất lượng audio sẽ biết sau khi phân tích.</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; font-weight: 600">Chọn đoạn để tập</span>
+        <span style="font-size: 13px; color: #60646C">Video dài hơn 6 phút. Một buổi tập nên dùng 2–5 phút.</span>
+      </div>
+      <div style="position: relative; height: 40px">
+        <div style="position: absolute; left: 0; right: 0; top: 17px; height: 6px; border-radius: 3px; background: #F0F0F3"></div>
+        <div style="position: absolute; left: 24%; width: 40%; top: 17px; height: 6px; border-radius: 3px; background: #1C2024"></div>
+        <button type="button" aria-label="Điểm bắt đầu 03:00" style="position: absolute; left: calc(24% - 12px); top: 8px; width: 24px; height: 24px; border-radius: 12px; border: 2px solid #1C2024; background: #FFFFFF; padding: 0"></button>
+        <button type="button" aria-label="Điểm kết thúc 08:00" style="position: absolute; left: calc(64% - 12px); top: 8px; width: 24px; height: 24px; border-radius: 12px; border: 2px solid #1C2024; background: #FFFFFF; padding: 0"></button>
+      </div>
+      <div style="display: flex; gap: 16px">
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #60646C">Bắt đầu <input type="text" value="03:00" style="width: 120px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #CDCED6; font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #1C2024"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #60646C">Kết thúc <input type="text" value="08:00" style="width: 120px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #CDCED6; font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #1C2024"></label>
+        <div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; font-size: 13px; color: #60646C; padding-bottom: 4px"><span>≈ 40–60 câu</span><span>Xử lý ≈ 4 phút, chạy nền</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px">
+      <a href="S1-thu-vien.html" style="display: inline-flex; align-items: center; height: 48px; padding: 0 20px; border-radius: 8px; border: 1px solid #CDCED6; background: #FFFFFF; color: #1C2024; text-decoration: none; font-size: 15px; font-weight: 600">Huỷ</a>
+      <a href="S1-thu-vien.html" style="display: inline-flex; align-items: center; height: 48px; padding: 0 20px; border-radius: 8px; background: #1C2024; color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 600">Tạo bài</a>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 16px">
+    <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #FFFFFF">Trạng thái lỗi trong ô link</span>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 12px; background: #FFFFFF">
+      <span style="font-size: 14px; font-weight: 600">Link không hợp lệ</span>
+      <span style="height: 44px; padding: 0 12px; border-radius: 8px; border: 2px solid #E5484D; display: flex; align-items: center; font-size: 14px; color: #60646C">youtube.com/@channel</span>
+      <span role="alert" style="font-size: 13px; color: #CE2C31">Đây là link kênh. Hãy dán link một video (có “watch?v=” hoặc “youtu.be/”).</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 12px; background: #FFFFFF">
+      <span style="font-size: 14px; font-weight: 600">Video không cho tải</span>
+      <span role="alert" style="font-size: 13px; color: #CE2C31">Không lấy được video này (giới hạn khu vực, video riêng tư hoặc livestream). Thử video khác.</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border-radius: 12px; background: #FFFFFF">
+      <span style="font-size: 14px; font-weight: 600">Đã có bài này</span>
+      <span style="font-size: 13px; color: #60646C">Video đã được tạo bài trước đó.</span>
+      <a href="S3-S4-phong-tap.html" style="font-size: 14px; font-weight: 600">Mở bài đã có</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

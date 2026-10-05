@@ -1,0 +1,39 @@
+# Env
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.vercel/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Dữ liệu và model (không commit)
+data/
+models/
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.opus
+*.mp4
+
+# Eval: audio và nhãn thô của người chấm
+eval/clips/
+eval/labels.jsonl
+eval/manifest.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
