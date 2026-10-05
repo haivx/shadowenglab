@@ -37,3 +37,4 @@ eval/manifest.json
 .DS_Store
 .idea/
 .vscode/
+.claude/settings.local.json
