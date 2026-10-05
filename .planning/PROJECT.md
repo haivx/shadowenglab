@@ -81,6 +81,7 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 | App eval: 2 người chấm toàn bộ clip, không đồng bộ, 8 gold clip | Có số liệu đồng thuận trên mọi clip | — Pending |
 | P0→Phase 1 … P7→Phase 8 | GSD dành riêng Phase 0 | — Pending |
 | P4 và P5 chạy song song được | Độc lập; đợt chấm diễn ra trong lúc làm Lớp A | — Pending |
+| Nhãn chất lượng audio (LES-06) tính từ tỉ lệ năng lượng non-vocal/vocal của Demucs lúc tạo bài; Phase 5 bổ sung tỉ lệ `ref_unclear` | `ref_unclear` chỉ có từ Lớp A (Phase 5), Phase 2 vẫn cần nhãn | — Pending |
 
 ## Evolution
 

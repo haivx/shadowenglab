@@ -33,7 +33,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 - [ ] **LES-03**: Tạo bài chạy nền; card ở S1 hiện tiến độ theo bước (Tải video → Tách giọng → Phiên âm → Chia câu → Phân tích bản gốc); tạo 2 bài liên tiếp không chặn nhau và Liam vẫn tập bài khác trong lúc chờ
 - [ ] **LES-04**: Pipeline tạo bài: yt-dlp (video 360–480p + audio, cache theo `videoId`), Demucs tách vocal, mlx-whisper word timestamps, tách câu 3–8 s (cắt câu > ~15 từ tại dấu phẩy/khoảng lặng, gộp mảnh < 1.5 s), tính sẵn F0, năng lượng, prominence theo từ và PPG cho từng câu
 - [ ] **LES-05**: Video 5 phút sẵn sàng để tập trong ≤ 5 phút
-- [ ] **LES-06**: Card bài sẵn sàng hiện số câu và nhãn chất lượng audio (sạch / có nhạc nền) lấy từ tỉ lệ câu `ref_unclear`; bài có nhiều câu không rõ hiện cảnh báo nên chọn video khác
+- [ ] **LES-06**: Card bài sẵn sàng hiện số câu và nhãn chất lượng audio "Audio sạch" / "Có nhạc nền", tính lúc tạo bài từ output Demucs (tỉ lệ năng lượng phần non-vocal so với vocal); audio nhiều nhạc nền hiện cảnh báo nên chọn video khác. Ghi chú: Phase 5 bổ sung tỉ lệ câu `ref_unclear` để tinh chỉnh nhãn
 - [ ] **LES-07**: Job lỗi hiện trên card kèm nút thử lại
 
 ### Trình phát (PLY) — M2, F2
@@ -158,12 +158,85 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| FND-01 | Phase 1 | Pending |
+| FND-02 | Phase 1 | Pending |
+| FND-03 | Phase 1 | Pending |
+| FND-04 | Phase 1 | Pending |
+| FND-05 | Phase 1 | Pending |
+| FND-06 | Phase 1 | Pending |
+| FND-07 | Phase 1 | Pending |
+| SET-01 | Phase 2 | Pending |
+| SET-02 | Phase 2 | Pending |
+| SET-03 | Phase 2 | Pending |
+| SET-04 | Phase 2 | Pending |
+| LES-01 | Phase 2 | Pending |
+| LES-02 | Phase 2 | Pending |
+| LES-03 | Phase 2 | Pending |
+| LES-04 | Phase 2 | Pending |
+| LES-05 | Phase 2 | Pending |
+| LES-06 | Phase 2 | Pending |
+| LES-07 | Phase 2 | Pending |
+| PLY-01 | Phase 2 | Pending |
+| PLY-02 | Phase 2 | Pending |
+| PLY-03 | Phase 2 | Pending |
+| PLY-04 | Phase 2 | Pending |
+| PLY-05 | Phase 2 | Pending |
+| PLY-06 | Phase 2 | Pending |
+| PLY-07 | Phase 2 | Pending |
+| REC-01 | Phase 2 | Pending |
+| REC-02 | Phase 2 | Pending |
+| REC-03 | Phase 2 | Pending |
+| REC-04 | Phase 2 | Pending |
+| PRO-01 | Phase 3 | Pending |
+| PRO-02 | Phase 3 | Pending |
+| PRO-03 | Phase 3 | Pending |
+| PRO-04 | Phase 3 | Pending |
+| RUL-01 | Phase 3 | Pending |
+| RUL-02 | Phase 3 | Pending |
+| FBK-01 | Phase 3 | Pending |
+| FBK-02 | Phase 3 | Pending |
+| FBK-03 | Phase 3 | Pending |
+| FBK-04 | Phase 3 | Pending |
+| FBK-05 | Phase 3 | Pending |
+| FBK-06 | Phase 3 | Pending |
+| EVL-01 | Phase 4 | Pending |
+| EVL-02 | Phase 4 | Pending |
+| EVL-03 | Phase 4 | Pending |
+| EVL-04 | Phase 4 | Pending |
+| PHN-01 | Phase 5 | Pending |
+| PHN-02 | Phase 5 | Pending |
+| PHN-03 | Phase 5 | Pending |
+| PHN-04 | Phase 5 | Pending |
+| PHN-05 | Phase 5 | Pending |
+| PHN-06 | Phase 5 | Pending |
+| RAT-01 | Phase 6 | Pending |
+| RAT-02 | Phase 6 | Pending |
+| RAT-03 | Phase 6 | Pending |
+| RAT-04 | Phase 6 | Pending |
+| RAT-05 | Phase 6 | Pending |
+| RAT-06 | Phase 6 | Pending |
+| RAT-07 | Phase 6 | Pending |
+| RAT-08 | Phase 6 | Pending |
+| RAT-09 | Phase 6 | Pending |
+| REV-01 | Phase 7 | Pending |
+| REV-02 | Phase 7 | Pending |
+| REV-03 | Phase 7 | Pending |
+| REV-04 | Phase 7 | Pending |
+| RPT-01 | Phase 7 | Pending |
+| RPT-02 | Phase 7 | Pending |
+| RPT-03 | Phase 7 | Pending |
+| RPT-04 | Phase 7 | Pending |
+| CAL-01 | Phase 8 | Pending |
+| CAL-02 | Phase 8 | Pending |
+| CAL-03 | Phase 8 | Pending |
+| CAL-04 | Phase 8 | Pending |
+| CAL-05 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 73 total
-- Mapped to phases: 0
-- Unmapped: 73 ⚠️
+- Mapped to phases: 73
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-10-05*
-*Last updated: 2026-10-05 after initial definition*
+*Last updated: 2026-10-05 after roadmap creation (traceability filled)*
