@@ -4,10 +4,10 @@ current_phase: 1
 current_phase_name: P0 · Nền tảng
 status: executing
 stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-10-06T08:35:42.927Z"
+last_updated: "2026-10-06T14:50:08.535Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 1 execution started
-state_head: 04ec3348cd8b80222585fbaf2f096440abd613b6
+state_head: 4f7e778bcc110e932f4363eeb7f66025d0439172
 progress:
   total_phases: 8
   completed_phases: 0
@@ -81,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Demucs: Separator(htdemucs, shifts=0, overlap=0.25, split=True), no_vocals = sum of non-vocal stems
 - [Phase 1]: Contract bounds: seconds>=0, ms int>=0, ratios/probabilities in [0,1], indexes int>=0, attempt int>=1
 - [Phase 1]: Smoke video URL: https://www.youtube.com/watch?v=dUDi-F6eAvk
+- [Phase 1]: Wave 3 ui.safety-gate (blocking) overridden by Liam: 01-07 shells are bare frames; UI-SPEC deferred to the first phase with real screens (design in docs/design/)
 
 ### Pending Todos
 
