@@ -1,0 +1,11 @@
+# File sinh tự động, lockfile, Python và tài liệu viết tay không qua prettier (Pitfall 14).
+pnpm-lock.yaml
+**/.next
+**/node_modules
+services/**
+packages/contracts/schema
+docs/**
+.planning/**
+.claude/**
+**/*.md
+**/next-env.d.ts
