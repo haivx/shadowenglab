@@ -1,1 +1,1 @@
-No external API integration: Phase 1 only calls yt-dlp's local Python library to download one YouTube video and huggingface_hub/demucs to fetch three fixed model weights — download tooling, not an integrated third-party API capability surface; the external APIs of this project (OpenAI tips/TTS, Supabase) are integrated in Phases 6–8.
+No external API integration: Phase 1 uses yt-dlp and huggingface_hub/demucs only as local download tooling; external APIs (OpenAI, Supabase) are integrated in Phases 6–8.
