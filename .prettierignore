@@ -9,3 +9,4 @@ docs/**
 .claude/**
 **/*.md
 **/next-env.d.ts
+.gsd/**
