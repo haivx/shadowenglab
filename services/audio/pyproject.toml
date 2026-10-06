@@ -1,0 +1,50 @@
+[project]
+name = "audio-service"
+version = "0.1.0"
+description = "ShadowEngLab audio service: FastAPI + pipeline tạo bài."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "fastapi>=0.142.2",
+  "uvicorn>=0.54.0",
+  "pydantic>=2.13.5",
+  "pydantic-settings>=2.15.0",
+  "yt-dlp[default,deno]>=2026.8.19",
+  "demucs>=4.1.0",
+  "mlx-whisper>=0.4.3",
+  "torch>=2.14.1",
+  "transformers>=5.18.0",
+  "praat-parselmouth>=0.4.7",
+  "numpy>=2.4",
+  "scipy>=1.17.1",
+  "soundfile>=0.14.0",
+  "python-ulid>=4.0.1",
+  "huggingface-hub>=1.33",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+  "httpx>=0.28.1",
+  "jsonschema>=4.26.0",
+  "ruff>=0.16",
+  "datamodel-code-generator==0.83.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["src/audio_service/contracts_gen.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: cần model hoặc mạng"]
