@@ -28,6 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: P0 · Nền tảng
+
 **Goal:** Dựng monorepo và contract, chứng minh pipeline audio chạy đầu–cuối bằng script.
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
@@ -37,17 +38,27 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Test round-trip TS ↔ JSON Schema ↔ pydantic cho `ScoreResult` pass.
   3. `scripts/smoke_lesson.py <youtube_url>` chạy trên một video phỏng vấn giọng Mỹ audio sạch, ra JSON theo `Lesson` và in thời gian từng bước.
   4. Video 5 phút được xử lý xong trong ≤ 5 phút.
+
 **Plans:** 9 plans
 
 Plans:
+**Wave 1**
 - [ ] 01-01-PLAN.md — Cổng khởi động: Liam chốt 10 quyết định mở, manifest + lockfile, duyệt package trước khi cài (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-02-PLAN.md — Walking skeleton: contract Lesson (Zod) → JSON Schema → pydantic sinh tự động → FastAPI /lessons/{id}, /health, /scoring (wave 2)
 - [ ] 01-03-PLAN.md — make setup: check_deps.sh (kiểm tra và hướng dẫn) + setup_models; Liam brew install ffmpeg espeak-ng (wave 2)
 - [ ] 01-04-PLAN.md — Hàm thuần pipeline (TDD): split_sentences, cổng URL YouTube, nhãn audio, ghi JSON atomic (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 01-05-PLAN.md — Contract đầy đủ (ScoreResult, IssueCode, Label, ClipManifest) + round-trip TS ↔ JSON Schema ↔ pydantic (wave 3)
 - [ ] 01-06-PLAN.md — Pipeline smoke_lesson.py: yt-dlp → Demucs → mlx-whisper → tách câu → F0/PPG → Lesson JSON + thời gian từng bước (wave 3)
 - [ ] 01-07-PLAN.md — Khung Next.js apps/web (import contracts) và apps/eval (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 01-08-PLAN.md — Makefile (setup/dev/test/lint/eval/smoke), drift gate, đo video 5 phút ≤ 5 phút (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 01-09-PLAN.md — ADR 0003, product.md mục 3–4, CLAUDE.md Lệnh, README (wave 5)
 
 **Notes**:
@@ -58,6 +69,7 @@ Plans:
 - Bộ 3–4 video eval chưa chọn; dùng tạm một video bất kỳ có audio sạch.
 
 ### Phase 2: P1 · Tạo bài và trình phát
+
 **Goal:** Liam tạo bài từ link YouTube và tập trọn một video theo từng câu, đến bước ghi âm (chưa chấm điểm).
 **Mode:** mvp
 **Depends on**: Phase 1
@@ -68,6 +80,7 @@ Plans:
   3. Liam tập trọn 30 câu chỉ bằng chuột, và cũng tập trọn 30 câu chỉ bằng bàn phím.
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -76,6 +89,7 @@ Plans:
 - State machine XState nằm ở file riêng và có test cho các transition chính trước khi gắn UI (PLY-02). Mọi hành động có nút rõ ràng, phím tắt là phụ (PLY-07).
 
 ### Phase 3: P2 · Chấm ngữ điệu
+
 **Goal:** Liam nhận phản hồi ngữ điệu đầu tiên dùng được để học: 3 chỉ số, contour so với bản gốc và gợi ý bám số liệu đo được.
 **Mode:** mvp
 **Depends on**: Phase 2
@@ -86,6 +100,7 @@ Plans:
   3. Chấm một câu ≤ 3 giây (chỉ xử lý audio người học, feature bản gốc đã tính sẵn).
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -94,6 +109,7 @@ Plans:
 - Precision trước recall: không chắc thì không báo lỗi. Gợi ý chỉ là template tiếng Việt ở phase này; LLM ở Phase 8.
 
 ### Phase 4: P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu
+
 **Goal:** Ngưỡng ngữ điệu có số liệu chứng minh trên bộ lỗi cố ý, `make eval` sinh báo cáo tự động.
 **Mode:** mvp
 **Depends on**: Phase 3
@@ -102,6 +118,7 @@ Plans:
   1. Precision của các rule ngữ điệu ≥ 90% trên held-out (tập 30% tách cố định, không dùng khi chỉnh ngưỡng).
   2. `make eval` chạy `eval/analyze.py` và sinh `eval/report.md` tự động (precision/recall theo rule, test-retest).
   3. Từ phase này trở đi, mọi thay đổi về model, ngưỡng hoặc rule đều chạy `make eval` và dán bảng metric vào PR.
+
 **Plans**: TBD
 
 **Notes**:
@@ -109,6 +126,7 @@ Plans:
 - Không commit audio eval, nhãn thô của người chấm hay `.env` (`eval/clips/` và `eval/labels.jsonl` gitignored).
 
 ### Phase 5: P4 · Chấm âm (PPG + DTW)
+
 **Goal:** Liam thấy từ nào mình phát âm lệch khỏi người nói gốc, kèm giải thích bằng chuỗi phone, chấm đủ âm + ngữ điệu trong ≤ 3 giây.
 **Mode:** mvp
 **Depends on**: Phase 4
@@ -118,6 +136,7 @@ Plans:
   2. Bắt được lỗi weak form và nuốt âm trong bộ lỗi cố ý, có số liệu từ `make eval`.
   3. Kiểm tra cơ bản: bản gốc so với chính nó ≈ 100%.
   4. Mọi thay đổi về model, ngưỡng hoặc rule trong phase này có chạy `make eval` và bảng metric được dán vào PR.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -127,6 +146,7 @@ Plans:
 - Bổ sung tỉ lệ câu `ref_unclear` vào nhãn chất lượng audio của bài (LES-06) để tinh chỉnh nhãn "Audio sạch" / "Có nhạc nền" vốn tính từ tỉ lệ năng lượng non-vocal/vocal của Demucs ở Phase 2.
 
 ### Phase 6: P5 · App eval và đợt chấm
+
 **Goal:** Có nhãn của người nghe bản xứ: 2 người chấm hoàn thành đợt chấm trên app eval online với mức đồng thuận đạt ngưỡng.
 **Mode:** mvp
 **Depends on**: Phase 4
@@ -136,6 +156,7 @@ Plans:
   2. Cohen's kappa giữa hai người chấm ≥ 0.4.
   3. Gold check pass (8 gold clip lẫn trong thứ tự clip của mỗi người).
   4. Nếu phase có thay đổi về model, ngưỡng hoặc rule thì chạy `make eval` và dán bảng metric vào PR.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -146,6 +167,7 @@ Plans:
 - Cần 2 người chấm bản xứ Mỹ sẵn sàng (email vào allowlist) trước khi bắt đầu đợt chấm.
 
 ### Phase 7: P6 · Ôn luyện và báo cáo
+
 **Goal:** Liam dùng app làm công cụ học duy nhất: câu yếu tự vào hàng ôn, có tổng kết buổi, dashboard tiến bộ và thư viện có nhãn.
 **Mode:** mvp
 **Depends on**: Phase 5
@@ -155,6 +177,7 @@ Plans:
   2. Từ S7 tới câu cần tập lại trong ≤ 2 click.
   3. Liam tự luyện trọn một tuần chỉ bằng app.
   4. Mọi thay đổi về model, ngưỡng hoặc rule trong phase này (nếu có) chạy `make eval` và bảng metric được dán vào PR.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -163,6 +186,7 @@ Plans:
 - Phụ thuộc Phase 5 (cần chấm âm để tổng kết 3 chiều và nhãn thư viện); không cần chờ Phase 6.
 
 ### Phase 8: P7 · Hiệu chỉnh và hoàn thiện
+
 **Goal:** Điểm số đáng tin theo nhãn người chấm và repo sẵn sàng public: máy mới clone về là dùng được.
 **Mode:** mvp
 **Depends on**: Phase 5, Phase 6, Phase 7
@@ -171,6 +195,7 @@ Plans:
   1. Spearman giữa điểm hệ thống và người chấm xấp xỉ mức đồng thuận giữa hai người chấm.
   2. Máy mới clone, điền `.env`, `make setup && make dev` là dùng được.
   3. Mọi thay đổi ngưỡng, model hoặc rule (logistic, ngưỡng theo nhãn) đều chạy `make eval` và bảng metric được dán vào PR; `report.md` có calibration curve và precision/recall theo loại cờ.
+
 **Plans**: TBD
 **UI hint**: yes
 
