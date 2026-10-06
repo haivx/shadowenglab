@@ -202,6 +202,22 @@ class IssueCode(
     ]
 
 
+class ClipWord(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    i: Annotated[int, Field(ge=0, le=9007199254740991)]
+    text: str
+
+
+class WordFlags(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    flags: list[Literal["sound", "stress", "pitch", "pause", "speed"]]
+
+
 class Segment(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -313,6 +329,35 @@ class WordMissingIssue(BaseModel):
     code: Literal["WORD_MISSING"]
     word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
     data: WordMissingData
+
+
+class ClipManifest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    clip_id: Annotated[str, Field(alias="clipId")]
+    video_id: Annotated[str, Field(alias="videoId")]
+    sentence_text: Annotated[str, Field(alias="sentenceText")]
+    words: list[ClipWord]
+    ref_audio: Annotated[str, Field(alias="refAudio")]
+    user_audio: Annotated[str, Field(alias="userAudio")]
+    gold: Literal["none", "identical", "wrong"] = "none"
+    system_score: Annotated[float | None, Field(alias="systemScore", ge=0.0, le=1.0)] = None
+
+
+class Label(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    clip_id: Annotated[str, Field(alias="clipId")]
+    rater_id: Annotated[str, Field(alias="raterId")]
+    overall: Literal[1, 2, 3, 4, 5]
+    word_flags: Annotated[list[WordFlags], Field(alias="wordFlags")]
+    final_contour_match: Annotated[bool, Field(alias="finalContourMatch")]
+    unsure: bool
+    note: str | None = None
+    duration_ms: Annotated[int, Field(alias="durationMs", ge=0, le=9007199254740991)]
+    created_at: Annotated[str, Field(alias="createdAt")]
 
 
 class Issue(
