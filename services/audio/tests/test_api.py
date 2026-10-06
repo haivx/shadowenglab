@@ -92,3 +92,32 @@ def test_corrupt_file_returns_500_without_path(client: TestClient, data_dir: Pat
     res = client.get(f"/lessons/{LESSON_ID}")
     assert res.status_code == 500
     assert str(data_dir) not in res.text
+
+
+def test_health(client: TestClient) -> None:
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "service": "audio", "version": "0.1.0"}
+
+
+def test_cors_allows_only_localhost_3000(client: TestClient) -> None:
+    allowed = client.options(
+        "/health",
+        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"},
+    )
+    assert allowed.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    denied = client.options(
+        "/health",
+        headers={"Origin": "http://evil.example", "Access-Control-Request-Method": "GET"},
+    )
+    assert "access-control-allow-origin" not in denied.headers
+    simple = client.get("/health", headers={"Origin": "http://evil.example"})
+    assert "access-control-allow-origin" not in simple.headers
+
+
+def test_scoring_router_is_empty_and_mounted(client: TestClient) -> None:
+    from audio_service.routers import scoring
+
+    assert scoring.router.prefix == "/scoring"
+    assert scoring.router.routes == []
+    assert not [p for p in client.app.openapi()["paths"] if p.startswith("/scoring")]
