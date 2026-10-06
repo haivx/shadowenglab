@@ -100,7 +100,9 @@ def test_canonical_watch_url() -> None:
     assert canonical_watch_url("-abcdefghij") == "https://www.youtube.com/watch?v=-abcdefghij"
 
 
-@pytest.mark.parametrize("bad", ["", "short", VID + "x", "--exec=x;ls", "../../etc/pw", "a b c d e f"])
+@pytest.mark.parametrize(
+    "bad", ["", "short", VID + "x", "--exec=x;ls", "../../etc/pw", "a b c d e f"]
+)
 def test_canonical_watch_url_rejects_bad_id(bad: str) -> None:
     with pytest.raises(InvalidYoutubeUrl):
         canonical_watch_url(bad)
@@ -112,6 +114,8 @@ def test_every_accepted_url_round_trips_to_canonical() -> None:
 
 
 def test_allow_list_and_id_pattern() -> None:
-    assert ALLOWED_HOSTS == frozenset({"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"})
+    assert ALLOWED_HOSTS == frozenset(
+        {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+    )
     assert VIDEO_ID_RE.fullmatch(VID)
     assert not VIDEO_ID_RE.fullmatch(VID + "\n")

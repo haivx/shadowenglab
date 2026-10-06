@@ -25,7 +25,9 @@ def test_ratio_is_power_ratio_with_epsilon() -> None:
 
 
 def test_ratio_returns_python_float() -> None:
-    assert isinstance(non_vocal_ratio(np.ones(4, dtype=np.float32), np.ones(4, dtype=np.float32)), float)
+    assert isinstance(
+        non_vocal_ratio(np.ones(4, dtype=np.float32), np.ones(4, dtype=np.float32)), float
+    )
 
 
 def test_silence_on_both_stems_is_zero() -> None:
