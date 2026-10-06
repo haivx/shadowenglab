@@ -52,6 +52,15 @@ Requirements: SET-01..04, LES-01..07, PLY-01..07, REC-01..04. Flow F0, F1, F2 (t
 - **D-16:** **Bản dịch = OpenAI theo yêu cầu, cache vào bài.** Bấm Dịch (`T`) → backend dịch câu đó sang tiếng Việt (kèm vài câu xung quanh làm ngữ cảnh), ghi vào `segment.translation` trong `lesson.json`; lần sau đọc cache. Chỉ gửi text, không gửi audio. Không có key → nút Dịch disabled + tooltip "Cần OPENAI_API_KEY". **Tên model OpenAI Liam chốt ở PR.** Sửa text câu ("Sửa") → xoá `translation` cũ.
 - **D-17:** **Bỏ YouTube IFrame dự phòng ở Step 1.** Bài chỉ mở được khi `ready`, lúc đó `video.mp4` đã có. S3 chỉ dùng `<video>` tự host (backend phục vụ file có hỗ trợ Range để seek). File thiếu/hỏng → trạng thái lỗi + nút "Tải lại video". PR phải thêm **ADR `docs/decisions/0004-<slug>.md`** và sửa `docs/product.md` M2 + REQUIREMENTS PLY-01 cho khớp. — **Reversibility:** reversible — thêm lại IFrame sau là việc cục bộ ở S3.
 
+### Chốt sau research (Liam, 2026-10-06, trong /gsd-plan-phase 2)
+Các mục dưới đây là số đo của `02-RESEARCH.md` trên máy M1 8 GB. Chúng sửa hoặc làm rõ quyết định ở trên, và mục mới thắng khi hai bên mâu thuẫn.
+- **D-18 (sửa D-13):** **Warm-up = nạp → chạy 1 suy luận mẫu → giải phóng**, không giữ model resident (đo được 2.5 / 4.6 / 6.0 GB, không vừa 8 GB). Giải phóng tường minh cả cache `mlx_whisper.ModelHolder`. Banner "Model đang nạp…" kéo dài tới khi warm-up xong. Ghi diễn giải này vào ADR job runner/cổng model.
+- **D-19 (sửa D-07 phần cache stems):** **Tách giọng theo đoạn đã chọn**, cache stems theo `(videoId, start, end)`, không chạy Demucs cho cả video. **Video tải theo H.264/AAC** (selector avc1 + m4a), video không có biến thể avc1 thì fallback transcode. Trình duyệt chính của Liam là **Chrome**, UAT chạy trên Chrome.
+- **D-20 (chốt D-15):** **IPA không có dấu trọng âm** (vocab wav2vec2-espeak không có `ˈ`/`ˌ`). Gán phone cho từ với dung sai ±2 frame (40 ms). Độ tin cậy = trung bình xác suất các frame phát phone, **ẩn IPA khi < 0.7**. Sửa ví dụ `ˈɑnɪstli` trong `02-UI-SPEC.md` thành dạng không dấu trọng âm.
+- **D-21 (chốt D-04):** `MIN_DUR_S=3.0`, `MAX_MERGED_S=8.0`, **`MAX_MERGED_WORDS=18`**. Sửa `docs/product.md` M1 từ "~15 từ" thành 18 trong cùng PR, và báo phân bố độ dài câu trước/sau.
+- **D-22:** **Contract bổ sung đi qua checkpoint PR contract ở Wave 0.** Danh sách đề xuất: `VideoPreview`, `CreateLessonRequest`, `LessonListItem`, `LessonProgress`, `SystemStatus`, `OpenAiKeyCheckRequest`/`OpenAiKeyCheckResult`, `UpdateSegmentTextRequest`, `ApiError`, cộng `AttemptAck` và `AppSettings`. Liam duyệt trước khi các plan sau dùng tới. — **Reversibility:** one-way sau khi merge (contract công khai), nên phải có `checkpoint:decision`.
+- **D-23 (làm rõ D-16):** **Tên model OpenAI cho dịch chốt ở checkpoint khi hiện thực**: tra tài liệu model hiện hành, đề xuất, rồi Liam chọn. Gọi qua **httpx**, không thêm SDK `openai`.
+
 ### Claude's Discretion
 - Cơ chế hàng đợi/khoá model trong FastAPI (thread pool, asyncio + executor, …), chu kỳ poll của S1 (TanStack Query).
 - Endpoint metadata cho preview S2 (LES-01) và thanh kéo chọn đoạn > 6 phút (LES-02) theo design S2.
