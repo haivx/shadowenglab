@@ -1,6 +1,6 @@
 # ShadowEngLab — Product Document
 
-> Nguồn sự thật cấp sản phẩm. Cập nhật: 2026-10-01 · Owner: Liam
+> Nguồn sự thật cấp sản phẩm. Cập nhật: 2026-10-06 · Owner: Liam
 > Mọi quyết định thay đổi so với tài liệu này phải được cập nhật tại đây hoặc ghi thành ADR trong `docs/decisions/` ngay trong PR tạo ra thay đổi.
 
 ## 1. Tổng quan sản phẩm
@@ -161,20 +161,44 @@ Gợi ý có 2 mức: template ($0, làm trước), sau đó nâng lên LLM củ
 ### Contract kết quả chấm
 
 ```ts
+// JSON qua ranh giới là camelCase. Điểm là float 0..1; mốc thời gian là giây, độ dài ngắt nghỉ là ms nguyên.
 type ScoreResult = {
-  words: { text: string; status: "ok" | "unclear" | "diff" | "missing" | "ref_unclear";
-           similarity: number; start: number; end: number;
+  lessonId: string; segmentIndex: number; attempt: number            // attempt >= 1
+  mode: "full" | "intonationOnly"
+  versions: { scorer: string; thresholds: string }
+  timingMs: Record<string, number>                                   // thời gian từng bước, kiểm ngân sách <= 3 s
+  scores: {
+    overall: number
+    sound: number | null                                             // null ở P2–P3 hoặc khi cả câu ref_unclear
+    intonation: number; rhythm: number
+  }
+  words: { text: string; status: "scored" | "missing" | "ref_unclear"
+           similarity: number                                        // màu chip suy từ đây qua scoreLevel()
+           start: number; end: number                                // giây, trên audio người học
            refPhones?: string; userPhones?: string }[]
   prosody: {
-    speed: number; pitchRange: number; melodyMatch: number   // 0..1
-    contour: { ref: number[]; user: number[] }               // semitone, đã căn
+    speed: number; pitchRange: number; melodyMatch: number           // 0..1
+    contour: { ref: (number | null)[]; user: (number | null)[]       // semitone, đã căn; null = frame không hữu thanh
+               wordBounds: number[] }                                // chỉ số trên trục contour nơi mỗi từ bắt đầu
     stress: { word: string; ref: number; user: number }[]
-    pauses: { afterWord: number; ref_ms: number; user_ms: number }[]
+    pauses: { afterWord: number; refMs: number; userMs: number }[]
   }
-  issues: { code: IssueCode; wordIndex?: number; data: Record<string, unknown> }[]
-  tips: { text: string; issueRef: number }[]
+  issues: Issue[]                                                    // union theo `code`, mỗi mã có `data` riêng (bên dưới)
+  tips: { text: string; issueRef: number                             // issueRef là chỉ số trong issues
+          source: "template" | "llm" }[]                             // UI chỉ hiện nhãn "AI" khi source = "llm"
 }
+
+type Issue =
+  | { code: "STRESS_MISMATCH"; wordIndex: number; data: { refWord: string; userWord: string } }
+  | { code: "EXTRA_PAUSE";     wordIndex: number; data: { refMs: number; userMs: number } }
+  | { code: "FINAL_CONTOUR";                      data: { refSlope: number; userSlope: number } }
+  | { code: "FLAT_PITCH";                         data: { pitchRange: number } }
+  | { code: "PITCH_DEVIATION"; wordIndex: number; data: { meanDiffSt: number } }
+  | { code: "PHONE";           wordIndex: number; data: { refPhones: string; userPhones: string; similarity: number } }
+  | { code: "WORD_MISSING";    wordIndex: number; data: {} }
 ```
+
+Nguồn sự thật: `packages/contracts` (Zod, file `src/score.ts`); khối này chỉ tóm tắt. `wordIndex` là chỉ số trong `words`. `IssueCode` là enum 7 mã ở trên, được export riêng.
 
 ### Giới hạn đã biết
 
@@ -232,12 +256,29 @@ RLS: người chấm chỉ đọc và ghi nhãn của chính mình. Hai cột `g
 ```ts
 const ClipManifest = z.object({
   clipId: z.string(), videoId: z.string(), sentenceText: z.string(),
-  words: z.array(z.object({ i: z.number(), text: z.string() })),
+  words: z.array(z.object({ i: z.number().int().min(0), text: z.string() })),
   refAudio: z.string(), userAudio: z.string(),
   gold: z.enum(["none", "identical", "wrong"]).default("none"),
-  systemScore: z.number().optional()
+  systemScore: z.number().min(0).max(1).optional()
 })
 ```
+
+Nhãn của người chấm (`Label`) dùng chung một contract giữa app eval và `eval/analyze.py`:
+
+```ts
+const Label = z.object({
+  clipId: z.string(), raterId: z.string(),
+  overall: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  wordFlags: z.array(z.object({                          // chỉ lưu từ có cờ
+    wordIndex: z.number().int().min(0),                  // khớp ClipManifest.words[].i
+    flags: z.array(z.enum(["sound", "stress", "pitch", "pause", "speed"]))
+  })),
+  finalContourMatch: z.boolean(), unsure: z.boolean(), note: z.string().optional(),
+  durationMs: z.number().int().min(0), createdAt: z.string()
+})
+```
+
+Nguồn sự thật: `packages/contracts` (Zod, file `src/eval.ts`); các khối trên chỉ tóm tắt. JSON giữa các app là camelCase, còn bảng SQL `clips` và `labels` ở trên vẫn snake_case (ví dụ `word_flags jsonb`, `final_contour_match`); việc map nằm ở app eval và lớp export.
 
 Script export: cắt khoảng lặng ở hai đầu, chuẩn hoá âm lượng (`ffmpeg loudnorm`), xuất opus hoặc mp3 ~64kbps. Audio gốc dùng bản như trong video, không dùng bản đã tách giọng.
 
@@ -306,7 +347,7 @@ shadowenglab/
   apps/web/             # Next.js app chính
   apps/eval/            # Next.js app eval
   services/audio/       # FastAPI: lesson, scoring, rules
-  packages/contracts/   # Zod schema dùng chung: Segment, ScoreResult, ClipManifest, Label
+  packages/contracts/   # Zod schema dùng chung: Segment, Lesson, ScoreResult, IssueCode, ClipManifest, Label
   eval/                 # clips, labels.jsonl, export_clips.py, analyze.py
 ```
 
