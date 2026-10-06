@@ -223,7 +223,7 @@ def test_property_spans_cover_every_word_exactly_once(seed: int) -> None:
     assert spans, "danh sách từ không rỗng phải cho ít nhất một span"
     assert spans[0][0] == 0
     assert spans[-1][1] == len(words)
-    for (a, b), (c, _d) in zip(spans, spans[1:], strict=False):
+    for (_a, b), (c, _d) in zip(spans, spans[1:], strict=False):
         assert b == c  # liền kề, không chồng lấn, không hở
     assert all(a < b for a, b in spans)  # không span rỗng
     starts = [words[a].start for a, _ in spans]
