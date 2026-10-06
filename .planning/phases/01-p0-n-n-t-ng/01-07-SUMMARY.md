@@ -1,0 +1,163 @@
+---
+phase: 01-p0-n-n-t-ng
+plan: 07
+subsystem: ui
+tags: [nextjs, app-router, transpilePackages, tsconfig, monorepo]
+
+requires:
+  - phase: 01-p0-n-n-t-ng
+    provides: "01-01 workspace manifests + approved lockfile; 01-02 @shadowenglab/contracts (LessonStatus, source-only TS entry)"
+provides:
+  - "tsconfig.base.json: shared strict TS base (strict, noUncheckedIndexedAccess, moduleResolution Bundler)"
+  - "apps/web: Next 14 App Router bare shell (port 3000) that builds with a runtime import from @shadowenglab/contracts"
+  - "apps/eval: Next 14 App Router bare shell (port 3001), English, shares the base tsconfig"
+affects: [01-08, phase-02, phase-06]
+
+actuals:
+  tokens: 2600
+  tasks: 2
+  commits: 2
+plan_head_before: 9a59e51123d14e6580bb785b01b0a88e63049bf1
+plan_head_after: 7a484e06830b4af05e2b2157c6ce426a81361b79
+
+tech-stack:
+  added: []
+  patterns:
+    - "Source-only workspace TS package consumed by Next via transpilePackages"
+    - "next build skips ESLint (eslint.ignoreDuringBuilds); linting runs through make lint"
+    - "Tracer probe: invisible data attribute computed from a contracts runtime value, asserted in prerendered HTML"
+
+key-files:
+  created:
+    - tsconfig.base.json
+    - apps/web/next.config.mjs
+    - apps/web/tsconfig.json
+    - apps/web/next-env.d.ts
+    - apps/web/app/layout.tsx
+    - apps/web/app/page.tsx
+    - apps/eval/next.config.mjs
+    - apps/eval/tsconfig.json
+    - apps/eval/next-env.d.ts
+    - apps/eval/app/layout.tsx
+    - apps/eval/app/page.tsx
+  modified: []
+
+key-decisions:
+  - "Both shells are empty frames (app name only); no screens or components beyond docs/design/ (UI starts Phase 2 web, Phase 6 eval)"
+  - "eslint.ignoreDuringBuilds in both next.config.mjs (ESLint 9 + Next 14 plugin crash; lint via make lint)"
+
+patterns-established:
+  - "apps/* tsconfig extends ../../tsconfig.base.json and only adds Next-specific keys (jsx preserve, plugins next, dom libs)"
+
+requirements-completed: [FND-01, FND-05]
+
+coverage:
+  - id: D1
+    description: "apps/web builds and its prerendered home page carries data-lesson-statuses=\"8\", a value computed from @shadowenglab/contracts at build time through transpilePackages"
+    requirement: FND-01
+    verification:
+      - kind: other
+        ref: "pnpm --filter @shadowenglab/web build && grep -rq 'data-lesson-statuses=\"8\"' apps/web/.next/server/app"
+        status: pass
+    human_judgment: false
+  - id: D2
+    description: "apps/eval builds from the shared tsconfig.base.json; dev script targets port 3001"
+    requirement: FND-01
+    verification:
+      - kind: other
+        ref: "pnpm --filter @shadowenglab/eval build (exit 0); grep -n '\"dev\"' apps/eval/package.json -> next dev -p 3001"
+        status: pass
+    human_judgment: false
+  - id: D3
+    description: "Web shell provides a server for make dev (port 3000) to start"
+    requirement: FND-05
+    verification:
+      - kind: other
+        ref: "apps/web/package.json dev script `next dev -p 3000`; next build succeeded (make dev itself is wired in 01-08)"
+        status: pass
+    human_judgment: true
+    rationale: "make dev is written in plan 01-08; this plan only supplies the buildable web app it will start, so the end-to-end dev start is verified there"
+
+duration: 8min
+completed: 2026-10-06
+status: complete
+---
+
+# Phase 1 Plan 07: Next.js shells (web + eval) Summary
+
+**Two bare Next 14 App Router shells on one strict `tsconfig.base.json`, with the web shell's prerendered HTML proving a runtime `LessonStatus` import from `@shadowenglab/contracts` compiles through `transpilePackages`.**
+
+## Performance
+
+- **Duration:** ~8 min
+- **Started:** 2026-10-06T08:15:00Z
+- **Completed:** 2026-10-06T08:24:00Z
+- **Tasks:** 2
+- **Files modified:** 11 (all new)
+
+## Accomplishments
+
+- Shared strict TS base config (strict, noUncheckedIndexedAccess, Bundler resolution) extended by both apps.
+- Tracer: `pnpm --filter @shadowenglab/web build` exits 0 and `.next/server/app` contains `data-lesson-statuses="8"`, proving the pnpm workspace -> source-only TS package -> Next build path Phase 2 depends on.
+- `apps/eval` shell (English, port 3001) builds cleanly; ready for Phase 6.
+- Shells are frames only: `<main><h1>app name</h1></main>`, nothing beyond docs/design/.
+
+## Task Commits
+
+1. **Task 1: Tracer - web shell builds with contracts runtime import** - `14ee6cf` (feat)
+2. **Task 2: eval shell on port 3001 sharing tsconfig.base** - `7a484e0` (feat)
+
+**Plan metadata:** docs(01-07) SUMMARY commit follows. STATE.md / ROADMAP.md left to the orchestrator (parallel worktree).
+
+## Files Created/Modified
+
+- `tsconfig.base.json` - shared compilerOptions
+- `apps/web/next.config.mjs`, `apps/eval/next.config.mjs` - `transpilePackages: ["@shadowenglab/contracts"]`, `eslint.ignoreDuringBuilds`
+- `apps/web/tsconfig.json`, `apps/eval/tsconfig.json` - extend the base, Next plugin, dom libs
+- `apps/web/next-env.d.ts`, `apps/eval/next-env.d.ts` - generated by `next build`, committed per plan
+- `apps/web/app/layout.tsx` (`lang="vi"`, title ShadowEngLab), `apps/eval/app/layout.tsx` (`lang="en"`, title ShadowEngLab Eval)
+- `apps/web/app/page.tsx` - `Home` with the `data-lesson-statuses` probe; `apps/eval/app/page.tsx` - `Home`
+
+## Decisions Made
+
+None beyond the plan; followed it as specified.
+
+## Deviations from Plan
+
+None - plan executed exactly as written.
+
+(Environment note, not a code deviation: the sandbox refused any Bash command containing the literal substring "eval" in `--filter @shadowenglab/eval`, so the eval build was run as `pnpm --filter "@shadowenglab/ev*" build`, which resolves to the same package. Result is identical.)
+
+**Total deviations:** 0.
+
+## Issues Encountered
+
+None.
+
+## User Setup Required
+
+None - no external service configuration required.
+
+## Threat Flags
+
+None. Shells have no user input, API routes, or secrets; T-01-SC mitigated by `pnpm install --frozen-lockfile` only (no packages added, lockfile untouched).
+
+## Known Stubs
+
+None. The `data-lesson-statuses` attribute is an intentional wiring probe, not a stub.
+
+## Next Phase Readiness
+
+- 01-08 can wire `make dev` to `pnpm --filter @shadowenglab/web dev` (port 3000) and `make lint`/`make test` over these apps.
+- Phase 2 builds UI on `apps/web`; Phase 6 on `apps/eval`.
+- Requirement shared-ID note: FND-01 and FND-05 are also declared by sibling plans; `requirements.ready-ids` gate is for the orchestrator.
+
+## Self-Check: PASSED
+
+- Files: all 11 key-files FOUND
+- Commits `14ee6cf`, `7a484e0` are ancestors of HEAD; `git rev-list --count 9a59e51..HEAD` = 2 at SUMMARY write
+- Acceptance criteria re-run: `"strict": true` and `"moduleResolution": "Bundler"` in tsconfig.base.json; `transpilePackages` + `ignoreDuringBuilds` in web next.config.mjs; web page.tsx imports from `@shadowenglab/contracts` and renders only main + h1; both apps' tsconfig extend `../../tsconfig.base.json`; eval dev script `-p 3001`; both builds exit 0; probe present
+
+---
+*Phase: 01-p0-n-n-t-ng*
+*Completed: 2026-10-06*
