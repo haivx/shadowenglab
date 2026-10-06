@@ -46,13 +46,17 @@ Kiểu Python ở `services/audio` phải khớp với `packages/contracts` (sin
 ## Lệnh
 
 ```
-make setup     # cài deps Python + Node, tải model (Demucs, mlx-whisper, wav2vec2)
-make dev       # chạy Next.js + FastAPI
-make test      # pytest + vitest
-make eval      # python eval/analyze.py → eval/report.md
+make setup     # kiểm tra system deps (thiếu thì in lệnh brew rồi dừng), cài deps Python + Node từ lockfile, tải model Demucs, mlx-whisper, wav2vec2
+make dev       # chạy FastAPI (127.0.0.1:8000) + Next.js (localhost:3000)
+make test      # drift gate contract + vitest + pytest
+make lint      # eslint, prettier, tsc, ruff
+make eval      # stub ở P0; Phase 4: python eval/analyze.py → eval/report.md
+make smoke     # scripts/smoke_lesson.py trên scripts/smoke_video.url (tuỳ chọn: URL=, START=, END=, BUDGET=)
+make contracts # sinh lại JSON Schema + pydantic từ Zod (packages/contracts)
+make dev-eval  # khung app eval (localhost:3001)
 ```
 
-(Các lệnh được tạo trong P0; cập nhật mục này khi thay đổi.)
+(Cập nhật mục này khi đổi Makefile.)
 
 ## Code style
 

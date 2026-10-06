@@ -13,7 +13,7 @@ Spec sản phẩm chi tiết: `docs/product.md` (nguồn sự thật cấp sản
 ### Constraints
 
 - **Tech stack (khoá):** Next.js 14 + TS strict + Tailwind + shadcn/ui (token Radix, `docs/design/tokens.md`) + TanStack Query + Recharts + XState; FastAPI + Python 3.11 qua uv; SQLite + file system; app eval Next.js + Supabase trên Vercel — ADR 0001, product.md mục 5
-- **Nền tảng:** macOS Apple Silicon (mlx-whisper); cần Node 20+, pnpm, uv, ffmpeg, espeak-ng
+- **Nền tảng:** macOS Apple Silicon (mlx-whisper); cần Node ≥ 22.13, pnpm 11.9, uv, ffmpeg, espeak-ng
 - **Hiệu năng:** chấm một câu ≤ 3 s (chỉ xử lý audio người học; feature bản gốc tính sẵn khi tạo bài); tạo bài từ video 5 phút ≤ 5 phút
 - **Chi phí:** local-first, ~$0–1/tháng; chỉ OpenAI (gợi ý, TTS) là trả phí và tuỳ chọn
 - **Chạy khi thiếu key:** thiếu `OPENAI_API_KEY` → gợi ý template, tắt TTS, không chặn app
