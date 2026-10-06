@@ -37,7 +37,18 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Test round-trip TS ↔ JSON Schema ↔ pydantic cho `ScoreResult` pass.
   3. `scripts/smoke_lesson.py <youtube_url>` chạy trên một video phỏng vấn giọng Mỹ audio sạch, ra JSON theo `Lesson` và in thời gian từng bước.
   4. Video 5 phút được xử lý xong trong ≤ 5 phút.
-**Plans**: TBD
+**Plans:** 9 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Cổng khởi động: Liam chốt 10 quyết định mở, manifest + lockfile, duyệt package trước khi cài (wave 1)
+- [ ] 01-02-PLAN.md — Walking skeleton: contract Lesson (Zod) → JSON Schema → pydantic sinh tự động → FastAPI /lessons/{id}, /health, /scoring (wave 2)
+- [ ] 01-03-PLAN.md — make setup: check_deps.sh (kiểm tra và hướng dẫn) + setup_models; Liam brew install ffmpeg espeak-ng (wave 2)
+- [ ] 01-04-PLAN.md — Hàm thuần pipeline (TDD): split_sentences, cổng URL YouTube, nhãn audio, ghi JSON atomic (wave 2)
+- [ ] 01-05-PLAN.md — Contract đầy đủ (ScoreResult, IssueCode, Label, ClipManifest) + round-trip TS ↔ JSON Schema ↔ pydantic (wave 3)
+- [ ] 01-06-PLAN.md — Pipeline smoke_lesson.py: yt-dlp → Demucs → mlx-whisper → tách câu → F0/PPG → Lesson JSON + thời gian từng bước (wave 3)
+- [ ] 01-07-PLAN.md — Khung Next.js apps/web (import contracts) và apps/eval (wave 3)
+- [ ] 01-08-PLAN.md — Makefile (setup/dev/test/lint/eval/smoke), drift gate, đo video 5 phút ≤ 5 phút (wave 4)
+- [ ] 01-09-PLAN.md — ADR 0003, product.md mục 3–4, CLAUDE.md Lệnh, README (wave 5)
 
 **Notes**:
 - Phần thiết kế UI của P0 **đã xong, ngoài phạm vi còn lại**: design system và 13 màn (S1–S8, E1–E4) trong `docs/design/`, user flows `docs/flows.md`, product doc `docs/product.md`.

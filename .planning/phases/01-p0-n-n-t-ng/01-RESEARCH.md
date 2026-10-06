@@ -656,7 +656,21 @@ Next shell: `next.config.mjs` = `{ transpilePackages: ["@shadowenglab/contracts"
 | A9 | Node >= 22.13 may replace "Node 20+" in docs | Constraints | Prerequisite text change |
 | A10 | `yt-dlp` stays functional against YouTube for the test video day-of | Pitfall 4 | Smoke blocked; update yt-dlp |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolution path (planning, 2026-10-06): every question below that CONTEXT.md does not lock is routed to ONE Liam decision, `01-01-PLAN.md` Task 1 (`checkpoint:decision`, `gate="blocking-human"`), before any install; the recommended default is stated per item. Claude does not decide these on its own (CLAUDE.md).
+
+- Q1 → RESOLVED: Liam supplies the URL (01-01 item 10); measured in 01-08 Task 3 with an empty DATA_DIR.
+- Q2 → RESOLVED: 01-01 item 4 (default: segment-local index from 0).
+- Q3 → RESOLVED: 01-01 item 5 (default: unset in P0, computed in Phase 3).
+- Q4 → RESOLVED: 01-01 item 7 (default: music above −15 dB, provisional; official threshold Deferred to P1/P5 per CONTEXT).
+- Q5 → RESOLVED: 01-01 item 3 (default: single bundle `contracts.schema.json`).
+- Q6 → RESOLVED: 01-01 item 2 (default: generated explicit `Field(alias=...)` + `populate_by_name`); recorded in ADR 0003 (01-09).
+- Q7 → RESOLVED: 01-01 item 1 (default: Node ≥ 22.13 + pnpm 11.9 `trustPolicy: off` + `allowBuilds: esbuild`); docs updated in 01-09.
+- Q8 → RESOLVED: approximated on this machine by `make setup` (01-08 Task 1); true empty-cache run offered as a human check in 01-08 Task 3.
+- Q9 → RESOLVED: 01-01 item 6 (default: Python-only `Health` model).
+
+Original questions:
 
 1. **Real test video for the smoke and the 5-minute criterion**
    - Known: STATE.md says use a US-accent, clean interview temporarily; synthetic TTS timing is already measured.
