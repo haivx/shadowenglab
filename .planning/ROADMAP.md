@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `scripts/smoke_lesson.py <youtube_url>` chạy trên một video phỏng vấn giọng Mỹ audio sạch, ra JSON theo `Lesson` và in thời gian từng bước.
   4. Video 5 phút được xử lý xong trong ≤ 5 phút.
 
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans executed
 
 Plans:
 **Wave 1**
@@ -59,7 +59,7 @@ Plans:
 - [x] 01-08-PLAN.md — Makefile (setup/dev/test/lint/eval/smoke), drift gate, đo video 5 phút ≤ 5 phút (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 01-09-PLAN.md — ADR 0003, product.md mục 3–4, CLAUDE.md Lệnh, README (wave 5)
+- [x] 01-09-PLAN.md — ADR 0003, product.md mục 3–4, CLAUDE.md Lệnh, README (wave 5)
 
 **Notes**:
 - Phần thiết kế UI của P0 **đã xong, ngoài phạm vi còn lại**: design system và 13 màn (S1–S8, E1–E4) trong `docs/design/`, user flows `docs/flows.md`, product doc `docs/product.md`.
@@ -209,7 +209,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. P0 · Nền tảng | 8/9 | In Progress | - |
+| 1. P0 · Nền tảng | 9/9 | In Progress | - |
 | 2. P1 · Tạo bài và trình phát | 0/0 | Not started | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
