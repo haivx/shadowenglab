@@ -16,11 +16,11 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 
 - ✓ Thiết kế UI v0.2: design system + 13 màn (S1–S8, E1–E4) trong `docs/design/` — P0 (trước GSD)
 - ✓ User flows F0–F5 (`docs/flows.md`) và product doc (`docs/product.md`) — P0 (trước GSD)
+- ✓ Monorepo + `packages/contracts` (Zod) làm nguồn sự thật kiểu dữ liệu, pydantic khớp phía Python (drift gate trong `make test`) — Phase 1
+- ✓ `make setup && make dev` chạy trên máy sạch macOS Apple Silicon, có/không API key — Phase 1
 
 ### Active
 
-- [ ] Monorepo + `packages/contracts` (Zod) làm nguồn sự thật kiểu dữ liệu, pydantic khớp phía Python
-- [ ] `make setup && make dev` chạy trên máy sạch macOS Apple Silicon, có/không API key
 - [ ] Tạo bài từ link YouTube (yt-dlp → Demucs → mlx-whisper → tách câu 3–8 s → feature bản gốc), job nền có tiến độ
 - [ ] Trình phát theo câu (XState), ghi âm, IPA nhận dạng từ audio mẫu
 - [ ] Chấm ngữ điệu (Lớp B) + rule engine template (Lớp C) + UI kết quả
@@ -42,7 +42,7 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 
 ## Context
 
-- Repo mới: đã có tài liệu, thiết kế và thư mục khung (`apps/web`, `apps/eval`, `services/audio`, `packages/contracts`, `eval/`, `scripts/` chỉ có README). Chưa có code.
+- Sau Phase 1: monorepo chạy được (`make setup/dev/test/lint/smoke/contracts`), contract Zod + pydantic sinh tự động, pipeline audio (yt-dlp → Demucs → mlx-whisper → tách câu → feature) chứng minh đầu–cuối bằng `make smoke`. `apps/web` và `apps/eval` mới là khung Next.js rỗng; UI thật bắt đầu từ Phase 2.
 - Người dùng: Liam (learner kiêm builder, app chính local); 2 người chấm bản xứ Mỹ (app eval online).
 - Hệ thống chấm 3 lớp độc lập, tất cả local $0:
   - **Lớp A (âm):** `facebook/wav2vec2-lv-60-espeak-cv-ft` → PPG → DTW với khoảng cách `−log(p_ref · p_user)` → chiếu ranh giới từ Whisper → điểm từ có trọng số confidence; chuỗi phone (argmax) chỉ để giải thích.
@@ -81,6 +81,9 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 | App eval: 2 người chấm toàn bộ clip, không đồng bộ, 8 gold clip | Có số liệu đồng thuận trên mọi clip | — Pending |
 | P0→Phase 1 … P7→Phase 8 | GSD dành riêng Phase 0 | — Pending |
 | P4 và P5 chạy song song được | Độc lập; đợt chấm diễn ra trong lúc làm Lớp A | — Pending |
+| Demucs `htdemucs` (shifts=0, overlap=0.25, split=True); `no_vocals` = tổng các stem non-vocal | Đủ nhanh cho ngân sách tạo bài, chất lượng tách nghe được (UAT Phase 1) | ✓ Good |
+| Ngưỡng tạm `nonVocalRatio` > −15 dB → "Có nhạc nền", còn lại "Audio sạch" | Video smoke đo −17.5 dB, tai nghe xác nhận sạch (UAT Phase 1) | — Pending (tinh chỉnh ở Phase 5) |
+| UI-SPEC hoãn tới phase đầu có màn thật; shell P0 chỉ là khung rỗng | Thiết kế đã có trong `docs/design/` | ✓ Good |
 | Nhãn chất lượng audio (LES-06) tính từ tỉ lệ năng lượng non-vocal/vocal của Demucs lúc tạo bài; Phase 5 bổ sung tỉ lệ `ref_unclear` | `ref_unclear` chỉ có từ Lớp A (Phase 5), Phase 2 vẫn cần nhãn | — Pending |
 
 ## Evolution
@@ -101,4 +104,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-05 after initialization*
+*Last updated: 2026-10-06 after Phase 1*

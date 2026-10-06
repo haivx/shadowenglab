@@ -1,45 +1,45 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 1
-current_phase_name: P0 · Nền tảng
-status: verifying
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-10-06T15:10:06.513Z"
+current_phase: 2
+current_phase_name: P1 · Tạo bài và trình phát
+status: planning
+stopped_at: Phase 1 complete, ready to plan Phase 2
+last_updated: "2026-10-06T15:39:53.308Z"
 last_activity: 2026-10-06
-last_activity_desc: Phase 1 execution started
-state_head: e965d213e265d2ca36d265b5974781b0a6e2abfc
+last_activity_desc: Phase 1 complete, transitioned to Phase 2
+state_head: 58c81e30bfea8ba402456d7456ce22b506dc11e5
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 9
   completed_plans: 9
-  percent: 0
+  percent: 13
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-05)
+See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Sau mỗi lượt nói, Liam biết đáng tin mình lệch khỏi người nói gốc ở đâu — so audio với audio gốc, precision trước recall.
-**Current focus:** Phase 1 — P0 · Nền tảng
+**Current focus:** Phase 2 — P1 · Tạo bài và trình phát
 
 ## Current Position
 
-Phase: 1 (P0 · Nền tảng) — EXECUTING
-Plan: 9 of 9
-Status: Phase complete — ready for verification
-Last activity: 2026-10-06 — Phase 1 execution started
+Phase: 2 — P1 · Tạo bài và trình phát
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-10-06 — Phase 1 complete, transitioned to Phase 2
 
-Next step: `/gsd-discuss-phase 1` — Discuss trước; Liam chốt contract trong `packages/contracts` rồi mới Plan.
+Next step: `/gsd-discuss-phase 2` — Discuss trước; Liam chốt contract trong `packages/contracts` rồi mới Plan.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 13%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed: 9
 - Average duration: - min
 - Total execution time: 0.0 hours
 
@@ -47,7 +47,7 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1 | 9 | - | - |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -90,6 +90,8 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 1]: Bộ 3–4 video eval chưa chọn; smoke script dùng tạm một video giọng Mỹ có audio sạch
+- [Phase 2]: Nhiều câu ngắn (39/62 câu < 3 s trên video smoke) — Liam chấp nhận ở UAT Phase 1; xem lại ngưỡng tách câu (RESEARCH A1) khi dựng trình phát
+- [Phase 2]: UI audit Phase 1 = 8/24 (khung rỗng, dự kiến): cần áp token `docs/design/tokens.md` vào Tailwind, `globals.css` + font, component theo `docs/design/components.md`
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
 
@@ -103,6 +105,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T08:08:40.433Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-10-06
+Stopped at: Phase 1 complete, ready to plan Phase 2
 Resume file: None

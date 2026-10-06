@@ -11,13 +11,13 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 ### Nền tảng (FND)
 
-- [ ] **FND-01**: Repo là pnpm workspace (`apps/web`, `apps/eval`, `packages/contracts`) cộng `services/audio` quản lý bằng uv, có ESLint, Prettier, ruff và `.gitignore` cấu hình sẵn
-- [ ] **FND-02**: `packages/contracts` định nghĩa Zod cho `Segment`, `Lesson`, `ScoreResult`, `IssueCode`, `ClipManifest`, `Label` (theo product.md mục 3–4, Liam chốt trong Discuss) và sinh JSON Schema
-- [ ] **FND-03**: Kiểu pydantic ở `services/audio` khớp JSON Schema sinh từ contracts; test round-trip TS ↔ JSON Schema ↔ pydantic cho `ScoreResult` pass
-- [ ] **FND-04**: Liam chạy `make setup` trên máy sạch macOS Apple Silicon: cài deps Python + Node, tải Demucs, mlx-whisper, `facebook/wav2vec2-lv-60-espeak-cv-ft` có hiển thị tiến độ, kiểm tra parselmouth, espeak-ng, ffmpeg
-- [ ] **FND-05**: `make dev` chạy cả Next.js và FastAPI; `make test` chạy pytest + vitest; `make eval` tồn tại (stub ở P0)
-- [ ] **FND-06**: FastAPI có `/health`, router `lesson` và `scoring`, response validate theo contracts
-- [ ] **FND-07**: `scripts/smoke_lesson.py <youtube_url>` chạy yt-dlp → Demucs → mlx-whisper (word timestamps) → tách câu 3–8 s → F0 + PPG mỗi câu → JSON theo `Lesson`, in thời gian từng bước; video 5 phút xử lý ≤ 5 phút
+- [x] **FND-01**: Repo là pnpm workspace (`apps/web`, `apps/eval`, `packages/contracts`) cộng `services/audio` quản lý bằng uv, có ESLint, Prettier, ruff và `.gitignore` cấu hình sẵn
+- [x] **FND-02**: `packages/contracts` định nghĩa Zod cho `Segment`, `Lesson`, `ScoreResult`, `IssueCode`, `ClipManifest`, `Label` (theo product.md mục 3–4, Liam chốt trong Discuss) và sinh JSON Schema
+- [x] **FND-03**: Kiểu pydantic ở `services/audio` khớp JSON Schema sinh từ contracts; test round-trip TS ↔ JSON Schema ↔ pydantic cho `ScoreResult` pass
+- [x] **FND-04**: Liam chạy `make setup` trên máy sạch macOS Apple Silicon: cài deps Python + Node, tải Demucs, mlx-whisper, `facebook/wav2vec2-lv-60-espeak-cv-ft` có hiển thị tiến độ, kiểm tra parselmouth, espeak-ng, ffmpeg
+- [x] **FND-05**: `make dev` chạy cả Next.js và FastAPI; `make test` chạy pytest + vitest; `make eval` tồn tại (stub ở P0)
+- [x] **FND-06**: FastAPI có `/health`, router `lesson` và `scoring`, response validate theo contracts
+- [x] **FND-07**: `scripts/smoke_lesson.py <youtube_url>` chạy yt-dlp → Demucs → mlx-whisper (word timestamps) → tách câu 3–8 s → F0 + PPG mỗi câu → JSON theo `Lesson`, in thời gian từng bước; video 5 phút xử lý ≤ 5 phút
 
 ### Cài đặt (SET) — M0, F0
 
@@ -158,13 +158,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | Phase 1 | Pending |
-| FND-02 | Phase 1 | Pending |
-| FND-03 | Phase 1 | Pending |
-| FND-04 | Phase 1 | Pending |
-| FND-05 | Phase 1 | Pending |
-| FND-06 | Phase 1 | Pending |
-| FND-07 | Phase 1 | Pending |
+| FND-01 | Phase 1 | Complete |
+| FND-02 | Phase 1 | Complete |
+| FND-03 | Phase 1 | Complete |
+| FND-04 | Phase 1 | Complete |
+| FND-05 | Phase 1 | Complete |
+| FND-06 | Phase 1 | Complete |
+| FND-07 | Phase 1 | Complete |
 | SET-01 | Phase 2 | Pending |
 | SET-02 | Phase 2 | Pending |
 | SET-03 | Phase 2 | Pending |
