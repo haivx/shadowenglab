@@ -2,10 +2,10 @@
 phase: "01"
 slug: "p0-n-n-t-ng"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
-# audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+# audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: true) (#2117)
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-06"
 ---
 
@@ -43,13 +43,13 @@ Filled by the planner/executor per task. Requirement → test map from research:
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists | Status |
 |--------|----------|-----------|-------------------|-------------|--------|
-| FND-01 | workspace installs; lint/format/ruff pass | smoke | `pnpm install --frozen-lockfile && make lint` | ❌ W0 | ⬜ pending |
-| FND-02 | Zod types parse fixtures; every object type has an `id`; schema bundle generated | unit | `pnpm --filter @shadowenglab/contracts test` | ❌ W0 | ⬜ pending |
-| FND-03 | committed schema/pydantic == regenerated; round-trip TS ↔ JSON Schema ↔ pydantic | integration | `sh scripts/contracts_check.sh && cd services/audio && uv run pytest tests/test_contracts_roundtrip.py` | ❌ W0 | ⬜ pending |
-| FND-04 | `check_deps.sh` reports missing tools with `brew install` hint + non-zero exit; parselmouth works | unit/smoke | `sh scripts/check_deps.sh; cd services/audio && uv run pytest tests/test_setup.py` | ❌ W0 | ⬜ pending |
-| FND-05 | `make test` runs both suites; `make eval` exits 0; `make dev` starts both ports | smoke (dev manual) | `make test && make eval` | ❌ W0 | ⬜ pending |
-| FND-06 | `/health` 200; lesson route returns contract-valid camelCase JSON; bad id 404 | unit | `cd services/audio && uv run pytest tests/test_api.py` | ❌ W0 | ⬜ pending |
-| FND-07 | `split_sentences` rules; smoke-built `Lesson` validates; timing table printed | unit + manual | `cd services/audio && uv run pytest tests/test_segment.py` | ❌ W0 | ⬜ pending |
+| FND-01 | workspace installs; lint/format/ruff pass | smoke | `pnpm install --frozen-lockfile && make lint` | ✅ | ✅ green |
+| FND-02 | Zod types parse fixtures; every object type has an `id`; schema bundle generated | unit | `pnpm --filter @shadowenglab/contracts test` | ✅ `packages/contracts/src/contracts.test.ts` | ✅ green |
+| FND-03 | committed schema/pydantic == regenerated; round-trip TS ↔ JSON Schema ↔ pydantic | integration | `sh scripts/contracts_check.sh && cd services/audio && uv run pytest tests/test_contracts_roundtrip.py tests/test_contracts_drift.py` | ✅ | ✅ green |
+| FND-04 | `check_deps.sh` reports missing tools with `brew install` hint + non-zero exit; parselmouth works | unit/smoke | `sh scripts/check_deps.sh; cd services/audio && uv run pytest tests/test_setup.py` | ✅ | ✅ green |
+| FND-05 | `make test` runs both suites; `make eval` exits 0; `make dev` starts both ports | smoke | `make test` + `sh scripts/dev_smoke.sh` (`make eval` → manual-only, see below) | ✅ | ✅ green |
+| FND-06 | `/health` 200; lesson route returns contract-valid camelCase JSON; bad id 404 | unit | `cd services/audio && uv run pytest tests/test_api.py tests/test_config.py` | ✅ | ✅ green |
+| FND-07 | `split_sentences` rules; smoke-built `Lesson` validates; timing table printed | unit + manual | `cd services/audio && uv run pytest tests/test_segment.py tests/test_pipeline.py tests/test_features.py tests/test_urls.py tests/test_quality.py tests/test_contract_io.py` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -57,10 +57,10 @@ Filled by the planner/executor per task. Requirement → test map from research:
 
 ## Wave 0 Requirements
 
-- [ ] `packages/contracts/src/*.test.ts` + `fixtures/*.json` — FND-02/03
-- [ ] `services/audio/tests/{test_contracts_roundtrip,test_segment,test_api,test_setup}.py` + `conftest.py` (tmp `DATA_DIR`)
-- [ ] Framework install: `uv add --dev pytest httpx jsonschema`, `pnpm add -D vitest tsx`
-- [ ] `scripts/check_deps.sh`, `scripts/contracts_check.sh`
+- [x] `packages/contracts/src/*.test.ts` + `fixtures/*.json` — FND-02/03
+- [x] `services/audio/tests/{test_contracts_roundtrip,test_segment,test_api,test_setup}.py` + `conftest.py` (tmp `DATA_DIR`)
+- [x] Framework install: `uv add --dev pytest httpx jsonschema`, `pnpm add -D vitest tsx`
+- [x] `scripts/check_deps.sh`, `scripts/contracts_check.sh`
 
 ---
 
@@ -71,16 +71,26 @@ Filled by the planner/executor per task. Requirement → test map from research:
 | `make dev` starts Next.js (3000) + FastAPI (8000) | FND-05 | long-running processes | `make dev`, then `curl -s localhost:8000/health && curl -sI localhost:3000` |
 | 5-min real video processed in ≤ 5 min | FND-07 | needs a real YouTube video + network; timing on hardware | `make smoke URL=<clean US interview video>`; check printed total ≤ 300 s |
 | `make setup` on a clean machine | FND-04 | needs empty model cache + brew tools | `HF_HOME=$(mktemp -d) make setup` |
+| `make eval` prints stub, exits 0 | FND-05 | agent sandbox refuses commands containing "eval"; recipe is one `echo` | `make eval \| grep stub` |
+| Segment boundaries and `clean` label sound right | FND-07 | judgment by ear (RESEARCH A1/A2); 39/62 segments < 3 s | `make smoke END=300`, then play segments with ffplay |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-10-06 (automated rows green after wave 5 merge; 01-08 measured make dev + 5-min video 115.8–125.3 s)
+
+## Validation Audit 2026-10-06
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
