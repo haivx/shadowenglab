@@ -1,0 +1,34 @@
+[
+  {
+    "name": "default-gold",
+    "data": {
+      "clipId": "clip-001",
+      "videoId": "dUDi-F6eAvk",
+      "sentenceText": "Brown the butter",
+      "words": [
+        { "i": 0, "text": "Brown" },
+        { "i": 1, "text": "the" },
+        { "i": 2, "text": "butter" }
+      ],
+      "refAudio": "clips/clip-001/ref.wav",
+      "userAudio": "clips/clip-001/user.wav"
+    }
+  },
+  {
+    "name": "wrong-gold",
+    "data": {
+      "clipId": "clip-002",
+      "videoId": "dUDi-F6eAvk",
+      "sentenceText": "Heat the oven",
+      "words": [
+        { "i": 0, "text": "Heat" },
+        { "i": 1, "text": "the" },
+        { "i": 2, "text": "oven" }
+      ],
+      "refAudio": "clips/clip-002/ref.wav",
+      "userAudio": "clips/clip-002/user.wav",
+      "gold": "wrong",
+      "systemScore": 0.41
+    }
+  }
+]

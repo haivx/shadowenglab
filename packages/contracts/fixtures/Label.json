@@ -1,0 +1,32 @@
+[
+  {
+    "name": "flags",
+    "data": {
+      "clipId": "clip-001",
+      "raterId": "rater-a",
+      "overall": 4,
+      "wordFlags": [
+        { "wordIndex": 0, "flags": ["stress", "pitch"] },
+        { "wordIndex": 3, "flags": ["sound"] }
+      ],
+      "finalContourMatch": false,
+      "unsure": false,
+      "durationMs": 18450,
+      "createdAt": "2026-10-06T09:00:00Z"
+    }
+  },
+  {
+    "name": "unsure-note",
+    "data": {
+      "clipId": "clip-002",
+      "raterId": "rater-b",
+      "overall": 2,
+      "wordFlags": [],
+      "finalContourMatch": true,
+      "unsure": true,
+      "note": "Không chắc ở từ cuối",
+      "durationMs": 9000,
+      "createdAt": "2026-10-06T09:05:00Z"
+    }
+  }
+]

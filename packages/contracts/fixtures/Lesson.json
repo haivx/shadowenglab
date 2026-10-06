@@ -1,0 +1,113 @@
+[
+  {
+    "name": "ready",
+    "data": {
+      "id": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "videoId": "dUDi-F6eAvk",
+      "title": "Phỏng vấn: Nhấn mạnh trong câu",
+      "durationSec": 312.5,
+      "thumbnailUrl": "https://i.ytimg.com/vi/dUDi-F6eAvk/hqdefault.jpg",
+      "range": { "start": 10, "end": 70.25 },
+      "padMs": 150,
+      "status": "ready",
+      "audioQuality": { "label": "clean", "nonVocalRatio": 0.012 },
+      "segments": [
+        {
+          "index": 0,
+          "text": "Heat the oven",
+          "start": 10.5,
+          "end": 12.1,
+          "endExtraMs": 0,
+          "words": [
+            {
+              "i": 0,
+              "text": "Heat",
+              "start": 10.5,
+              "end": 10.9,
+              "asrProb": 0.98,
+              "ipa": "hiːt",
+              "refConfidence": 0.91
+            },
+            {
+              "i": 1,
+              "text": "the",
+              "start": 10.9,
+              "end": 11.1,
+              "asrProb": 0.95
+            },
+            {
+              "i": 2,
+              "text": "oven",
+              "start": 11.1,
+              "end": 12.1,
+              "asrProb": 0.9
+            }
+          ],
+          "translation": "Làm nóng lò nướng"
+        },
+        {
+          "index": 1,
+          "text": "Brown the butter",
+          "start": 12.6,
+          "end": 14.2,
+          "endExtraMs": 120,
+          "words": [
+            {
+              "i": 0,
+              "text": "Brown",
+              "start": 12.6,
+              "end": 13,
+              "asrProb": 0.97
+            },
+            {
+              "i": 1,
+              "text": "the",
+              "start": 13,
+              "end": 13.2,
+              "asrProb": 0.96
+            },
+            {
+              "i": 2,
+              "text": "butter",
+              "start": 13.2,
+              "end": 14.2,
+              "asrProb": 0.93
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-10-06T08:00:00Z"
+    }
+  },
+  {
+    "name": "failed",
+    "data": {
+      "id": "01JABCDEFGHJKMNPQRSTVWXYZ1",
+      "videoId": "dUDi-F6eAvk",
+      "title": "Video lỗi",
+      "durationSec": 0,
+      "range": { "start": 0, "end": 0 },
+      "padMs": 150,
+      "status": "failed",
+      "error": {
+        "step": "transcribing",
+        "message": "Whisper không nhận được giọng nói"
+      },
+      "segments": [],
+      "createdAt": "2026-10-06T08:05:00Z"
+    }
+  },
+  {
+    "name": "queued-defaults",
+    "data": {
+      "id": "01JABCDEFGHJKMNPQRSTVWXYZ2",
+      "videoId": "dUDi-F6eAvk",
+      "title": "Mới tạo",
+      "durationSec": 60,
+      "range": { "start": 0, "end": 60 },
+      "status": "queued",
+      "segments": [],
+      "createdAt": "2026-10-06T08:10:00Z"
+    }
+  }
+]
