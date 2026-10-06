@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, RootModel
+from typing_extensions import TypeAliasType
 
 
 class Word(BaseModel):
@@ -44,6 +45,163 @@ class AudioQuality(BaseModel):
     non_vocal_ratio: Annotated[float, Field(alias="nonVocalRatio", ge=0.0)]
 
 
+TimingMsAdditionalProperty = TypeAliasType(
+    "TimingMsAdditionalProperty", Annotated[float, Field(ge=0.0)]
+)
+
+
+class Versions(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    scorer: str
+    thresholds: str
+
+
+class Sound(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0, le=1.0)]
+
+
+class Scores(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    overall: Annotated[float, Field(ge=0.0, le=1.0)]
+    sound: Sound | None
+    intonation: Annotated[float, Field(ge=0.0, le=1.0)]
+    rhythm: Annotated[float, Field(ge=0.0, le=1.0)]
+
+
+class WordScore(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    text: str
+    status: Literal["scored", "missing", "ref_unclear"]
+    similarity: Annotated[float, Field(ge=0.0, le=1.0)]
+    start: Annotated[float, Field(ge=0.0)]
+    end: Annotated[float, Field(ge=0.0)]
+    ref_phones: Annotated[str | None, Field(alias="refPhones")] = None
+    user_phones: Annotated[str | None, Field(alias="userPhones")] = None
+
+
+class WordBound(RootModel[int]):
+    root: Annotated[int, Field(ge=0, le=9007199254740991)]
+
+
+class Contour(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    ref: list[float | None]
+    user: list[float | None]
+    word_bounds: Annotated[list[WordBound], Field(alias="wordBounds")]
+
+
+class StressEntry(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    word: str
+    ref: float
+    user: float
+
+
+class PauseEntry(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    after_word: Annotated[int, Field(alias="afterWord", ge=0, le=9007199254740991)]
+    ref_ms: Annotated[int, Field(alias="refMs", ge=0, le=9007199254740991)]
+    user_ms: Annotated[int, Field(alias="userMs", ge=0, le=9007199254740991)]
+
+
+class StressMismatchData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    ref_word: Annotated[str, Field(alias="refWord")]
+    user_word: Annotated[str, Field(alias="userWord")]
+
+
+class ExtraPauseData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    ref_ms: Annotated[int, Field(alias="refMs", ge=0, le=9007199254740991)]
+    user_ms: Annotated[int, Field(alias="userMs", ge=0, le=9007199254740991)]
+
+
+class FinalContourData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    ref_slope: Annotated[float, Field(alias="refSlope")]
+    user_slope: Annotated[float, Field(alias="userSlope")]
+
+
+class FlatPitchData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    pitch_range: Annotated[float, Field(alias="pitchRange", ge=0.0, le=1.0)]
+
+
+class PitchDeviationData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    mean_diff_st: Annotated[float, Field(alias="meanDiffSt")]
+
+
+class PhoneData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    ref_phones: Annotated[str, Field(alias="refPhones")]
+    user_phones: Annotated[str, Field(alias="userPhones")]
+    similarity: Annotated[float, Field(ge=0.0, le=1.0)]
+
+
+class WordMissingData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+
+
+class Tip(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    text: str
+    issue_ref: Annotated[int, Field(alias="issueRef", ge=0, le=9007199254740991)]
+    source: Literal["template", "llm"]
+
+
+class IssueCode(
+    RootModel[
+        Literal[
+            "STRESS_MISMATCH",
+            "EXTRA_PAUSE",
+            "FINAL_CONTOUR",
+            "FLAT_PITCH",
+            "PITCH_DEVIATION",
+            "PHONE",
+            "WORD_MISSING",
+        ]
+    ]
+):
+    root: Literal[
+        "STRESS_MISMATCH",
+        "EXTRA_PAUSE",
+        "FINAL_CONTOUR",
+        "FLAT_PITCH",
+        "PITCH_DEVIATION",
+        "PHONE",
+        "WORD_MISSING",
+    ]
+
+
 class Segment(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,3 +240,115 @@ class Lesson(BaseModel):
     audio_quality: Annotated[AudioQuality | None, Field(alias="audioQuality")] = None
     segments: list[Segment]
     created_at: Annotated[str, Field(alias="createdAt")]
+
+
+class Prosody(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    speed: Annotated[float, Field(ge=0.0, le=1.0)]
+    pitch_range: Annotated[float, Field(alias="pitchRange", ge=0.0, le=1.0)]
+    melody_match: Annotated[float, Field(alias="melodyMatch", ge=0.0, le=1.0)]
+    contour: Contour
+    stress: list[StressEntry]
+    pauses: list[PauseEntry]
+
+
+class StressMismatchIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["STRESS_MISMATCH"]
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    data: StressMismatchData
+
+
+class ExtraPauseIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["EXTRA_PAUSE"]
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    data: ExtraPauseData
+
+
+class FinalContourIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["FINAL_CONTOUR"]
+    data: FinalContourData
+
+
+class FlatPitchIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["FLAT_PITCH"]
+    data: FlatPitchData
+
+
+class PitchDeviationIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["PITCH_DEVIATION"]
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    data: PitchDeviationData
+
+
+class PhoneIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["PHONE"]
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    data: PhoneData
+
+
+class WordMissingIssue(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal["WORD_MISSING"]
+    word_index: Annotated[int, Field(alias="wordIndex", ge=0, le=9007199254740991)]
+    data: WordMissingData
+
+
+class Issue(
+    RootModel[
+        StressMismatchIssue
+        | ExtraPauseIssue
+        | FinalContourIssue
+        | FlatPitchIssue
+        | PitchDeviationIssue
+        | PhoneIssue
+        | WordMissingIssue
+    ]
+):
+    root: (
+        StressMismatchIssue
+        | ExtraPauseIssue
+        | FinalContourIssue
+        | FlatPitchIssue
+        | PitchDeviationIssue
+        | PhoneIssue
+        | WordMissingIssue
+    )
+
+
+class ScoreResult(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    lesson_id: Annotated[str, Field(alias="lessonId")]
+    segment_index: Annotated[int, Field(alias="segmentIndex", ge=0, le=9007199254740991)]
+    attempt: Annotated[int, Field(ge=1, le=9007199254740991)]
+    mode: Literal["full", "intonationOnly"]
+    versions: Versions
+    timing_ms: Annotated[dict[str, TimingMsAdditionalProperty], Field(alias="timingMs")]
+    scores: Scores
+    words: list[WordScore]
+    prosody: Prosody
+    issues: list[Issue]
+    tips: list[Tip]

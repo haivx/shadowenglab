@@ -1,0 +1,159 @@
+[
+  {
+    "name": "full",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "segmentIndex": 2,
+      "attempt": 3,
+      "mode": "full",
+      "versions": { "scorer": "p4-0.1.0", "thresholds": "2026-10-06" },
+      "timingMs": {
+        "decode": 0.1,
+        "f0": 1e-9,
+        "dtw": 12.345678901234567,
+        "total": 1830
+      },
+      "scores": {
+        "overall": 0.74,
+        "sound": 0.82,
+        "intonation": 0.7,
+        "rhythm": 0.66
+      },
+      "words": [
+        {
+          "text": "Brown",
+          "status": "scored",
+          "similarity": 0.91,
+          "start": 0.12,
+          "end": 0.48,
+          "refPhones": "ən",
+          "userPhones": "ænd"
+        },
+        {
+          "text": "Heat",
+          "status": "scored",
+          "similarity": 0.55,
+          "start": 0.5,
+          "end": 0.9
+        },
+        {
+          "text": "the",
+          "status": "missing",
+          "similarity": 0,
+          "start": 0.9,
+          "end": 0.9
+        },
+        {
+          "text": "fox",
+          "status": "ref_unclear",
+          "similarity": 1,
+          "start": 0.95,
+          "end": 1.4
+        }
+      ],
+      "prosody": {
+        "speed": 0.8,
+        "pitchRange": 0.42,
+        "melodyMatch": 0.63,
+        "contour": {
+          "ref": [null, 180.5, 182.25, null, 150],
+          "user": [null, null, 175, 176.75, 120.125],
+          "wordBounds": [0, 2, 4]
+        },
+        "stress": [
+          { "word": "Brown", "ref": 0.9, "user": 0.4 },
+          { "word": "Heat", "ref": 0.3, "user": 0.8 }
+        ],
+        "pauses": [{ "afterWord": 1, "refMs": 0, "userMs": 420 }]
+      },
+      "issues": [
+        {
+          "code": "STRESS_MISMATCH",
+          "wordIndex": 0,
+          "data": { "refWord": "Brown", "userWord": "Heat" }
+        },
+        {
+          "code": "EXTRA_PAUSE",
+          "wordIndex": 1,
+          "data": { "refMs": 0, "userMs": 420 }
+        },
+        {
+          "code": "FINAL_CONTOUR",
+          "data": { "refSlope": -3.5, "userSlope": 1.25 }
+        },
+        { "code": "FLAT_PITCH", "data": { "pitchRange": 0.42 } },
+        {
+          "code": "PITCH_DEVIATION",
+          "wordIndex": 1,
+          "data": { "meanDiffSt": 4.75 }
+        },
+        {
+          "code": "PHONE",
+          "wordIndex": 0,
+          "data": { "refPhones": "ən", "userPhones": "ænd", "similarity": 0.38 }
+        },
+        { "code": "WORD_MISSING", "wordIndex": 2, "data": {} }
+      ],
+      "tips": [
+        {
+          "text": "Nhấn mạnh *Brown*, không phải *Heat*",
+          "issueRef": 0,
+          "source": "template"
+        },
+        {
+          "text": "Giữ nhịp liền mạch, đừng dừng giữa hai từ.",
+          "issueRef": 1,
+          "source": "llm"
+        },
+        {
+          "text": "Hạ giọng ở cuối câu như người nói gốc.",
+          "issueRef": 2,
+          "source": "template"
+        }
+      ]
+    }
+  },
+  {
+    "name": "intonation-only",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ1",
+      "segmentIndex": 0,
+      "attempt": 1,
+      "mode": "intonationOnly",
+      "versions": { "scorer": "p2-0.1.0", "thresholds": "2026-10-06" },
+      "timingMs": { "total": 900 },
+      "scores": {
+        "overall": 0.5,
+        "sound": null,
+        "intonation": 0.5,
+        "rhythm": 0.5
+      },
+      "words": [
+        {
+          "text": "hello",
+          "status": "ref_unclear",
+          "similarity": 0,
+          "start": 0,
+          "end": 0.4
+        },
+        {
+          "text": "world",
+          "status": "missing",
+          "similarity": 0,
+          "start": 0.4,
+          "end": 0.4
+        }
+      ],
+      "prosody": {
+        "speed": 1,
+        "pitchRange": 0,
+        "melodyMatch": 0.5,
+        "contour": { "ref": [], "user": [], "wordBounds": [] },
+        "stress": [],
+        "pauses": []
+      },
+      "issues": [],
+      "tips": []
+    }
+  }
+]
