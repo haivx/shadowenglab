@@ -7,7 +7,7 @@ START ?=
 END ?=
 BUDGET ?=
 
-.PHONY: setup dev dev-api dev-web dev-eval eval smoke contracts
+.PHONY: setup dev dev-api dev-web dev-eval test lint eval smoke contracts contracts-check
 
 # Kiểm tra system dependency (chỉ hướng dẫn, D-25), cài từ lockfile đã duyệt, tải/kiểm tra model.
 setup:
@@ -30,6 +30,19 @@ dev-web:
 dev-eval:
 	pnpm --filter @shadowenglab/eval dev
 
+# Drift gate D-20 chạy trước, rồi vitest và pytest.
+test: contracts-check
+	pnpm -r --if-present test
+	cd services/audio && uv run --frozen pytest
+
+# Một cách gọi duy nhất: ruff chạy từ services/audio để đọc [tool.ruff] của project.
+lint:
+	pnpm exec eslint .
+	pnpm exec prettier --check .
+	pnpm --filter @shadowenglab/contracts exec tsc --noEmit -p tsconfig.json
+	cd services/audio && uv run --frozen ruff check --config pyproject.toml . ../../scripts
+	cd services/audio && uv run --frozen ruff format --check --config pyproject.toml . ../../scripts
+
 # Stub: Phase 4 (EVL-02) hiện thực eval/analyze.py.
 eval:
 	@echo "make eval: stub — Phase 4 (EVL-02) sẽ chạy eval/analyze.py → eval/report.md"
@@ -40,3 +53,6 @@ smoke:
 
 contracts:
 	sh scripts/contracts_gen.sh
+
+contracts-check:
+	sh scripts/contracts_check.sh
