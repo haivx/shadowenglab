@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Segment": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0
+        },
+        "endExtraMs": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Word"
+          }
+        },
+        "translation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "text",
+        "start",
+        "end",
+        "words"
+      ]
+    },
+    "Word": {
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0
+        },
+        "asrProb": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ipa": {
+          "type": "string"
+        },
+        "refConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "prominence": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "i",
+        "text",
+        "start",
+        "end",
+        "asrProb"
+      ]
+    },
+    "Lesson": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "videoId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "durationSec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "thumbnailUrl": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/TimeRange"
+        },
+        "padMs": {
+          "default": 150,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "downloading",
+            "separating",
+            "transcribing",
+            "segmenting",
+            "analyzing",
+            "ready",
+            "failed"
+          ]
+        },
+        "error": {
+          "$ref": "#/$defs/LessonError"
+        },
+        "audioQuality": {
+          "$ref": "#/$defs/AudioQuality"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Segment"
+          }
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "videoId",
+        "title",
+        "durationSec",
+        "range",
+        "status",
+        "segments",
+        "createdAt"
+      ]
+    },
+    "TimeRange": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ]
+    },
+    "LessonError": {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "step",
+        "message"
+      ]
+    },
+    "AudioQuality": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "music"
+          ]
+        },
+        "nonVocalRatio": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "label",
+        "nonVocalRatio"
+      ]
+    }
+  }
+}
