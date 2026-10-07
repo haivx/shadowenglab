@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
-from audio_service import __version__
+from audio_service import __version__, system_status
 from audio_service.config import get_settings
 from audio_service.errors import error_response, install_error_handlers
 from audio_service.lesson import pipeline
@@ -46,8 +46,15 @@ class Health(BaseModel):
     version: str
 
 
-def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
-    """`deps` tiêm stage giả cho test; mặc định dựng stage thật khi app khởi động (lifespan)."""
+def create_app(
+    *, deps: pipeline.PipelineDeps | None = None, warm_up: bool | None = None
+) -> FastAPI:
+    """`deps` tiêm stage giả cho test; mặc định dựng stage thật khi app khởi động (lifespan).
+
+    `warm_up=None` nghĩa là "chỉ bật khi không inject deps": test dùng deps giả không bao giờ
+    nạp model thật (D-18).
+    """
+    run_warm_up = deps is None if warm_up is None else warm_up
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -63,6 +70,9 @@ def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
         app.state.runner = runner
         recover_interrupted()  # D-03: bài dở dang -> failed 'bị gián đoạn', không tự chạy lại
         runner.start()
+        if run_warm_up:
+            # Nạp -> 1 suy luận -> giải phóng từng model dưới model_gate (D-18, banner S1).
+            system_status.start_warm_up(runner.model_gate)
         try:
             yield
         finally:

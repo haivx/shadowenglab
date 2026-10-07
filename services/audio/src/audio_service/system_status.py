@@ -14,6 +14,8 @@ import threading
 from collections.abc import Callable, Mapping
 from typing import Literal
 
+import numpy as np
+
 from audio_service.config import data_root
 from audio_service.contracts_gen import SystemStatus
 from audio_service.models import PPG_ALLOW_PATTERNS, PPG_REPO, WHISPER_REPO
@@ -96,3 +98,101 @@ def build_status(warm_up: WarmUp | None = None) -> SystemStatus:
     if key is not None:
         payload["maskedKey"] = mask_key(key)
     return SystemStatus.model_validate(payload)
+
+
+# --- warm-up -------------------------------------------------------------------------------------
+
+DEMUCS_SAMPLE_RATE = 44100
+ASR_SAMPLE_RATE = 16000
+
+
+def _warm_demucs() -> None:
+    """Nạp Demucs, tách 1 s im lặng, rồi nhả. MPS lỗi thì thử lại một lần trên CPU."""
+    from audio_service.lesson import separate
+
+    silence = np.zeros((2, DEMUCS_SAMPLE_RATE), dtype=np.float32)
+    device = separate.pick_device()
+    separator = separate.load_separator(device)
+    try:
+        try:
+            separate.separate_vocals(silence, DEMUCS_SAMPLE_RATE, separator)
+        except RuntimeError:
+            if device != "mps":
+                raise
+            logger.warning("warm-up Demucs trên MPS lỗi, thử lại trên CPU", exc_info=True)
+            del separator
+            separate.free_accelerator_memory()
+            separator = separate.load_separator("cpu")
+            separate.separate_vocals(silence, DEMUCS_SAMPLE_RATE, separator)
+    finally:
+        del separator
+        separate.free_accelerator_memory()
+
+
+def _warm_whisper() -> None:
+    """Whisper chạy trên 1 s im lặng rồi nhả `ModelHolder` (D-18, Pitfall 2)."""
+    import mlx_whisper
+
+    from audio_service.lesson import separate, transcribe
+
+    try:
+        mlx_whisper.transcribe(
+            np.zeros(ASR_SAMPLE_RATE, dtype=np.float32),
+            path_or_hf_repo=WHISPER_REPO,
+            language="en",
+        )
+    finally:
+        transcribe.release_whisper()
+        separate.free_accelerator_memory()
+
+
+def _warm_wav2vec2() -> None:
+    """Nạp wav2vec2, tính PPG cho 1 s im lặng, rồi nhả."""
+    from audio_service.lesson import features, separate
+
+    ppg = features.load_ppg_model(separate.pick_device())
+    try:
+        features.compute_ppg(np.zeros(ASR_SAMPLE_RATE, dtype=np.float32), ppg)
+    finally:
+        del ppg
+        separate.free_accelerator_memory()
+
+
+def real_loaders() -> dict[str, Loader]:
+    """Mỗi loader = nạp -> 1 suy luận -> giải phóng; import nặng chỉ xảy ra khi loader chạy."""
+    return {"demucs": _warm_demucs, "whisper": _warm_whisper, "wav2vec2": _warm_wav2vec2}
+
+
+def start_warm_up(
+    gate: threading.Lock,
+    loaders: Mapping[str, Loader] | None = None,
+    *,
+    warm_up: WarmUp | None = None,
+) -> threading.Thread:
+    """Chạy warm-up ở thread daemon: từng model có trong cache, theo thứ tự, mỗi cái trong `gate`.
+
+    Giữ `model_gate` nên một job tạo bài chờ warm-up và ngược lại (không bao giờ hai model cùng
+    nằm trong RAM, T-02-34). Loader lỗi -> model đó `missing` + log, các model sau vẫn chạy.
+    """
+    state = warm_up or get_warm_up()
+    run = loaders if loaders is not None else real_loaders()
+
+    def work() -> None:
+        for name in MODEL_ORDER:
+            if state.get(name) != "loading":
+                continue  # thiếu trong cache: không nạp, không tải (D-13)
+            loader = run.get(name)
+            if loader is None:
+                continue
+            try:
+                with gate:
+                    loader()
+            except Exception:
+                logger.exception("warm-up %s lỗi, đánh dấu missing", name)
+                state.set(name, "missing")
+            else:
+                state.set(name, "ready")
+
+    thread = threading.Thread(target=work, name="model-warm-up", daemon=True)
+    thread.start()
+    return thread
