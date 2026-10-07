@@ -81,7 +81,7 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 5/19 plans executed
+**Plans:** 9/19 plans executed
 **UI hint**: yes
 
 Plans:
@@ -95,10 +95,10 @@ Plans:
 - [x] 02-05-PLAN.md — Player machine XState + phím tắt + đo mức âm, test trước UI (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 02-06-PLAN.md — Thư viện + tiến độ: SQLite attempts, GET /lessons, progress, helper đường dẫn (wave 3)
-- [ ] 02-07-PLAN.md — Video: preview, Range, tải lại, H.264/AAC, ADR 0004 bỏ IFrame (wave 3)
-- [ ] 02-08-PLAN.md — S1 thư viện: thẻ 4 trạng thái, JobSteps, Thử lại, banner hệ thống (wave 3)
-- [ ] 02-09-PLAN.md — S3 phát theo câu: video tự host, điều khiển, danh sách câu, phím tắt (wave 3)
+- [x] 02-06-PLAN.md — Thư viện + tiến độ: SQLite attempts, GET /lessons, progress, helper đường dẫn (wave 3)
+- [x] 02-07-PLAN.md — Video: preview, Range, tải lại, H.264/AAC, ADR 0004 bỏ IFrame (wave 3)
+- [x] 02-08-PLAN.md — S1 thư viện: thẻ 4 trạng thái, JobSteps, Thử lại, banner hệ thống (wave 3)
+- [x] 02-09-PLAN.md — S3 phát theo câu: video tự host, điều khiển, danh sách câu, phím tắt (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 02-10-PLAN.md — Lượt ghi backend: chuẩn hoá WAV 16 kHz, VAD, attempts, lưu clip eval (wave 4)
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 5/19 | In Progress | - |
+| 2. P1 · Tạo bài và trình phát | 9/19 | In Progress | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
