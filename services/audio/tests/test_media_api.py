@@ -359,3 +359,74 @@ def test_preview_uses_five_minute_default_for_long_video(data_dir: Path) -> None
     store_lesson(lesson)
     with make_client(MediaFakes(info=long_info)) as client:
         assert preview(client, WATCH_URL).json()["existingLessonId"] == LESSON_ID
+
+
+# ---------------------------------------------------------------- POST /lessons/{id}/video/reload
+
+
+def reload_video(client: TestClient, lesson_id: str = LESSON_ID) -> Any:
+    return client.post(f"/lessons/{lesson_id}/video/reload")
+
+
+def test_reload_redownloads_after_removing_the_old_file(data_dir: Path) -> None:
+    store_lesson(make_lesson())
+    path = write_video()
+    fakes = MediaFakes()
+    with make_client(fakes) as client:
+        res = reload_video(client)
+    assert res.status_code == 204
+    assert res.content == b""
+    assert fakes.download_calls == [VIDEO_ID]
+    assert fakes.file_existed_at_download == [False]  # file cũ đã được gỡ trước khi tải
+    assert path.read_bytes() == b"new video bytes"
+
+
+def test_reload_keeps_cached_audio_and_stems(data_dir: Path) -> None:
+    store_lesson(make_lesson())
+    write_video()
+    wav = video_asset_path(VIDEO_ID, "audio.wav")
+    wav.write_bytes(b"wav")
+    with make_client(MediaFakes()) as client:
+        assert reload_video(client).status_code == 204
+    assert wav.read_bytes() == b"wav"
+
+
+def test_reload_on_not_ready_lesson_is_409_invalid_state(data_dir: Path) -> None:
+    store_lesson(make_lesson(status="queued"))
+    fakes = MediaFakes()
+    with make_client(fakes) as client:
+        res = reload_video(client)
+    assert res.status_code == 409
+    assert res.json() == {"code": "invalid_state", "message": "Bài chưa sẵn sàng."}
+    assert fakes.download_calls == []
+
+
+def test_reload_unknown_or_malformed_lesson_is_404(data_dir: Path) -> None:
+    with make_client(MediaFakes()) as client:
+        assert reload_video(client).status_code == 404
+        assert reload_video(client, "abc").status_code == 404
+
+
+def test_reload_download_error_is_502_and_keeps_the_old_file(data_dir: Path) -> None:
+    store_lesson(make_lesson())
+    path = write_video()
+    fakes = MediaFakes()
+    fakes.download_error = DownloadError("ERROR: HTTP 403 /Users/liam/secret")
+    with make_client(fakes) as client:
+        res = reload_video(client)
+    assert res.status_code == 502
+    assert res.json() == {"code": "video_unavailable", "message": UNAVAILABLE_MSG}
+    assert "403" not in res.text and "/Users" not in res.text
+    assert path.read_bytes() == VIDEO_BYTES  # tải lỗi thì video cũ còn nguyên
+
+
+def test_reload_unexpected_error_is_502_upstream_error_without_leak(data_dir: Path) -> None:
+    store_lesson(make_lesson())
+    write_video()
+    fakes = MediaFakes()
+    fakes.download_error = RuntimeError("ffmpeg exploded /Users/liam/x")
+    with make_client(fakes) as client:
+        res = reload_video(client)
+    assert res.status_code == 502
+    assert res.json()["code"] == "upstream_error"
+    assert "ffmpeg" not in res.text and "/Users" not in res.text
