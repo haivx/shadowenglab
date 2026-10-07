@@ -218,6 +218,152 @@ class WordFlags(BaseModel):
     flags: list[Literal["sound", "stress", "pitch", "pause", "speed"]]
 
 
+class AttemptAck(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    lesson_id: Annotated[str, Field(alias="lessonId")]
+    segment_index: Annotated[int, Field(alias="segmentIndex", ge=0, le=9007199254740991)]
+    attempt: Annotated[int, Field(ge=1, le=9007199254740991)]
+    duration_ms: Annotated[int, Field(alias="durationMs", ge=0, le=9007199254740991)]
+    voiced: bool
+    saved_for_eval: Annotated[bool, Field(alias="savedForEval")]
+
+
+class AppSettings(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    playback_rate: Annotated[float, Field(alias="playbackRate", ge=0.5, le=1.0)]
+    repeat: Literal[1, 2, 3]
+    record_factor: Annotated[float, Field(alias="recordFactor", ge=1.0, le=2.0)]
+    data_dir: Annotated[str, Field(alias="dataDir")]
+    accent: Literal["US"]
+
+
+class VideoPreview(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    video_id: Annotated[str, Field(alias="videoId")]
+    title: str
+    duration_sec: Annotated[float, Field(alias="durationSec", ge=0.0)]
+    channel: str | None = None
+    thumbnail_url: Annotated[str | None, Field(alias="thumbnailUrl")] = None
+    existing_lesson_id: Annotated[str | None, Field(alias="existingLessonId")] = None
+
+
+class CreateLessonRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    url: str
+    start: Annotated[float | None, Field(ge=0.0)] = None
+    end: Annotated[float | None, Field(ge=0.0)] = None
+
+
+class FirstUnpracticedIndex(RootModel[int]):
+    root: Annotated[int, Field(ge=0, le=9007199254740991)]
+
+
+class LessonSummary(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: str
+    video_id: Annotated[str, Field(alias="videoId")]
+    title: str
+    duration_sec: Annotated[float, Field(alias="durationSec", ge=0.0)]
+    thumbnail_url: Annotated[str | None, Field(alias="thumbnailUrl")] = None
+    range: TimeRange
+    pad_ms: Annotated[int, Field(alias="padMs", ge=0, le=9007199254740991)] = 150
+    status: Literal[
+        "queued",
+        "downloading",
+        "separating",
+        "transcribing",
+        "segmenting",
+        "analyzing",
+        "ready",
+        "failed",
+    ]
+    error: LessonError | None = None
+    audio_quality: Annotated[AudioQuality | None, Field(alias="audioQuality")] = None
+    created_at: Annotated[str, Field(alias="createdAt")]
+
+
+class SegmentProgress(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    segment_index: Annotated[int, Field(alias="segmentIndex", ge=0, le=9007199254740991)]
+    attempts: Annotated[int, Field(ge=0, le=9007199254740991)]
+    voiced_attempts: Annotated[int, Field(alias="voicedAttempts", ge=0, le=9007199254740991)]
+
+
+class ModelStatuses(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    demucs: Literal["missing", "loading", "ready"]
+    whisper: Literal["missing", "loading", "ready"]
+    wav2vec2: Literal["missing", "loading", "ready"]
+
+
+class OpenAiKeyCheckRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    api_key: Annotated[str | None, Field(alias="apiKey")] = None
+
+
+class OpenAiKeyCheckResult(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    valid: bool | None
+    saved: bool
+    masked_key: Annotated[str | None, Field(alias="maskedKey")] = None
+    reason: Literal["invalid", "network", "no_key"] | None = None
+
+
+class UpdateSegmentTextRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    text: Annotated[str, Field(max_length=500, min_length=1)]
+
+
+class ApiError(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Literal[
+        "invalid_request",
+        "invalid_url",
+        "channel_url",
+        "video_unavailable",
+        "live_video",
+        "invalid_range",
+        "duplicate_lesson",
+        "not_found",
+        "invalid_state",
+        "invalid_segment",
+        "unsupported_media",
+        "payload_too_large",
+        "recording_too_long",
+        "busy",
+        "no_openai_key",
+        "upstream_error",
+        "network_error",
+        "invalid_settings",
+        "forbidden_origin",
+        "internal_error",
+    ]
+    message: str
+    lesson_id: Annotated[str | None, Field(alias="lessonId")] = None
+
+
 class Segment(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -358,6 +504,39 @@ class Label(BaseModel):
     note: str | None = None
     duration_ms: Annotated[int, Field(alias="durationMs", ge=0, le=9007199254740991)]
     created_at: Annotated[str, Field(alias="createdAt")]
+
+
+class LessonListItem(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    lesson: LessonSummary
+    segment_count: Annotated[int, Field(alias="segmentCount", ge=0, le=9007199254740991)]
+    practiced_count: Annotated[int, Field(alias="practicedCount", ge=0, le=9007199254740991)]
+    first_unpracticed_index: Annotated[
+        FirstUnpracticedIndex | None, Field(alias="firstUnpracticedIndex")
+    ]
+
+
+class LessonProgress(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    lesson_id: Annotated[str, Field(alias="lessonId")]
+    segments: list[SegmentProgress]
+    first_unpracticed_index: Annotated[
+        FirstUnpracticedIndex | None, Field(alias="firstUnpracticedIndex")
+    ]
+
+
+class SystemStatus(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    models: ModelStatuses
+    has_key: Annotated[bool, Field(alias="hasKey")]
+    masked_key: Annotated[str | None, Field(alias="maskedKey")] = None
+    active_data_dir: Annotated[str, Field(alias="activeDataDir")]
 
 
 class Issue(
