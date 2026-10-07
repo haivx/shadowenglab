@@ -212,3 +212,60 @@ def test_bad_lesson_id_never_reaches_sql(data_dir: Path) -> None:
 )
 def test_first_unpracticed_index(count: int, practiced: set[int], expected: int | None) -> None:
     assert db.first_unpracticed_index(count, practiced) == expected
+
+
+# --- GET /lessons/{id}/progress (02-06 Task 2) ---------------------------------------------
+
+
+def test_progress_lists_only_attempted_segments(client: TestClient) -> None:
+    store(make_lesson(READY_ID, created_at="2026-10-06T08:00:00.000Z"))
+    db.insert_attempt(READY_ID, 0, duration_ms=1000, voiced=True)
+    db.insert_attempt(READY_ID, 0, duration_ms=100, voiced=False)
+    db.insert_attempt(READY_ID, 1, duration_ms=100, voiced=False)
+    res = client.get(f"/lessons/{READY_ID}/progress")
+    assert res.status_code == 200
+    assert res.json() == {
+        "lessonId": READY_ID,
+        "segments": [
+            {"segmentIndex": 0, "attempts": 2, "voicedAttempts": 1},
+            {"segmentIndex": 1, "attempts": 1, "voicedAttempts": 0},
+        ],
+        "firstUnpracticedIndex": 1,
+    }
+
+
+def test_progress_without_attempts_opens_at_zero(client: TestClient) -> None:
+    store(make_lesson(READY_ID, created_at="2026-10-06T08:00:00.000Z"))
+    body = client.get(f"/lessons/{READY_ID}/progress").json()
+    assert body == {"lessonId": READY_ID, "segments": [], "firstUnpracticedIndex": 0}
+
+
+def test_progress_all_practiced_gives_null(client: TestClient) -> None:
+    store(make_lesson(READY_ID, created_at="2026-10-06T08:00:00.000Z", segments=2))
+    for index in (0, 1):
+        db.insert_attempt(READY_ID, index, duration_ms=1000, voiced=True)
+    assert client.get(f"/lessons/{READY_ID}/progress").json()["firstUnpracticedIndex"] is None
+
+
+def test_progress_of_lesson_not_ready_has_null_first_index(client: TestClient) -> None:
+    store(
+        make_lesson(FAILED_ID, created_at="2026-10-06T08:00:00.000Z", status="queued", segments=0)
+    )
+    body = client.get(f"/lessons/{FAILED_ID}/progress").json()
+    assert body == {"lessonId": FAILED_ID, "segments": [], "firstUnpracticedIndex": None}
+
+
+@pytest.mark.parametrize(
+    "bad_id", [EMPTY_ID, "abc", "01hzx3y7q8k2m4n6p8r0s2t4v6", "..%2Fetc", "%2e%2e%2fpasswd"]
+)
+def test_progress_unknown_or_malformed_id_is_404_api_error(client: TestClient, bad_id: str) -> None:
+    res = client.get(f"/lessons/{bad_id}/progress")
+    assert res.status_code == 404
+    assert res.json() == {"code": "not_found", "message": "Không tìm thấy bài."}
+
+
+def test_progress_of_unreadable_lesson_json_is_404(client: TestClient) -> None:
+    path = lesson_json_path(EMPTY_ID)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not json", encoding="utf-8")
+    assert client.get(f"/lessons/{EMPTY_ID}/progress").status_code == 404
