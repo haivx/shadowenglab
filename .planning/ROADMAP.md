@@ -81,13 +81,13 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 19 plans
+**Plans:** 2/19 plans executed
 **UI hint**: yes
 
 Plans:
 **Wave 1**
-- [ ] 02-01-PLAN.md — Cổng contract: Liam duyệt shape bổ sung, schema SQLite attempts, mặc định Q7–Q10; hiện thực Zod → JSON Schema → pydantic (wave 1)
-- [ ] 02-02-PLAN.md — Cổng dependency: khai báo package, resolve lockfile, Liam duyệt, cài frozen (wave 1)
+- [x] 02-01-PLAN.md — Cổng contract: Liam duyệt shape bổ sung, schema SQLite attempts, mặc định Q7–Q10; hiện thực Zod → JSON Schema → pydantic (wave 1)
+- [x] 02-02-PLAN.md — Cổng dependency: khai báo package, resolve lockfile, Liam duyệt, cài frozen (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 02-03-PLAN.md — Backend tracer: job runner tạo bài nền (pool tải + worker model FIFO), retry, gián đoạn, ranh giới API (wave 2)
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 0/0 | Not started | - |
+| 2. P1 · Tạo bài và trình phát | 2/19 | In Progress | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
