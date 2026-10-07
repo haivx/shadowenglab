@@ -83,6 +83,7 @@ class Fakes:
         words: list[tuple[str, float, float, float]] | None = None,
         thumbnail: str | None = None,
         duration: float = DURATION,
+        vocab_error: Exception | None = None,
     ) -> None:
         self.calls: list[str] = []
         self.transcribe_args: list[tuple[int, float]] = []
@@ -90,6 +91,7 @@ class Fakes:
         self.words = _WORDS if words is None else words
         self.thumbnail = thumbnail
         self.duration = duration
+        self.vocab_error = vocab_error
 
     def deps(self) -> PipelineDeps:
         return PipelineDeps(
@@ -103,6 +105,7 @@ class Fakes:
             extract_f0=self.extract_f0,
             frame_energy=self.frame_energy,
             free_memory=lambda: self.calls.append("free_memory"),
+            load_vocab=self.load_vocab,
         )
 
     def fetch_info(self, video_id: str) -> VideoInfo:
@@ -138,8 +141,19 @@ class Fakes:
         self.calls.append("load_ppg")
         return object()
 
+    def load_vocab(self) -> dict[int, str]:
+        self.calls.append("load_vocab")
+        if self.vocab_error is not None:
+            raise self.vocab_error
+        return {0: "<pad>", 1: "<s>", 2: "</s>", 3: "<unk>", 4: "h"}
+
     def compute_ppg(self, clip: np.ndarray, _model: object) -> np.ndarray:
-        return np.full((max(len(clip) // 320, 1), 5), 0.2, dtype=np.float32)
+        """Toàn blank, một đỉnh tự tin ở frame 15: rơi vào từ 0 của mỗi câu (không vào từ 1)."""
+        ppg = np.zeros((max(len(clip) // 320, 1), 5), dtype=np.float32)
+        ppg[:, 0] = 1.0
+        if ppg.shape[0] > 15:
+            ppg[15] = [0.02, 0.02, 0.02, 0.02, 0.92]
+        return ppg
 
     def extract_f0(self, clip: np.ndarray) -> np.ndarray:
         return np.zeros(max(len(clip) // 160, 1), dtype=np.float32)
@@ -241,6 +255,27 @@ def test_one_npz_per_segment_with_expected_keys_and_padded_window(data_dir: Path
             assert float(npz["f0_hop_s"]) == 0.01
             assert float(npz["ppg_fps"]) == 50.0
     assert not segment_features_path(run.lesson.id, 2).exists()
+
+
+def test_confident_words_get_ipa_from_the_ppg_and_the_rest_have_no_key(data_dir: Path) -> None:
+    run = run_lesson(URL, deps=Fakes().deps())
+
+    raw = json.loads(run.lesson_path.read_text(encoding="utf-8"))
+    for seg in raw["segments"]:
+        assert seg["words"][0]["ipa"] == "h"
+        assert all("ipa" not in word for word in seg["words"][1:])  # vắng mặt, không phải null
+    assert "null" not in run.lesson_path.read_text(encoding="utf-8")
+    Lesson.model_validate(raw)
+
+
+def test_missing_vocab_degrades_to_no_ipa_without_failing_the_lesson(data_dir: Path) -> None:
+    fakes = Fakes(vocab_error=FileNotFoundError("vocab.json not cached"))
+
+    run = run_lesson(URL, deps=fakes.deps())
+
+    assert run.lesson.status == "ready"
+    raw = json.loads(run.lesson_path.read_text(encoding="utf-8"))
+    assert all("ipa" not in word for seg in raw["segments"] for word in seg["words"])
 
 
 def test_range_offsets_the_words_and_limits_the_whisper_input(data_dir: Path) -> None:
