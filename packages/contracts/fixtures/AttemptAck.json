@@ -1,0 +1,24 @@
+[
+  {
+    "name": "voiced",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "segmentIndex": 0,
+      "attempt": 1,
+      "durationMs": 2350,
+      "voiced": true,
+      "savedForEval": false
+    }
+  },
+  {
+    "name": "silent-saved-for-eval",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "segmentIndex": 12,
+      "attempt": 3,
+      "durationMs": 0,
+      "voiced": false,
+      "savedForEval": true
+    }
+  }
+]

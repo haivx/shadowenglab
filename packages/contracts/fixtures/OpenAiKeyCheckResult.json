@@ -1,0 +1,23 @@
+[
+  {
+    "name": "valid-saved",
+    "data": { "valid": true, "saved": true, "maskedKey": "sk-…abcd" }
+  },
+  {
+    "name": "invalid",
+    "data": { "valid": false, "saved": false, "reason": "invalid" }
+  },
+  {
+    "name": "network-unknown",
+    "data": {
+      "valid": null,
+      "saved": true,
+      "maskedKey": "sk-…abcd",
+      "reason": "network"
+    }
+  },
+  {
+    "name": "no-key",
+    "data": { "valid": false, "saved": false, "reason": "no_key" }
+  }
+]
