@@ -189,3 +189,114 @@ def test_unknown_lesson_is_404_not_found(client: TestClient, tmp_path: Path) -> 
 
     assert res.status_code == 404
     assert res.json()["code"] == "not_found"
+
+
+# --- Task 2: whitelist container, giới hạn kích thước / thời lượng ----------------------------
+
+MAX_BYTES = 10 * 1024 * 1024
+WEBM_MAGIC = b"\x1aE\xdf\xa3"
+
+
+def assert_api_error(res: Any, status: int, code: str, data_dir: Path) -> None:
+    assert res.status_code == status
+    body = res.json()
+    assert set(body) <= {"code", "message", "lessonId"}
+    assert body["code"] == code
+    assert str(data_dir) not in res.text
+    assert "ffmpeg" not in res.text.lower()
+    assert tmp_files(data_dir) == []
+
+
+def test_m3u8_playlist_is_415_and_ffmpeg_never_runs(
+    client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_a: object, **_kw: object) -> None:
+        raise AssertionError("ffmpeg must not run for an unsniffable upload")
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    playlist = b"#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:1,\nfile:///etc/hosts\n"
+
+    res = post(client, playlist, filename="rec.webm")
+
+    assert_api_error(res, 415, "unsupported_media", data_dir)
+
+
+def test_empty_upload_is_415(client: TestClient, data_dir: Path) -> None:
+    assert_api_error(post(client, b""), 415, "unsupported_media", data_dir)
+
+
+def test_plain_wav_is_415(client: TestClient, data_dir: Path, tmp_path: Path) -> None:
+    wav = tmp_path / "plain.wav"
+    sf.write(wav, voice_like(), SR, subtype="PCM_16")
+
+    res = post(client, wav.read_bytes(), filename="rec.wav")
+
+    assert_api_error(res, 415, "unsupported_media", data_dir)
+
+
+def test_webm_magic_with_garbage_body_is_415_without_stderr(
+    client: TestClient, data_dir: Path
+) -> None:
+    res = post(client, WEBM_MAGIC + b"\x00garbage" * 200)
+
+    assert_api_error(res, 415, "unsupported_media", data_dir)
+
+
+def test_body_over_10_mb_is_413(client: TestClient, data_dir: Path) -> None:
+    res = post(client, WEBM_MAGIC + b"\x00" * (MAX_BYTES + 1024))
+
+    assert_api_error(res, 413, "payload_too_large", data_dir)
+
+
+def test_chunked_body_over_10_mb_is_413_while_streaming(client: TestClient, data_dir: Path) -> None:
+    boundary = "x-boundary"
+    head = (
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="audio"; filename="rec.webm"\r\n'
+        "Content-Type: application/octet-stream\r\n\r\n"
+    ).encode()
+    tail = f"\r\n--{boundary}--\r\n".encode()
+
+    def body() -> Iterator[bytes]:
+        yield head + WEBM_MAGIC
+        for _ in range(MAX_BYTES // 65536 + 2):
+            yield b"\x00" * 65536
+        yield tail
+
+    res = client.post(
+        f"/lessons/{LESSON_ID}/segments/0/attempts",
+        content=body(),
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+    )
+
+    assert_api_error(res, 413, "payload_too_large", data_dir)
+
+
+def test_recording_longer_than_60_s_is_422(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = post(client, webm(silence(65.0), tmp_path, "long.webm"))
+
+    assert_api_error(res, 422, "recording_too_long", data_dir)
+
+
+def test_failed_uploads_do_not_create_an_attempt(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    post(client, b"")
+    post(client, webm(silence(65.0), tmp_path, "long.webm"))
+
+    ok = post(client, webm(voice_like(), tmp_path))
+
+    assert ok.json()["attempt"] == 1
+
+
+def test_very_short_recording_normalizes_and_is_not_voiced(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = post(client, webm(voice_like(0.2), tmp_path, "short.webm"))
+
+    assert res.status_code == 201
+    assert res.json()["voiced"] is False
+    assert res.json()["durationMs"] <= 260
+    assert tmp_files(data_dir) == []
