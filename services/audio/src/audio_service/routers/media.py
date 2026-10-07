@@ -14,14 +14,14 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 from yt_dlp.utils import DownloadError
 
 from audio_service.config import InvalidIdError, video_asset_path
 from audio_service.contracts_gen import VideoPreview
 from audio_service.errors import ApiErrorException
-from audio_service.lesson import pipeline, store
+from audio_service.lesson import download, pipeline, store
 from audio_service.lesson.download import LIVE_STATUSES, VideoInfo
 from audio_service.lesson.urls import (
     MAX_URL_LEN,
@@ -118,3 +118,24 @@ def get_lesson_video(lesson_id: str) -> FileResponse:
     if not path.is_file():
         raise ApiErrorException(404, "not_found", "Không tìm thấy file video của bài này.")
     return FileResponse(path, media_type="video/mp4")
+
+
+@router.post("/lessons/{lesson_id}/video/reload", status_code=204)
+def reload_lesson_video(lesson_id: str, request: Request) -> Response:
+    """Nút "Tải lại video" ở S3 (D-17): xoá video.mp4 rồi tải lại. Đồng bộ, UI hiện chờ."""
+    try:
+        lesson = store.load_lesson(lesson_id)
+    except (InvalidIdError, FileNotFoundError, ValidationError, UnicodeDecodeError):
+        raise ApiErrorException(404, "not_found", "Không tìm thấy bài.") from None
+    if lesson.status != "ready":
+        raise ApiErrorException(409, "invalid_state", "Bài chưa sẵn sàng.")
+
+    deps: pipeline.PipelineDeps = request.app.state.deps
+    try:
+        download.reload_video(lesson.video_id, deps.download_video)
+    except DownloadError:
+        raise ApiErrorException(502, "video_unavailable", VIDEO_UNAVAILABLE_MESSAGE) from None
+    except Exception:
+        logger.exception("tải lại video %s lỗi", lesson.video_id)
+        raise ApiErrorException(502, "upstream_error", UPSTREAM_MESSAGE) from None
+    return Response(status_code=204)

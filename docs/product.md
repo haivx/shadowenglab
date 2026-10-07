@@ -76,7 +76,7 @@ App chính gồm 7 module. Toàn bộ UI và trình phát chạy phía client v�
 
 ### M2. Trình phát theo câu
 
-- Phát video tự host bằng thẻ `<video>` (file tải bằng `yt-dlp`). Dùng YouTube IFrame API làm dự phòng trong lúc chờ tải xong.
+- Phát video tự host bằng thẻ `<video>` (file H.264/AAC tải bằng `yt-dlp`, backend phục vụ có hỗ trợ Range để seek). Không dùng YouTube IFrame: bài chỉ mở khi đã sẵn sàng (`video.mp4` đã có); file thiếu hoặc hỏng thì hiện lỗi kèm nút "Tải lại video" (ADR 0004).
 - State machine: `idle → playing → recording → reviewing`.
 - Điều khiển: câu trước, phát lại, phát, câu sau, tốc độ (0.75x, 1x…), số lần lặp, thời gian ghi âm (+50% độ dài câu).
 - Danh sách câu bên phải có highlight câu đang phát. Nút "Sửa" để chỉnh text câu.
@@ -461,7 +461,7 @@ Step 1 khoảng 11 tuần làm solo cùng Claude Code, Step 2 thêm 3–4 tuần
 | Dự án cá nhân, không thương mại hoá, chạy local | Học cá nhân và làm portfolio. Cho phép lấy toàn bộ nguồn từ YouTube |
 | Chấm hoàn toàn theo audio gốc, bỏ từ điển | Mục tiêu là bắt chước chính người nói, kể cả weak form và nuốt âm |
 | PPG + DTW là bộ chấm âm chính. Chuỗi phone chỉ để giải thích | So phân phối xác suất thì dễ dãi ở những chỗ bản gốc mơ hồ, không cần đáp án cứng |
-| Tự host video, IFrame API làm dự phòng | Seek chính xác, không quảng cáo, dùng chung file nguồn với pipeline chấm |
+| Tự host video (không dùng IFrame, ADR 0004) | Seek chính xác, không quảng cáo, dùng chung file nguồn với pipeline chấm |
 | Không dùng model audio của LLM để chấm điểm | Không nhất quán, hay bịa lỗi |
 | LLM chỉ viết gợi ý từ JSON lỗi | Gợi ý luôn bám sát số liệu đo được |
 | App eval: 2 người chấm toàn bộ, không đồng bộ | Có số liệu đồng thuận trên mọi clip, không cần chia phần |

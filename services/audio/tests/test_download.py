@@ -138,7 +138,7 @@ def test_format_prefers_avc1_mp4a_and_keeps_old_selector_as_fallback() -> None:
     assert fmt.endswith("/bv*[height<=480]+ba/b[height<=480]/b")
 
 
-# ------------------------------------------------------------------ ffprobe / ffmpeg (no real binaries)
+# ----------------------------------------------------------- ffprobe / ffmpeg (không binary thật)
 
 
 class Completed:
@@ -234,7 +234,7 @@ def test_ensure_h264_failure_keeps_original_and_leaves_no_temp_file(
     assert sorted(p.name for p in tmp_path.iterdir()) == ["video.mp4"]
 
 
-# ------------------------------------------------------------------ download_video + khoá theo video
+# ------------------------------------------------------------ download_video + khoá theo video
 
 
 class FakeDownloader:

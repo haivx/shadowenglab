@@ -38,7 +38,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 ### Trình phát (PLY) — M2, F2
 
-- [ ] **PLY-01**: S3 phát video tự host bằng thẻ `<video>`; YouTube IFrame API làm dự phòng khi file chưa tải xong
+- [ ] **PLY-01**: S3 phát video tự host bằng thẻ `<video>` (bài chỉ mở khi đã sẵn sàng; không dùng YouTube IFrame, ADR 0004)
 - [ ] **PLY-02**: Trình phát chạy bằng state machine XState (`idle → playing → recording → scoring → reviewing` cùng nhánh lỗi, thử lại) ở file riêng, có test cho các transition chính trước khi gắn UI
 - [ ] **PLY-03**: Liam phát câu mẫu có đệm 100–200 ms, lặp ×1/×2/×3 và tốc độ theo cài đặt; điều khiển câu trước, phát lại, phát, câu sau
 - [ ] **PLY-04**: S3 mở ở câu đầu tiên chưa tập; danh sách câu bên phải highlight câu hiện tại, mỗi câu có chấm màu theo điểm tốt nhất; nút "Sửa" để chỉnh text câu
