@@ -1,14 +1,16 @@
 "use client";
 
 import { useActorRef, useSelector } from "@xstate/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppSettings,
   Lesson,
   LessonProgress,
 } from "@shadowenglab/contracts";
+import { PlayerControls } from "@/components/PlayerControls";
+import { PracticeHeader } from "@/components/PracticeHeader";
+import { TranscriptList } from "@/components/TranscriptList";
 import { VideoPane } from "@/components/VideoPane";
-import { Button } from "@/components/ui/button";
 import { makePlaySample, type PlayableLesson } from "@/lib/player/playRange";
 import { playerMachine, type RepeatCount } from "@/lib/player/playerMachine";
 import { useLesson, useLessonProgress, useSettings } from "@/lib/queries";
@@ -118,18 +120,35 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     },
   });
   const snapshot = useSelector(actorRef, (state) => state);
-  const index = snapshot.context.segmentIndex;
+  const [videoReady, setVideoReady] = useState(false);
+
+  const practiced = useMemo(
+    () =>
+      new Set(
+        (progress?.segments ?? [])
+          .filter((item) => item.voicedAttempts >= 1)
+          .map((item) => item.segmentIndex),
+      ),
+    [progress],
+  );
+
+  const { context } = snapshot;
+  const index = context.segmentIndex;
   const segment = lesson.segments[index];
   if (!segment) return null;
 
-  const playing = snapshot.value === "playing";
-
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="flex flex-1 flex-wrap items-stretch">
+    <div className="flex h-screen flex-col">
+      <PracticeHeader
+        title={lesson.title}
+        total={lesson.segments.length}
+        currentIndex={index}
+        practiced={practiced}
+      />
+      <div className="flex min-h-0 flex-1 flex-wrap items-stretch overflow-y-auto min-[1160px]:flex-nowrap min-[1160px]:overflow-hidden">
         <aside
           aria-label="Video và transcript"
-          className="flex min-w-[520px] flex-[0_1_600px] flex-col border-r border-border bg-[color:var(--slate-2)]"
+          className="flex min-w-[520px] flex-[0_1_600px] flex-col border-r border-border bg-[color:var(--slate-2)] min-[1160px]:min-h-0"
         >
           <VideoPane
             lessonId={lesson.id}
@@ -137,19 +156,29 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             startSec={segment.start}
             endSec={segment.end}
             sentenceNumber={index + 1}
+            onReadyChange={setVideoReady}
           />
-          <div className="bg-card p-4">
-            <Button
-              variant="solid"
-              className="w-full"
-              onClick={() => actorRef.send({ type: playing ? "STOP" : "PLAY" })}
-            >
-              Nghe câu mẫu
-            </Button>
-          </div>
+          <PlayerControls
+            stateValue={snapshot.value}
+            segmentIndex={index}
+            segmentCount={context.segmentCount}
+            rate={context.rate}
+            repeat={context.repeat}
+            recordFactor={context.recordFactor}
+            videoReady={videoReady}
+            send={actorRef.send}
+          />
+          <TranscriptList
+            segments={lesson.segments}
+            currentIndex={index}
+            practiced={practiced}
+            onSelect={(next) => actorRef.send({ type: "GOTO", index: next })}
+          />
         </aside>
-        <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9">
-          <span className="text-[13px] font-bold">Câu {index + 1}</span>
+        <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9 min-[1160px]:overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
+            <span className="font-bold text-foreground">Câu {index + 1}</span>
+          </div>
           <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
             {segment.text}
           </p>
