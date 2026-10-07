@@ -81,8 +81,40 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans**: TBD
+**Plans:** 19 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+- [ ] 02-01-PLAN.md — Cổng contract: Liam duyệt shape bổ sung, schema SQLite attempts, mặc định Q7–Q10; hiện thực Zod → JSON Schema → pydantic (wave 1)
+- [ ] 02-02-PLAN.md — Cổng dependency: khai báo package, resolve lockfile, Liam duyệt, cài frozen (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 02-03-PLAN.md — Backend tracer: job runner tạo bài nền (pool tải + worker model FIFO), retry, gián đoạn, ranh giới API (wave 2)
+- [ ] 02-04-PLAN.md — Web tracer: client API Zod + TanStack Query, token/font, shadcn primitives, AppHeader (wave 2)
+- [ ] 02-05-PLAN.md — Player machine XState + phím tắt + đo mức âm, test trước UI (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 02-06-PLAN.md — Thư viện + tiến độ: SQLite attempts, GET /lessons, progress, helper đường dẫn (wave 3)
+- [ ] 02-07-PLAN.md — Video: preview, Range, tải lại, H.264/AAC, ADR 0004 bỏ IFrame (wave 3)
+- [ ] 02-08-PLAN.md — S1 thư viện: thẻ 4 trạng thái, JobSteps, Thử lại, banner hệ thống (wave 3)
+- [ ] 02-09-PLAN.md — S3 phát theo câu: video tự host, điều khiển, danh sách câu, phím tắt (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 02-10-PLAN.md — Lượt ghi backend: chuẩn hoá WAV 16 kHz, VAD, attempts, lưu clip eval (wave 4)
+- [ ] 02-11-PLAN.md — Trạng thái hệ thống, Settings, OpenAI key, warm-up nạp → giải phóng (wave 4)
+- [ ] 02-12-PLAN.md — Pipeline: IPA từ PPG, tách câu D-21, tách giọng theo đoạn, đo 5 phút (wave 4)
+- [ ] 02-13-PLAN.md — S2 tạo bài: preview, lỗi link, RangePicker (wave 4)
+- [ ] 02-14-PLAN.md — S3 ghi âm: Lượt của bạn, upload, nghe so sánh, không tiếng/lỗi, lưu clip eval (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 02-15-PLAN.md — Backend Sửa câu + Mất chữ cuối? (tính lại feature + IPA dưới cổng model) (wave 5)
+- [ ] 02-16-PLAN.md — Dịch câu: Liam chọn model (D-23), httpx → OpenAI, cache (wave 5)
+- [ ] 02-17-PLAN.md — S8 Settings: key, mặc định luyện tập, micro, model và thư mục dữ liệu (wave 5)
+- [ ] 02-18-PLAN.md — S3 công cụ câu: IPA, Dịch, Sửa câu, Mất chữ cuối? (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 02-19-PLAN.md — make smoke-jobs (2 bài không chặn, không key), đo 5 phút, ADR 0005, checklist UAT (wave 6)
 
 **Notes**:
 - Phạm vi (seed): M0 cài đặt + Settings (S8), M1 tạo bài và tách câu (S1, S2, job nền có tiến độ từng bước), M2 trình phát theo câu với XState (S3 phần trái + thanh điều khiển), M3 ghi âm và chuẩn hoá WAV 16 kHz mono, IPA nhận dạng từ audio mẫu. Flow F0, F1, F2 (đến bước ghi âm).
