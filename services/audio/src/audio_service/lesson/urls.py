@@ -14,6 +14,7 @@ VIDEO_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
 MAX_URL_LEN = 2048
 
 _PATH_PREFIXES = ("/shorts/", "/embed/", "/live/")
+_CHANNEL_PREFIXES = ("/@", "/channel/", "/c/", "/user/")
 
 
 class InvalidYoutubeUrl(ValueError):
@@ -75,4 +76,24 @@ def canonical_watch_url(video_id: str) -> str:
 
 
 def is_channel_url(url: str) -> bool:
-    raise NotImplementedError
+    """True khi `url` là link kênh YouTube (`/@handle`, `/channel/`, `/c/`, `/user/`).
+
+    Cùng vệ sinh với `parse_youtube_url` (http(s), host allow-list, không user/cổng/khoảng trắng)
+    để một link kênh luôn được báo `channel_url` thay vì `invalid_url`. Hàm thuần, không mạng.
+    """
+    if len(url) > MAX_URL_LEN:
+        return False
+    url = url.strip()
+    if not url or any(ch.isspace() or not ch.isprintable() for ch in url) or "\\" in url:
+        return False
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or "@" in parts.netloc or port is not None:
+        return False
+    # youtu.be chỉ có link video ngắn; link kênh chỉ tồn tại trên các host youtube.com.
+    if parts.hostname not in ALLOWED_HOSTS or parts.hostname == "youtu.be":
+        return False
+    return parts.path.startswith(_CHANNEL_PREFIXES)

@@ -21,6 +21,8 @@ from audio_service.lesson.urls import canonical_watch_url
 # Ảnh/âm thanh chỉ cần cho luyện nói: giữ 480p để tải nhanh. `bv*+ba` rồi mới đến luồng gộp sẵn.
 _FORMAT = "bv*[height<=480]+ba/b[height<=480]/b"
 
+LIVE_STATUSES = frozenset({"is_live", "is_upcoming"})
+
 
 @dataclass(frozen=True)
 class VideoInfo:
@@ -28,6 +30,11 @@ class VideoInfo:
     title: str
     duration_sec: float
     thumbnail_url: str | None
+    channel: str | None = None
+    live_status: str | None = (
+        None  # yt-dlp: not_live | is_live | is_upcoming | was_live | post_live
+    )
+    availability: str | None = None  # yt-dlp: public | unlisted | private | needs_auth | ...
 
 
 def _base_opts() -> dict[str, Any]:
@@ -55,19 +62,34 @@ def fetch_info(video_id: str) -> VideoInfo:
             title=str(cached["title"]),
             duration_sec=float(cached["durationSec"]),
             thumbnail_url=cached.get("thumbnailUrl"),
+            channel=cached.get("channel"),
+            live_status=cached.get("liveStatus"),
+            availability=cached.get("availability"),
         )
 
     with yt_dlp.YoutubeDL(_base_opts()) as ydl:
         raw = ydl.extract_info(canonical_watch_url(video_id), download=False)
-    if not raw or raw.get("duration") is None:
+    if not raw:
+        raise RuntimeError("yt-dlp không trả về thông tin video")
+
+    live_status = raw.get("live_status") or None
+    is_live = live_status in LIVE_STATUSES
+    if raw.get("duration") is None and not is_live:
         raise RuntimeError("yt-dlp không trả về thời lượng video")
 
     info = VideoInfo(
         video_id=video_id,
         title=str(raw.get("title") or video_id),
-        duration_sec=float(raw["duration"]),
+        # Livestream / sắp phát chưa có thời lượng: để 0, router xem trước báo `live_video`.
+        duration_sec=float(raw["duration"]) if raw.get("duration") is not None else 0.0,
         thumbnail_url=raw.get("thumbnail") or None,
+        channel=raw.get("channel") or raw.get("uploader") or None,
+        live_status=live_status,
+        availability=raw.get("availability") or None,
     )
+    if is_live:
+        return info  # trạng thái live đổi theo thời gian: không cache
+
     payload: dict[str, object] = {
         "videoId": video_id,
         "title": info.title,
@@ -75,6 +97,12 @@ def fetch_info(video_id: str) -> VideoInfo:
     }
     if info.thumbnail_url is not None:
         payload["thumbnailUrl"] = info.thumbnail_url
+    if info.channel is not None:
+        payload["channel"] = info.channel
+    if info.live_status is not None:
+        payload["liveStatus"] = info.live_status
+    if info.availability is not None:
+        payload["availability"] = info.availability
     write_json_atomic(path, payload)
     return info
 
