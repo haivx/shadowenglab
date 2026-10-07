@@ -11,6 +11,7 @@ container chỉ nhận webm/mp4 theo magic bytes, ffmpeg chạy với `-f` tư�
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -23,7 +24,8 @@ from fastapi.routing import APIRoute
 from starlette.types import Message
 
 from audio_service import db
-from audio_service.config import InvalidIdError, tmp_dir
+from audio_service.config import InvalidIdError, eval_clips_dir, tmp_dir
+from audio_service.contract_io import write_json_atomic
 from audio_service.contracts_gen import AttemptAck, Lesson
 from audio_service.errors import ApiErrorException
 from audio_service.lesson import audio_io, normalize, store, vad
@@ -137,6 +139,48 @@ def _normalize(upload: UploadFile, workdir: Path) -> tuple[Path, int, bool]:
     return wav, duration_ms, vad.is_voiced(mono)
 
 
+def _ack(
+    lesson_id: str, index: int, attempt: int, duration_ms: int, voiced: bool, saved: bool
+) -> AttemptAck:
+    return AttemptAck.model_validate(
+        {
+            "lessonId": lesson_id,
+            "segmentIndex": index,
+            "attempt": attempt,
+            "durationMs": duration_ms,
+            "voiced": voiced,
+            "savedForEval": saved,
+        }
+    )
+
+
+def _store_eval_clip(lesson: Lesson, index: int, attempt: int, wav_path: Path) -> None:
+    """Chép WAV đã chuẩn hoá vào `eval_clips/` kèm sidecar JSON (D-09, REC-04).
+
+    Tên file chỉ dựng từ giá trị đã kiểm (ULID của bài đã load, số nguyên), không bao giờ từ tên
+    file người dùng gửi (T-02-28). WAV ghi qua `.part` rồi mới đổi tên, sau sidecar, nên không có
+    clip nào xuất hiện mà thiếu sidecar.
+    """
+    stem = f"{lesson.id}_{index:04d}_{attempt:02d}"
+    clips = eval_clips_dir()
+    wav = clips / f"{stem}.wav"
+    part = clips / f"{stem}.wav.part"
+    try:
+        shutil.copyfile(wav_path, part)
+        write_json_atomic(
+            clips / f"{stem}.json",
+            {
+                "lessonId": lesson.id,
+                "segmentIndex": index,
+                "attempt": attempt,
+                "text": lesson.segments[index].text,
+            },
+        )
+        os.replace(part, wav)
+    finally:
+        part.unlink(missing_ok=True)
+
+
 @router.post(
     "/lessons/{lesson_id}/segments/{index}/attempts",
     status_code=201,
@@ -152,18 +196,33 @@ def create_attempt(
     lesson = _ready_lesson(lesson_id, index)
     workdir = Path(tempfile.mkdtemp(dir=tmp_dir()))
     try:
-        _wav, duration_ms, voiced = _normalize(audio, workdir)
+        wav, duration_ms, voiced = _normalize(audio, workdir)
         attempt = db.insert_attempt(lesson.id, index, duration_ms=duration_ms, voiced=voiced)
+        if saveForEval:
+            # Chỉ đánh dấu sau khi clip đã nằm trên đĩa: dòng DB không bao giờ nói dối.
+            _store_eval_clip(lesson, index, attempt, wav)
+            db.mark_saved_for_eval(lesson.id, index, attempt)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
-    # Tracer: `saveForEval` được nhận nhưng chưa lưu clip (Task 3 hoàn thiện); luôn false.
-    return AttemptAck.model_validate(
-        {
-            "lessonId": lesson.id,
-            "segmentIndex": index,
-            "attempt": attempt,
-            "durationMs": duration_ms,
-            "voiced": voiced,
-            "savedForEval": False,
-        }
-    )
+    return _ack(lesson.id, index, attempt, duration_ms, voiced, saveForEval)
+
+
+@router.put(
+    "/lessons/{lesson_id}/segments/{index}/attempts/{attempt}/eval-clip",
+    response_model=AttemptAck,
+    response_model_exclude_unset=True,
+)
+def save_eval_clip(lesson_id: str, index: int, attempt: int, audio: UploadFile) -> AttemptAck:
+    """Lưu clip cho eval sau khi tập: gửi lại blob trình duyệt còn giữ, không tạo lượt mới."""
+    lesson = _ready_lesson(lesson_id, index)
+    row = db.get_attempt(lesson.id, index, attempt)
+    if row is None:
+        raise ApiErrorException(404, "not_found", "Không tìm thấy lượt này.")
+    workdir = Path(tempfile.mkdtemp(dir=tmp_dir()))
+    try:
+        wav, _duration_ms, _voiced = _normalize(audio, workdir)
+        _store_eval_clip(lesson, index, attempt, wav)
+        db.mark_saved_for_eval(lesson.id, index, attempt)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return _ack(lesson.id, index, attempt, row.duration_ms, row.voiced, True)
