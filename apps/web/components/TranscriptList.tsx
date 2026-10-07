@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Segment } from "@shadowenglab/contracts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
 import { cn } from "@/lib/utils";
 
 /** `mm:ss` của thời điểm bắt đầu câu. */
@@ -10,10 +11,6 @@ function formatMmSs(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(whole / 60);
   return `${String(minutes).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
-}
-
-function releaseFocus(event: PointerEvent<HTMLElement>) {
-  event.currentTarget.blur();
 }
 
 const GROUP_LABEL_CLASS =
@@ -66,7 +63,7 @@ export function TranscriptList({
                 type="button"
                 ref={isCurrent ? currentRef : undefined}
                 aria-current={isCurrent ? "true" : undefined}
-                onPointerUp={releaseFocus}
+                onPointerUp={releaseFocusOnPointerUp}
                 onClick={() => onSelect(index)}
                 className={cn(
                   "grid min-h-11 w-full grid-cols-[44px_minmax(0,1fr)_28px] gap-2 text-left text-sm leading-[1.45] transition-colors [transition-duration:120ms]",

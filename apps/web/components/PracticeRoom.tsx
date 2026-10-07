@@ -1,18 +1,35 @@
 "use client";
 
 import { useActorRef, useSelector } from "@xstate/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppSettings,
   Lesson,
   LessonProgress,
 } from "@shadowenglab/contracts";
 import { PlayerControls } from "@/components/PlayerControls";
-import { PracticeHeader } from "@/components/PracticeHeader";
-import { TranscriptList } from "@/components/TranscriptList";
+import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
+import { SentenceStatePanel } from "@/components/SentenceStatePanel";
+import {
+  TranscriptList,
+  TranscriptListSkeleton,
+} from "@/components/TranscriptList";
 import { VideoPane } from "@/components/VideoPane";
-import { makePlaySample, type PlayableLesson } from "@/lib/player/playRange";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  makePlaySample,
+  sampleWindow,
+  type PlayableLesson,
+} from "@/lib/player/playRange";
 import { playerMachine, type RepeatCount } from "@/lib/player/playerMachine";
+import { useShortcuts } from "@/lib/player/useShortcuts";
 import { useLesson, useLessonProgress, useSettings } from "@/lib/queries";
 
 type SessionDefaults = Pick<
@@ -65,10 +82,26 @@ export function PracticeRoom({ lessonId }: PracticeRoomProps) {
   const settings = useSettings();
 
   if (lesson.isError) {
-    return <p role="alert">{lesson.error.message}</p>;
+    return (
+      <RoomMessage
+        title="Không tải được bài này."
+        detail={lesson.error.message}
+        onRetry={() => void lesson.refetch()}
+      />
+    );
   }
   if (lesson.isPending || progress.isPending || settings.isPending) {
-    return <p>Đang tải…</p>;
+    return <RoomSkeleton />;
+  }
+  // S1 chỉ liên kết tới bài `ready`; mở thẳng URL của bài chưa xong thì báo thay vì dựng máy trạng thái rỗng.
+  if (lesson.data.status !== "ready" || lesson.data.segments.length === 0) {
+    return (
+      <RoomMessage
+        title="Bài này chưa sẵn sàng để tập."
+        detail="Quay lại Thư viện và mở lại khi bài đã tạo xong."
+        onRetry={() => void lesson.refetch()}
+      />
+    );
   }
 
   return (
@@ -77,6 +110,64 @@ export function PracticeRoom({ lessonId }: PracticeRoomProps) {
       progress={progress.data}
       settings={settings.data}
     />
+  );
+}
+
+/** Lỗi tải bài (UI-SPEC E8 error): thông báo tại chỗ + `Tải lại` + liên kết về `Thư viện`. */
+function RoomMessage({
+  title,
+  detail,
+  onRetry,
+}: {
+  title: string;
+  detail: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <header className="flex items-center border-b border-border px-6 py-2.5">
+        <BackToLibraryLink />
+      </header>
+      <main className="mx-auto flex w-full max-w-[720px] flex-col p-8">
+        <Alert variant="error">
+          <div className="flex flex-col gap-1">
+            <AlertTitle>{title}</AlertTitle>
+            <AlertDescription>{detail}</AlertDescription>
+          </div>
+          <AlertAction>
+            <Button variant="outline" onClick={onRetry}>
+              Tải lại
+            </Button>
+          </AlertAction>
+        </Alert>
+      </main>
+    </div>
+  );
+}
+
+/** Khung xương khi bài đang tải: hàng transcript và câu đang tập (UI-SPEC E8 loading). */
+function RoomSkeleton() {
+  return (
+    <div aria-busy="true" className="flex h-screen flex-col">
+      <header className="flex items-center gap-4 border-b border-border px-6 py-2.5">
+        <BackToLibraryLink />
+        <Skeleton className="h-4 w-48" />
+      </header>
+      <div className="flex min-h-0 flex-1 flex-wrap items-stretch overflow-y-auto min-[1160px]:flex-nowrap min-[1160px]:overflow-hidden">
+        <aside
+          aria-label="Video và transcript"
+          className="flex min-w-[520px] flex-[0_1_600px] flex-col border-r border-border bg-[color:var(--slate-2)] min-[1160px]:min-h-0"
+        >
+          <div className="aspect-video w-full shrink-0 bg-video" />
+          <TranscriptListSkeleton />
+        </aside>
+        <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-4 px-12 pb-10 pt-9">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-[46px] w-full" />
+          <Skeleton className="h-[46px] w-2/3" />
+        </main>
+      </div>
+    </div>
   );
 }
 
@@ -112,7 +203,10 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const actorRef = useActorRef(machine, {
     input: {
       segmentCount: lesson.segments.length,
-      startIndex: progress?.firstUnpracticedIndex ?? 0,
+      startIndex: Math.min(
+        progress?.firstUnpracticedIndex ?? 0,
+        lesson.segments.length - 1,
+      ),
       segmentDurationsMs: segmentDurationsMs(lesson),
       repeat: defaults.repeat,
       rate: defaults.rate,
@@ -132,10 +226,29 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     [progress],
   );
 
+  useShortcuts(actorRef, { videoReady });
+
   const { context } = snapshot;
   const index = context.segmentIndex;
+
+  // Tiến độ của lần phát hiện tại cho thanh trong SentenceStatePanel.
+  const getPassProgress = useCallback(() => {
+    const video = videoRef.current;
+    const current = lesson.segments[index];
+    if (!video || !current) return 0;
+    const { startS, endS } = sampleWindow(
+      current,
+      lesson.padMs,
+      lesson.durationSec,
+    );
+    return endS > startS ? (video.currentTime - startS) / (endS - startS) : 1;
+  }, [lesson, index]);
+
   const segment = lesson.segments[index];
   if (!segment) return null;
+
+  const top = typeof snapshot.value === "string" ? snapshot.value : "";
+  const listening = top === "playing" || top === "previewing";
 
   return (
     <div className="flex h-screen flex-col">
@@ -179,9 +292,21 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
             <span className="font-bold text-foreground">Câu {index + 1}</span>
           </div>
-          <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
-            {segment.text}
-          </p>
+          {listening ? (
+            <SentenceStatePanel
+              variant="playing"
+              sentence={segment.text}
+              repeat={top === "playing" ? context.repeat : 1}
+              rep={context.rep}
+              autoRecord={top === "playing"}
+              getPassProgress={getPassProgress}
+            />
+          ) : (
+            // 02-14 thay các trạng thái recording / noVoice / scoring / error bằng SentenceStatePanel.
+            <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
+              {segment.text}
+            </p>
+          )}
         </main>
       </div>
     </div>

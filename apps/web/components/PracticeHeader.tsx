@@ -40,6 +40,19 @@ export function SegmentedProgress({
   );
 }
 
+/** Liên kết về S1, cao 44 (PLY-07). Dùng cả ở trạng thái tải và lỗi của S3. */
+export function BackToLibraryLink() {
+  return (
+    <Link
+      href="/"
+      className="inline-flex h-11 items-center gap-1.5 rounded px-2.5 text-sm font-semibold text-muted-foreground transition-colors [transition-duration:120ms] hover:bg-muted hover:text-foreground"
+    >
+      <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
+      Thư viện
+    </Link>
+  );
+}
+
 interface PracticeHeaderProps extends SegmentedProgressProps {
   title: string;
 }
@@ -53,13 +66,7 @@ export function PracticeHeader({
 }: PracticeHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-4 border-b border-border px-6 py-2.5">
-      <Link
-        href="/"
-        className="inline-flex h-11 items-center gap-1.5 rounded px-2.5 text-sm font-semibold text-muted-foreground transition-colors [transition-duration:120ms] hover:bg-muted hover:text-foreground"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
-        Thư viện
-      </Link>
+      <BackToLibraryLink />
       <h1 className="m-0 min-w-0 truncate text-[15px] font-bold" title={title}>
         {title}
       </h1>

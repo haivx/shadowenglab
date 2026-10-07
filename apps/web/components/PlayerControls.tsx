@@ -1,7 +1,7 @@
 "use client";
 
 import { Play, RotateCcw, SkipBack, SkipForward, Square } from "lucide-react";
-import { useRef, type PointerEvent } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,16 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { PlayerEvent, RepeatCount } from "@/lib/player/playerMachine";
+import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
 import {
   shortcutToAction,
   type ShortcutAction,
   type ShortcutStateValue,
 } from "@/lib/player/shortcuts";
-
-/** Nút bấm bằng chuột nhả focus để Space quay về hành động toàn cục (UI-SPEC Interaction Contract). */
-function releaseFocus(event: PointerEvent<HTMLElement>) {
-  event.currentTarget.blur();
-}
 
 const RATE_OPTIONS = [
   { value: "0.75", label: "0.75x" },
@@ -164,7 +160,7 @@ export function PlayerControls({
           size="md"
           title="Câu trước (←)"
           disabled={prevDisabled}
-          onPointerUp={releaseFocus}
+          onPointerUp={releaseFocusOnPointerUp}
           onClick={() => prevEvent && send(prevEvent)}
           className="px-3"
         >
@@ -178,7 +174,7 @@ export function PlayerControls({
           kbd="Space"
           aria-pressed={listening}
           disabled={sampleDisabled}
-          onPointerUp={releaseFocus}
+          onPointerUp={releaseFocusOnPointerUp}
           onClick={() => sampleEvent && send(sampleEvent)}
           className="flex-1 px-4 text-[15px]"
         >
@@ -195,7 +191,7 @@ export function PlayerControls({
           aria-label="Phát lại câu mẫu"
           title="Phát lại câu mẫu (O)"
           disabled={replayDisabled}
-          onPointerUp={releaseFocus}
+          onPointerUp={releaseFocusOnPointerUp}
           onClick={() => replayEvent && send(replayEvent)}
         >
           <RotateCcw aria-hidden="true" />
@@ -205,7 +201,7 @@ export function PlayerControls({
           size="md"
           title="Câu tiếp (→)"
           disabled={nextDisabled}
-          onPointerUp={releaseFocus}
+          onPointerUp={releaseFocusOnPointerUp}
           onClick={() => nextEvent && send(nextEvent)}
           className="px-3"
         >
