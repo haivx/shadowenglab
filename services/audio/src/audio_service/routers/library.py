@@ -10,8 +10,10 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from audio_service import db
+from audio_service.config import InvalidIdError, lesson_json_path
 from audio_service.contract_io import dump_contract
-from audio_service.contracts_gen import Lesson, LessonListItem, LessonSummary
+from audio_service.contracts_gen import Lesson, LessonListItem, LessonProgress, LessonSummary
+from audio_service.errors import ApiErrorException
 from audio_service.lesson import store
 
 router = APIRouter(tags=["library"])
@@ -44,3 +46,33 @@ def list_lessons() -> list[LessonListItem]:
             )
         )
     return items
+
+
+@router.get(
+    "/lessons/{lesson_id}/progress",
+    response_model=LessonProgress,
+    response_model_exclude_unset=True,
+)
+def lesson_progress(lesson_id: str) -> LessonProgress:
+    try:
+        lesson_json_path(lesson_id)  # chỉ để kiểm id (ULID_RE + nằm trong DATA_DIR)
+        lesson = store.load_lesson(lesson_id)
+    except (InvalidIdError, OSError, ValueError):
+        # ValidationError là ValueError: file hỏng đối xử như không có bài.
+        raise ApiErrorException(404, "not_found", "Không tìm thấy bài.") from None
+    rows = db.segment_progress(lesson_id)
+    practiced = {row.segment_index for row in rows if row.voiced_attempts >= 1}
+    return LessonProgress.model_validate(
+        {
+            "lessonId": lesson_id,
+            "segments": [
+                {
+                    "segmentIndex": row.segment_index,
+                    "attempts": row.attempts,
+                    "voicedAttempts": row.voiced_attempts,
+                }
+                for row in rows
+            ],
+            "firstUnpracticedIndex": db.first_unpracticed_index(len(lesson.segments), practiced),
+        }
+    )

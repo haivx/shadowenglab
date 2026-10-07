@@ -167,3 +167,56 @@ def insert_attempt(
             conn.execute("ROLLBACK")
             raise
     return int(attempt)
+
+
+def mark_saved_for_eval(lesson_id: str, segment_index: int, attempt: int) -> bool:
+    """Đặt `saved_for_eval = 1`; False khi không có lượt đó (không tạo lượt mới, mục D)."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        cursor = conn.execute(
+            "UPDATE attempts SET saved_for_eval = 1 "
+            "WHERE lesson_id = ? AND segment_index = ? AND attempt = ?",
+            (lesson_id, segment_index, attempt),
+        )
+        return cursor.rowcount > 0
+
+
+def get_attempt(lesson_id: str, segment_index: int, attempt: int) -> AttemptRow | None:
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT lesson_id, segment_index, attempt, created_at, duration_ms, voiced, "
+            "saved_for_eval FROM attempts "
+            "WHERE lesson_id = ? AND segment_index = ? AND attempt = ?",
+            (lesson_id, segment_index, attempt),
+        ).fetchone()
+    if row is None:
+        return None
+    return AttemptRow(
+        lesson_id=row["lesson_id"],
+        segment_index=row["segment_index"],
+        attempt=row["attempt"],
+        created_at=row["created_at"],
+        duration_ms=row["duration_ms"],
+        voiced=bool(row["voiced"]),
+        saved_for_eval=bool(row["saved_for_eval"]),
+    )
+
+
+def segment_progress(lesson_id: str) -> list[SegmentProgressRow]:
+    """Chỉ các câu đã có >= 1 lượt: số lượt (mọi upload) và số lượt voiced, theo segment_index."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT segment_index, COUNT(*) AS attempts, SUM(voiced) AS voiced_attempts "
+            "FROM attempts WHERE lesson_id = ? GROUP BY segment_index ORDER BY segment_index",
+            (lesson_id,),
+        ).fetchall()
+    return [
+        SegmentProgressRow(
+            segment_index=row["segment_index"],
+            attempts=row["attempts"],
+            voiced_attempts=row["voiced_attempts"],
+        )
+        for row in rows
+    ]

@@ -63,6 +63,20 @@ def app_db_path() -> Path:
     return _contained(data_root() / "app.db")
 
 
+def eval_clips_dir() -> Path:
+    """`DATA_DIR/eval_clips` (02-01 mục D), tạo khi cần."""
+    path = _contained(data_root() / "eval_clips")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def tmp_dir() -> Path:
+    """`DATA_DIR/tmp` cho file tạm (normalize audio ghi âm...), tạo khi cần."""
+    path = _contained(data_root() / "tmp")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def lesson_dir(lesson_id: str) -> Path:
     _check_id(lesson_id, ULID_RE, "lesson id")
     return _contained(data_root() / "lessons" / lesson_id)
@@ -87,3 +101,10 @@ def video_asset_path(video_id: str, asset: VideoAsset) -> Path:
     if asset not in ("video.mp4", "audio.wav", "vocals.wav", "no_vocals.wav"):
         raise InvalidIdError("invalid asset")
     return _contained(video_dir(video_id) / asset)
+
+
+def stems_dir(video_id: str, start_ms: int, end_ms: int) -> Path:
+    """Stem tách theo khoảng: `videos/{id}/stems/{start_ms}-{end_ms}` (D-19)."""
+    if start_ms < 0 or end_ms <= start_ms:
+        raise InvalidIdError("invalid stems range")
+    return _contained(video_dir(video_id) / "stems" / f"{start_ms}-{end_ms}")

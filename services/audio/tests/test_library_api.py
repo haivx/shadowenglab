@@ -255,13 +255,19 @@ def test_progress_of_lesson_not_ready_has_null_first_index(client: TestClient) -
     assert body == {"lessonId": FAILED_ID, "segments": [], "firstUnpracticedIndex": None}
 
 
-@pytest.mark.parametrize(
-    "bad_id", [EMPTY_ID, "abc", "01hzx3y7q8k2m4n6p8r0s2t4v6", "..%2Fetc", "%2e%2e%2fpasswd"]
-)
+@pytest.mark.parametrize("bad_id", [EMPTY_ID, "abc", "01hzx3y7q8k2m4n6p8r0s2t4v6"])
 def test_progress_unknown_or_malformed_id_is_404_api_error(client: TestClient, bad_id: str) -> None:
     res = client.get(f"/lessons/{bad_id}/progress")
     assert res.status_code == 404
     assert res.json() == {"code": "not_found", "message": "Không tìm thấy bài."}
+
+
+@pytest.mark.parametrize("bad_id", ["..%2Fetc", "%2e%2e%2fpasswd"])
+def test_progress_traversal_ids_are_404(client: TestClient, bad_id: str) -> None:
+    # Có thể không khớp route (khi %2F được giải mã thành dấu /): chỉ yêu cầu 404, không lộ file.
+    res = client.get(f"/lessons/{bad_id}/progress")
+    assert res.status_code == 404
+    assert "root:" not in res.text
 
 
 def test_progress_of_unreadable_lesson_json_is_404(client: TestClient) -> None:
