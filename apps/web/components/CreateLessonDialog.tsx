@@ -4,8 +4,9 @@ import type { VideoPreview } from "@shadowenglab/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RangePicker } from "@/components/RangePicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiRequestError, createLesson, previewVideo } from "@/lib/api";
 import { formatClock, safeThumbnailUrl } from "@/lib/lessonView";
 import { queryKeys } from "@/lib/queries";
+import {
+  DEFAULT_RANGE_END_SEC,
+  LONG_VIDEO_SEC,
+  estimateMinutes,
+  estimateSentences,
+  type TimeRange,
+} from "@/lib/time";
 
 /** Chờ người dùng dán/gõ xong rồi mới hỏi backend (T-02-38). */
 export const PREVIEW_DEBOUNCE_MS = 400;
@@ -112,6 +120,24 @@ function PreviewBlock({ preview }: { preview: VideoPreview }) {
   );
 }
 
+/** Video ≤ 6 phút: dùng toàn bộ, không có thanh chọn đoạn (backend áp cùng quy tắc). */
+function WholeVideoNote({ durationSec }: { durationSec: number }) {
+  const [low, high] = estimateSentences(durationSec);
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <p className="text-[13px] text-muted-foreground">
+        Video ngắn hơn 6 phút nên dùng toàn bộ.
+      </p>
+      <div className="flex flex-col gap-0.5 text-[13px] text-muted-foreground">
+        <span>
+          ≈ {low}–{high} câu
+        </span>
+        <span>Xử lý ≈ {estimateMinutes(durationSec)} phút, chạy nền</span>
+      </div>
+    </div>
+  );
+}
+
 function DuplicateNotice({ lessonId }: { lessonId: string }) {
   return (
     <div role="alert" className="flex flex-col gap-1 text-[13px]">
@@ -140,6 +166,7 @@ export function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
   const [input, setInput] = useState("");
   const [committed, setCommitted] = useState("");
   const [duplicateId, setDuplicateId] = useState<string | undefined>();
+  const [range, setRange] = useState<TimeRange | null>(null);
 
   const trimmed = input.trim();
 
@@ -162,11 +189,30 @@ export function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
     settled && trimmed !== "" && !preview.isFetching && preview.isError
       ? previewErrorText(preview.error)
       : undefined;
+  const longVideo =
+    previewData !== undefined && previewData.durationSec > LONG_VIDEO_SEC;
+  // Video dài: cần đoạn hợp lệ từ RangePicker. Video ngắn: không gửi đoạn.
+  const rangeReady = !longVideo || range !== null;
+  const sentRange = longVideo && range !== null ? range : undefined;
+  // `existingLessonId` của backend chỉ tính cho đoạn mặc định (quy tắc trùng, 02-01).
+  const isDefaultRange =
+    sentRange === undefined ||
+    (sentRange.start === 0 && sentRange.end === DEFAULT_RANGE_END_SEC);
   const existingId =
-    duplicateId ?? (previewData ? previewData.existingLessonId : undefined);
+    duplicateId ??
+    (previewData && isDefaultRange ? previewData.existingLessonId : undefined);
+
+  const handleRangeChange = useCallback((next: TimeRange | null) => {
+    setRange(next);
+    setDuplicateId(undefined);
+  }, []);
 
   const create = useMutation({
-    mutationFn: () => createLesson({ url: committed }),
+    mutationFn: () =>
+      createLesson({
+        url: committed,
+        ...(sentRange ? { start: sentRange.start, end: sentRange.end } : {}),
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.lessons });
       onClose();
@@ -189,7 +235,10 @@ export function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
   });
 
   const canSubmit =
-    previewData !== undefined && existingId === undefined && !create.isPending;
+    previewData !== undefined &&
+    rangeReady &&
+    existingId === undefined &&
+    !create.isPending;
 
   const showUrlError = previewError !== undefined;
 
@@ -257,6 +306,16 @@ export function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
 
           {waiting ? <PreviewSkeleton /> : null}
           {previewData ? <PreviewBlock preview={previewData} /> : null}
+          {previewData && longVideo ? (
+            <RangePicker
+              key={previewData.videoId}
+              durationSec={previewData.durationSec}
+              onChange={handleRangeChange}
+            />
+          ) : null}
+          {previewData && !longVideo ? (
+            <WholeVideoNote durationSec={previewData.durationSec} />
+          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" size="lg" onClick={onClose}>
