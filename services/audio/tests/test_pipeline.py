@@ -60,16 +60,17 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     get_settings.cache_clear()
 
 
-# Hai câu rõ ràng (kết thúc bằng dấu câu), mỗi câu >= 1.5 s, để split_sentences cho đúng 2 segment.
+# Hai câu rõ ràng (kết thúc bằng dấu câu), mỗi câu >= 3 s (MIN_DUR_S, D-21) để split_sentences
+# cho đúng 2 segment.
 _WORDS = [
-    (" Hello", 0.5, 0.9, 0.9),
-    (" there,", 1.0, 1.4, 0.8),
-    (" my", 1.5, 1.7, 0.95),
-    (" friend.", 1.8, 2.4, 0.7),
-    (" How", 3.0, 3.3, 0.9),
-    (" are", 3.4, 3.6, 0.85),
-    (" you", 3.7, 3.9, 0.99),
-    (" today?", 4.0, 4.6, 0.6),
+    (" Hello", 0.5, 1.1, 0.9),
+    (" there,", 1.2, 1.9, 0.8),
+    (" my", 2.0, 2.4, 0.95),
+    (" friend.", 2.5, 3.8, 0.7),
+    (" How", 4.4, 4.8, 0.9),
+    (" are", 4.9, 5.3, 0.85),
+    (" you", 5.4, 5.8, 0.99),
+    (" today?", 5.9, 7.6, 0.6),
 ]
 
 
@@ -236,8 +237,8 @@ def test_word_index_restarts_at_zero_in_every_segment(data_dir: Path) -> None:
         "How are you today?",
     ]
     assert raw["segments"][1]["words"][0]["text"] == "How"  # đã strip khoảng trắng của Whisper
-    assert raw["segments"][1]["start"] == 3.0
-    assert raw["segments"][1]["end"] == 4.6
+    assert raw["segments"][1]["start"] == 4.4
+    assert raw["segments"][1]["end"] == 7.6
 
 
 def test_one_npz_per_segment_with_expected_keys_and_padded_window(data_dir: Path) -> None:
