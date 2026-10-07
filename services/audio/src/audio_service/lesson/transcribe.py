@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import gc
+import sys
+
 import numpy as np
 
 from audio_service.lesson.segment import AsrWord
@@ -41,3 +44,22 @@ def transcribe_words(audio16k: np.ndarray, *, offset_s: float) -> list[AsrWord]:
                 )
             )
     return words
+
+
+def release_whisper() -> None:
+    """Nhả model Whisper còn giữ trong `ModelHolder` của mlx-whisper (D-18, Pitfall 2).
+
+    mlx-whisper cache model ở class attribute nên chỉ `del` biến cục bộ là chưa đủ. Không import
+    mlx-whisper nếu chưa từng được nạp.
+    """
+    module = sys.modules.get("mlx_whisper.transcribe")
+    holder = getattr(module, "ModelHolder", None)
+    if holder is not None:
+        holder.model = None
+        holder.model_path = None
+    gc.collect()
+    try:
+        import mlx.core as mx
+    except ImportError:
+        return
+    mx.clear_cache()

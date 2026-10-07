@@ -26,8 +26,11 @@ from audio_service.lesson import urls
 from audio_service.lesson.audio_io import write_audio
 from audio_service.lesson.download import VideoInfo
 from audio_service.lesson.pipeline import (
+    NO_SPEECH_MESSAGE,
     PAD_MS,
+    UNEXPECTED_ERROR_MESSAGE,
     PipelineDeps,
+    StepError,
     build_segments,
     run_lesson,
 )
@@ -272,31 +275,32 @@ def test_failure_leaves_failed_status_with_step_and_message_then_reraises(data_d
     lesson_id = _only_lesson_id(data_dir)
     raw = json.loads(lesson_json_path(lesson_id).read_text(encoding="utf-8"))
     assert raw["status"] == "failed"
-    assert raw["error"] == {"step": "transcribing", "message": "RuntimeError: boom"}
+    # Message cố định, không lộ text ngoại lệ (T-02-07).
+    assert raw["error"] == {"step": "transcribing", "message": UNEXPECTED_ERROR_MESSAGE}
     Lesson.model_validate(raw)  # file vẫn là contract hợp lệ
     assert seen == ["queued", "downloading", "separating", "transcribing", "failed"]
     assert not list((data_dir / "lessons" / lesson_id).glob("*.tmp"))
 
 
-def test_error_message_is_truncated_to_500_chars(data_dir: Path) -> None:
-    fakes = Fakes(transcribe_error=RuntimeError("x" * 5000))
+def test_exception_text_and_paths_never_reach_lesson_json(data_dir: Path) -> None:
+    fakes = Fakes(transcribe_error=RuntimeError("x" * 5000 + f" {data_dir}/secret"))
 
     with pytest.raises(RuntimeError):
         run_lesson(URL, deps=fakes.deps())
 
-    raw = json.loads(lesson_json_path(_only_lesson_id(data_dir)).read_text(encoding="utf-8"))
-    assert len(raw["error"]["message"]) == 500
+    text = lesson_json_path(_only_lesson_id(data_dir)).read_text(encoding="utf-8")
+    assert "xxxx" not in text and str(data_dir) not in text and "secret" not in text
 
 
 def test_no_speech_fails_at_segmenting_instead_of_an_empty_ready_lesson(data_dir: Path) -> None:
     fakes = Fakes(words=[])
 
-    with pytest.raises(RuntimeError, match="NoSpeech"):
+    with pytest.raises(StepError):
         run_lesson(URL, deps=fakes.deps())
 
     raw = json.loads(lesson_json_path(_only_lesson_id(data_dir)).read_text(encoding="utf-8"))
     assert raw["status"] == "failed"
-    assert raw["error"]["step"] == "segmenting"
+    assert raw["error"] == {"step": "segmenting", "message": NO_SPEECH_MESSAGE}
 
 
 def test_failure_in_an_early_stage_reports_the_current_status(data_dir: Path) -> None:
