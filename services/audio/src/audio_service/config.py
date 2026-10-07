@@ -58,6 +58,11 @@ def _contained(candidate: Path) -> Path:
     return candidate
 
 
+def app_db_path() -> Path:
+    """File SQLite `DATA_DIR/app.db` (D-02): chỉ chứa bảng `attempts`."""
+    return _contained(data_root() / "app.db")
+
+
 def lesson_dir(lesson_id: str) -> Path:
     _check_id(lesson_id, ULID_RE, "lesson id")
     return _contained(data_root() / "lessons" / lesson_id)
