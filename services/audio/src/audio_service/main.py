@@ -1,8 +1,14 @@
 """FastAPI app của ShadowEngLab audio service.
 
 Bind địa chỉ không đặt ở đây: Makefile (01-08) chạy uvicorn với `--host 127.0.0.1`.
+Chạy MỘT process (không `--workers N`): job runner và cổng model sống trong process này.
 """
 
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from functools import partial
 from typing import Literal
 
 from fastapi import FastAPI
@@ -10,6 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from audio_service import __version__
+from audio_service.errors import install_error_handlers
+from audio_service.lesson import pipeline
+from audio_service.lesson.jobs import JobRunner
 from audio_service.routers import lesson, scoring
 
 
@@ -21,8 +30,27 @@ class Health(BaseModel):
     version: str
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="ShadowEngLab audio service", version=__version__)
+def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
+    """`deps` tiêm stage giả cho test; mặc định dựng stage thật khi app khởi động (lifespan)."""
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        resolved = deps or pipeline.default_deps()
+        app.state.deps = resolved
+        runner = JobRunner(
+            stage_download=partial(pipeline.stage_download, deps=resolved),
+            stage_model=partial(pipeline.stage_model, deps=resolved),
+            mark_failed=pipeline.mark_failed,
+        )
+        app.state.runner = runner
+        runner.start()
+        try:
+            yield
+        finally:
+            runner.stop()
+
+    app = FastAPI(title="ShadowEngLab audio service", version=__version__, lifespan=lifespan)
+    install_error_handlers(app)
     # Chỉ web local được gọi; Phase 2 mở rộng methods khi thêm POST.
     app.add_middleware(
         CORSMiddleware,
