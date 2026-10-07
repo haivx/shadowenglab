@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useActorRef, useSelector } from "@xstate/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { fromPromise } from "xstate";
 import type {
   AppSettings,
@@ -93,6 +94,10 @@ function segmentDurationsMs(lesson: Lesson): number[] {
     Math.round((segment.end - segment.start) * 1000 + segment.endExtraMs),
   );
 }
+
+const UPLOAD_ERROR_TOAST_ID = "upload-error";
+const UPLOAD_ERROR_TEXT =
+  "Không xử lý được bản ghi. Bản ghi của bạn vẫn còn, bấm Thử lại để gửi lại.";
 
 /** Trạng thái cấp trên cùng; scoring/reviewing/noVoice/error có trạng thái con nên `value` là object. */
 function topLevelState(value: string | Record<string, unknown>): string {
@@ -283,6 +288,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const top = topLevelState(snapshot.value);
 
   // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
+  // Tải lên thất bại (scoring -> error): toast bền với `Thử lại`; rời error thì tắt toast (REC-03).
   const queryClient = useQueryClient();
   const previousTop = useRef(top);
   useEffect(() => {
@@ -293,7 +299,22 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
         queryKey: queryKeys.lessonProgress(lesson.id),
       });
     }
-  }, [top, queryClient, lesson.id]);
+    if (was === "scoring" && top === "error") {
+      toast.error(UPLOAD_ERROR_TEXT, {
+        id: UPLOAD_ERROR_TOAST_ID,
+        duration: Infinity,
+        closeButton: true,
+        action: {
+          label: "Thử lại",
+          onClick: () => actorRef.send({ type: "RETRY_UPLOAD" }),
+        },
+      });
+    } else if (was === "error" && top !== "error") {
+      toast.dismiss(UPLOAD_ERROR_TOAST_ID);
+    }
+  }, [top, queryClient, lesson.id, actorRef]);
+  // Rời S3 thì không để toast cũ nằm lại.
+  useEffect(() => () => void toast.dismiss(UPLOAD_ERROR_TOAST_ID), []);
 
   // Tiến độ của lần phát hiện tại cho thanh trong SentenceStatePanel.
   const getPassProgress = useCallback(() => {
@@ -388,8 +409,26 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             />
           ) : top === "scoring" ? (
             <SentenceStatePanel variant="processing" sentence={segment.text} />
+          ) : top === "noVoice" ? (
+            <SentenceStatePanel
+              variant="noVoice"
+              sentence={segment.text}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
+          ) : top === "error" && context.lastError === "mic" ? (
+            <SentenceStatePanel
+              variant="micError"
+              sentence={segment.text}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
+          ) : top === "error" ? (
+            <SentenceStatePanel
+              variant="uploadError"
+              sentence={segment.text}
+              onRetry={() => actorRef.send({ type: "RETRY_UPLOAD" })}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
           ) : (
-            // noVoice / error: biến thể riêng ở tác vụ sau.
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>

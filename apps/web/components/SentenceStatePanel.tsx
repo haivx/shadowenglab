@@ -1,9 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { LevelMeter } from "@/components/LevelMeter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
+import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
 
 interface PlayingPanelProps {
   variant: "playing";
@@ -32,12 +36,37 @@ interface ProcessingPanelProps {
   sentence: string;
 }
 
+interface NoVoicePanelProps {
+  variant: "noVoice";
+  sentence: string;
+  onRecord: () => void;
+}
+
+interface MicErrorPanelProps {
+  variant: "micError";
+  sentence: string;
+  onRecord: () => void;
+}
+
+interface UploadErrorPanelProps {
+  variant: "uploadError";
+  sentence: string;
+  /** RETRY_UPLOAD: gửi lại đúng bản ghi đã giữ trong bộ nhớ. */
+  onRetry: () => void;
+  onRecord: () => void;
+}
+
 /**
- * Các biến thể khác (noVoice, micError, uploadError) do tác vụ sau thêm vào đây.
  * Thẻ trắng viền 1px, bo 12, padding 24, khoảng cách 18, câu 26/500 căn giữa (S3s).
+ * Biến thể: playing, recording, processing, noVoice, micError, uploadError.
  */
 export type SentenceStatePanelProps =
-  PlayingPanelProps | RecordingPanelProps | ProcessingPanelProps;
+  | PlayingPanelProps
+  | RecordingPanelProps
+  | ProcessingPanelProps
+  | NoVoicePanelProps
+  | MicErrorPanelProps
+  | UploadErrorPanelProps;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -169,6 +198,111 @@ function ProcessingPanel({ sentence }: ProcessingPanelProps) {
   );
 }
 
+/** Câu 26/500 màu muted ở các panel lỗi/không có tiếng (S3s state 3). */
+function MutedSentence({ sentence }: { sentence: string }) {
+  return (
+    <p className="m-0 text-center text-[26px] font-medium leading-[1.3] text-muted-foreground">
+      {sentence}
+    </p>
+  );
+}
+
+/** Hàng nút giữa panel: `Ghi lại` (R) và liên kết `Chọn micro` tới S8. */
+function RecordAndMicButtons({ onRecord }: { onRecord: () => void }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-2.5">
+      <Button
+        variant="solid"
+        kbd="R"
+        onPointerUp={releaseFocusOnPointerUp}
+        onClick={onRecord}
+        className="px-[18px] text-[15px]"
+      >
+        Ghi lại
+      </Button>
+      <Button
+        asChild
+        variant="outline"
+        className="px-[18px] text-[15px]"
+        onPointerUp={releaseFocusOnPointerUp}
+      >
+        <Link href="/settings">Chọn micro</Link>
+      </Button>
+    </div>
+  );
+}
+
+const PANEL_ALERT = "flex-col items-stretch justify-start gap-1.5";
+
+function NoVoicePanel({ sentence, onRecord }: NoVoicePanelProps) {
+  return (
+    <section className="flex flex-col gap-[18px] rounded-lg border border-border bg-card p-6">
+      <MutedSentence sentence={sentence} />
+      <Alert variant="warning" role="alert" className={PANEL_ALERT}>
+        <AlertTitle className="text-[15px] font-bold">
+          Không nghe thấy gì trong lượt vừa rồi
+        </AlertTitle>
+        <AlertDescription>
+          Kiểm tra micro đang chọn hoặc nói gần hơn. Lượt này không được tính.
+        </AlertDescription>
+      </Alert>
+      <RecordAndMicButtons onRecord={onRecord} />
+    </section>
+  );
+}
+
+function MicErrorPanel({ sentence, onRecord }: MicErrorPanelProps) {
+  return (
+    <section className="flex flex-col gap-[18px] rounded-lg border border-border bg-card p-6">
+      <MutedSentence sentence={sentence} />
+      <Alert variant="warning" role="alert" className={PANEL_ALERT}>
+        <AlertDescription className="font-semibold">
+          Không mở được micro. Cho phép micro cho localhost:3000 hoặc chọn micro
+          khác.
+        </AlertDescription>
+      </Alert>
+      <RecordAndMicButtons onRecord={onRecord} />
+    </section>
+  );
+}
+
+function UploadErrorPanel({
+  sentence,
+  onRetry,
+  onRecord,
+}: UploadErrorPanelProps) {
+  return (
+    <section className="flex flex-col gap-[18px] rounded-lg border border-border bg-card p-6">
+      <MutedSentence sentence={sentence} />
+      <Alert variant="error" className={PANEL_ALERT}>
+        <AlertDescription className="font-semibold">
+          Không xử lý được bản ghi. Bản ghi của bạn vẫn còn, bấm Thử lại để gửi
+          lại.
+        </AlertDescription>
+      </Alert>
+      <div className="flex flex-wrap justify-center gap-2.5">
+        <Button
+          variant="solid"
+          onPointerUp={releaseFocusOnPointerUp}
+          onClick={onRetry}
+          className="px-[18px] text-[15px]"
+        >
+          Thử lại
+        </Button>
+        <Button
+          variant="outline"
+          kbd="R"
+          onPointerUp={releaseFocusOnPointerUp}
+          onClick={onRecord}
+          className="px-[18px] text-[15px]"
+        >
+          Ghi lại
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export function SentenceStatePanel(props: SentenceStatePanelProps) {
   switch (props.variant) {
     case "playing":
@@ -177,5 +311,11 @@ export function SentenceStatePanel(props: SentenceStatePanelProps) {
       return <RecordingPanel {...props} />;
     case "processing":
       return <ProcessingPanel {...props} />;
+    case "noVoice":
+      return <NoVoicePanel {...props} />;
+    case "micError":
+      return <MicErrorPanel {...props} />;
+    case "uploadError":
+      return <UploadErrorPanel {...props} />;
   }
 }
