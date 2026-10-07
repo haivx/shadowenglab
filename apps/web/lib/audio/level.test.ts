@@ -17,7 +17,12 @@ const NOISE_AMPLITUDE = 0.0014; // RMS ~ 0.001 = -60 dB
 const SPEECH_AMPLITUDE = 0.1; // RMS ~ 0.0707 = -23 dB
 
 /** Cấp `totalMs` mili giây theo từng khung `frameMs`. */
-function feed(state: LevelState, amplitude: number, totalMs: number, frameMs = 20) {
+function feed(
+  state: LevelState,
+  amplitude: number,
+  totalMs: number,
+  frameMs = 20,
+) {
   let current = state;
   const frames: LevelState[] = [];
   for (let elapsed = 0; elapsed < totalMs; elapsed += frameMs) {
@@ -55,7 +60,9 @@ describe("updateLevel", () => {
     let state = feed(createLevelState(), NOISE_AMPLITUDE, 300).state;
     state = feed(state, SPEECH_AMPLITUDE, 400).state;
     const quiet = feed(state, NOISE_AMPLITUDE, 1500, 100);
-    const detectedAt = quiet.frames.flatMap((frame, i) => (frame.silenceDetected ? [i] : []));
+    const detectedAt = quiet.frames.flatMap((frame, i) =>
+      frame.silenceDetected ? [i] : [],
+    );
     expect(detectedAt).toEqual([9]); // khung thứ 10 = đủ 1000 ms
   });
 

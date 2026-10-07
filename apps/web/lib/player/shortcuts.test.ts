@@ -6,7 +6,9 @@ import {
   type ShortcutTarget,
 } from "./shortcuts";
 
-function target(overrides: Partial<ShortcutTarget> & { role?: string } = {}): ShortcutTarget {
+function target(
+  overrides: Partial<ShortcutTarget> & { role?: string } = {},
+): ShortcutTarget {
   const { role, ...rest } = overrides;
   return {
     tagName: "DIV",
@@ -31,30 +33,44 @@ function keyEvent(overrides: Partial<ShortcutKeyEvent> = {}): ShortcutKeyEvent {
 
 describe("shouldHandleShortcut", () => {
   it("true cho target là BUTTON hoặc body, và khi không có target", () => {
-    expect(shouldHandleShortcut(keyEvent({ target: target({ tagName: "BUTTON" }) }))).toBe(true);
-    expect(shouldHandleShortcut(keyEvent({ target: target({ tagName: "BODY" }) }))).toBe(true);
+    expect(
+      shouldHandleShortcut(keyEvent({ target: target({ tagName: "BUTTON" }) })),
+    ).toBe(true);
+    expect(
+      shouldHandleShortcut(keyEvent({ target: target({ tagName: "BODY" }) })),
+    ).toBe(true);
     expect(shouldHandleShortcut(keyEvent({ target: null }))).toBe(true);
   });
 
-  it.each(["INPUT", "TEXTAREA", "SELECT", "input"])("false khi focus ở %s", (tagName) => {
-    expect(shouldHandleShortcut(keyEvent({ target: target({ tagName }) }))).toBe(false);
-  });
+  it.each(["INPUT", "TEXTAREA", "SELECT", "input"])(
+    "false khi focus ở %s",
+    (tagName) => {
+      expect(
+        shouldHandleShortcut(keyEvent({ target: target({ tagName }) })),
+      ).toBe(false);
+    },
+  );
 
   it.each(["combobox", "listbox"])("false khi focus ở role=%s", (role) => {
-    expect(shouldHandleShortcut(keyEvent({ target: target({ role }) }))).toBe(false);
+    expect(shouldHandleShortcut(keyEvent({ target: target({ role }) }))).toBe(
+      false,
+    );
   });
 
   it("false khi target nằm trong một listbox/combobox (ví dụ option của Select)", () => {
     const inListbox = target({
-      closest: (selector) => (selector === '[role="listbox"], [role="combobox"]' ? {} : null),
+      closest: (selector) =>
+        selector === '[role="listbox"], [role="combobox"]' ? {} : null,
     });
     expect(shouldHandleShortcut(keyEvent({ target: inListbox }))).toBe(false);
   });
 
   it("false khi contenteditable", () => {
-    expect(shouldHandleShortcut(keyEvent({ target: target({ isContentEditable: true }) }))).toBe(
-      false,
-    );
+    expect(
+      shouldHandleShortcut(
+        keyEvent({ target: target({ isContentEditable: true }) }),
+      ),
+    ).toBe(false);
   });
 
   it("false khi target nằm trong dialog đang mở", () => {
@@ -65,9 +81,12 @@ describe("shouldHandleShortcut", () => {
     expect(shouldHandleShortcut(keyEvent({ target: inDialog }))).toBe(false);
   });
 
-  it.each(["ctrlKey", "metaKey", "altKey"] as const)("false khi giữ %s", (modifier) => {
-    expect(shouldHandleShortcut(keyEvent({ [modifier]: true }))).toBe(false);
-  });
+  it.each(["ctrlKey", "metaKey", "altKey"] as const)(
+    "false khi giữ %s",
+    (modifier) => {
+      expect(shouldHandleShortcut(keyEvent({ [modifier]: true }))).toBe(false);
+    },
+  );
 
   it("false khi phím lặp (giữ phím)", () => {
     expect(shouldHandleShortcut(keyEvent({ repeat: true }))).toBe(false);
@@ -97,7 +116,9 @@ describe("shortcutToAction", () => {
   });
 
   it("mũi tên chuyển câu, bị bỏ qua khi ghi hoặc xử lý", () => {
-    expect(shortcutToAction("ArrowRight", "reviewing")).toEqual({ type: "NEXT" });
+    expect(shortcutToAction("ArrowRight", "reviewing")).toEqual({
+      type: "NEXT",
+    });
     expect(shortcutToAction("ArrowLeft", "idle")).toEqual({ type: "PREV" });
     expect(shortcutToAction("ArrowRight", "playing")).toEqual({ type: "NEXT" });
     expect(shortcutToAction("ArrowLeft", "recording")).toBeNull();
@@ -106,14 +127,20 @@ describe("shortcutToAction", () => {
 
   it("O: nghe mẫu một lần ở idle, LISTEN_ORIGINAL ở reviewing/noVoice/error, bỏ qua khi phát/ghi", () => {
     expect(shortcutToAction("o", "idle")).toEqual({ type: "PREVIEW" });
-    expect(shortcutToAction("o", "reviewing")).toEqual({ type: "LISTEN_ORIGINAL" });
-    expect(shortcutToAction("o", "noVoice")).toEqual({ type: "LISTEN_ORIGINAL" });
+    expect(shortcutToAction("o", "reviewing")).toEqual({
+      type: "LISTEN_ORIGINAL",
+    });
+    expect(shortcutToAction("o", "noVoice")).toEqual({
+      type: "LISTEN_ORIGINAL",
+    });
     expect(shortcutToAction("o", "playing")).toBeNull();
     expect(shortcutToAction("o", "recording")).toBeNull();
   });
 
   it("M và B nghe lại bản ghi", () => {
-    expect(shortcutToAction("m", "reviewing")).toEqual({ type: "LISTEN_YOURS" });
+    expect(shortcutToAction("m", "reviewing")).toEqual({
+      type: "LISTEN_YOURS",
+    });
     expect(shortcutToAction("m", "scoring")).toEqual({ type: "LISTEN_YOURS" });
     expect(shortcutToAction("m", "recording")).toBeNull();
     expect(shortcutToAction("b", "noVoice")).toEqual({ type: "LISTEN_BOTH" });
@@ -121,9 +148,19 @@ describe("shortcutToAction", () => {
   });
 
   it("I và T bật tắt IPA / dịch ở mọi trạng thái", () => {
-    for (const state of ["idle", "playing", "recording", "scoring", "reviewing", "noVoice", "error"]) {
+    for (const state of [
+      "idle",
+      "playing",
+      "recording",
+      "scoring",
+      "reviewing",
+      "noVoice",
+      "error",
+    ]) {
       expect(shortcutToAction("i", state)).toEqual({ type: "TOGGLE_IPA" });
-      expect(shortcutToAction("t", state)).toEqual({ type: "TOGGLE_TRANSLATION" });
+      expect(shortcutToAction("t", state)).toEqual({
+        type: "TOGGLE_TRANSLATION",
+      });
     }
   });
 
@@ -134,8 +171,12 @@ describe("shortcutToAction", () => {
   });
 
   it("nhận state.value dạng object (trạng thái con): lấy khoá cấp trên cùng", () => {
-    expect(shortcutToAction(" ", { reviewing: "yours" })).toEqual({ type: "PLAY" });
-    expect(shortcutToAction("m", { scoring: "idle" })).toEqual({ type: "LISTEN_YOURS" });
+    expect(shortcutToAction(" ", { reviewing: "yours" })).toEqual({
+      type: "PLAY",
+    });
+    expect(shortcutToAction("m", { scoring: "idle" })).toEqual({
+      type: "LISTEN_YOURS",
+    });
   });
 
   it("phím không có trong bảng trả null", () => {
