@@ -30,6 +30,7 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 @pytest.fixture
 def client(data_dir: Path) -> TestClient:
+    cfg.data_root()  # giả lập "chốt thư mục dữ liệu lúc khởi động" (lifespan làm việc này thật)
     return TestClient(create_app(), base_url="http://127.0.0.1")
 
 
@@ -145,6 +146,16 @@ def test_put_new_data_dir_applies_only_after_restart(
     cfg.get_settings.cache_clear()
     assert cfg.data_root() == new_dir.resolve()
     assert client.get("/system/status").json()["activeDataDir"] == str(new_dir.resolve())
+
+
+def test_lifespan_pins_the_data_dir_at_startup(data_dir: Path, tmp_path: Path) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+    cfg.get_settings.cache_clear()
+    with TestClient(create_app(), base_url="http://127.0.0.1") as running:
+        settings_json().write_text(json.dumps({"dataDir": str(other)}), encoding="utf-8")
+        assert cfg.data_root() == data_dir  # đã chốt từ lúc khởi động
+        assert running.get("/system/status").json()["activeDataDir"] == str(data_dir)
 
 
 def test_put_data_dir_relative_is_422_invalid_settings(client: TestClient, data_dir: Path) -> None:

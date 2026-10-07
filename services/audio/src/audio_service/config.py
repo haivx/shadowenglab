@@ -4,12 +4,17 @@ Mọi helper đường dẫn kiểm tra id bằng regex trước khi nối, rồ
 nằm trong DATA_DIR sau khi resolve (chặn path traversal và symlink thoát ra ngoài).
 """
 
+import json
+import logging
+import os
 import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 # services/audio/src/audio_service/config.py -> parents[4] là gốc repo.
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -31,9 +36,53 @@ class Settings(BaseSettings):
     data_dir: Path = Path("~/shadowenglab-data")
 
 
+CONFIG_DIR_VAR = "SHADOWENGLAB_CONFIG_DIR"  # test/ghi đè; mặc định ~/.config/shadowenglab (D-10)
+
+
+def config_dir() -> Path:
+    """Thư mục cấu hình người dùng, nằm NGOÀI DATA_DIR vì `dataDir` là một setting (D-10)."""
+    override = os.environ.get(CONFIG_DIR_VAR)
+    return Path(override if override else "~/.config/shadowenglab").expanduser()
+
+
+def settings_file_path() -> Path:
+    return config_dir() / "settings.json"
+
+
+def _saved_data_dir() -> Path | None:
+    """`dataDir` đã lưu trong settings.json nếu dùng được; mọi lỗi -> None (đọc khoan dung).
+
+    Dùng được = chuỗi tuyệt đối trỏ tới thư mục đang tồn tại. Đây là đường đọc lúc khởi động nên
+    không bao giờ raise: file hỏng hay đường dẫn cũ không làm app hỏng.
+    """
+    try:
+        raw = json.loads(settings_file_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    value = raw.get("dataDir") if isinstance(raw, dict) else None
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value)
+    if not path.is_absolute():
+        return None
+    if not path.is_dir():
+        logger.warning("dataDir đã lưu không còn là thư mục, dùng DATA_DIR/mặc định")
+        return None
+    return path
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    """Phân giải một lần mỗi process (D-12: đổi dataDir áp dụng sau restart).
+
+    Thứ tự ưu tiên `dataDir` (02-01 mục G): settings.json (nếu có khoá hợp lệ) > `DATA_DIR`
+    (env/.env) > `~/shadowenglab-data`.
+    """
+    settings = Settings()
+    saved = _saved_data_dir()
+    if saved is not None:
+        settings = settings.model_copy(update={"data_dir": saved})
+    return settings
 
 
 def data_root() -> Path:

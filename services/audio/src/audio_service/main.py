@@ -17,6 +17,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
 from audio_service import __version__
+from audio_service.config import get_settings
 from audio_service.errors import error_response, install_error_handlers
 from audio_service.lesson import pipeline
 from audio_service.lesson.jobs import JobRunner, recover_interrupted
@@ -50,6 +51,8 @@ def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # D-12: chốt thư mục dữ liệu ngay lúc khởi động; PUT /settings chỉ có hiệu lực sau restart.
+        get_settings()
         resolved = deps or pipeline.default_deps()
         app.state.deps = resolved
         runner = JobRunner(
