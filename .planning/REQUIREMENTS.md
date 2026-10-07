@@ -30,7 +30,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 - [ ] **LES-01**: Liam dán link YouTube ở S2 và thấy preview (tiêu đề, thời lượng, thumbnail); link không hợp lệ hoặc video không cho tải báo lỗi rõ ràng
 - [ ] **LES-02**: Video > 6 phút → Liam chọn đoạn start–end bằng thanh kéo (mặc định 5 phút đầu); video ≤ 6 phút dùng toàn bộ
-- [ ] **LES-03**: Tạo bài chạy nền; card ở S1 hiện tiến độ theo bước (Tải video → Tách giọng → Phiên âm → Chia câu → Phân tích bản gốc); tạo 2 bài liên tiếp không chặn nhau và Liam vẫn tập bài khác trong lúc chờ
+- [x] **LES-03**: Tạo bài chạy nền; card ở S1 hiện tiến độ theo bước (Tải video → Tách giọng → Phiên âm → Chia câu → Phân tích bản gốc); tạo 2 bài liên tiếp không chặn nhau và Liam vẫn tập bài khác trong lúc chờ
 - [ ] **LES-04**: Pipeline tạo bài: yt-dlp (video 360–480p + audio, cache theo `videoId`), Demucs tách vocal, mlx-whisper word timestamps, tách câu 3–8 s (cắt câu > ~15 từ tại dấu phẩy/khoảng lặng, gộp mảnh < 1.5 s), tính sẵn F0, năng lượng, prominence theo từ và PPG cho từng câu
 - [ ] **LES-05**: Video 5 phút sẵn sàng để tập trong ≤ 5 phút
 - [ ] **LES-06**: Card bài sẵn sàng hiện số câu và nhãn chất lượng audio "Audio sạch" / "Có nhạc nền", tính lúc tạo bài từ output Demucs (tỉ lệ năng lượng phần non-vocal so với vocal); audio nhiều nhạc nền hiện cảnh báo nên chọn video khác. Ghi chú: Phase 5 bổ sung tỉ lệ câu `ref_unclear` để tinh chỉnh nhãn
@@ -44,7 +44,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 - [ ] **PLY-04**: S3 mở ở câu đầu tiên chưa tập; danh sách câu bên phải highlight câu hiện tại, mỗi câu có chấm màu theo điểm tốt nhất; nút "Sửa" để chỉnh text câu
 - [ ] **PLY-05**: Nút "Mất chữ cuối?" nới `end` của câu thêm 300 ms và lưu vào bài
 - [ ] **PLY-06**: Liam xem IPA theo cách người nói gốc phát âm (nhận dạng từ audio mẫu), có ghi chú đây là nhận dạng tự động, bật/tắt được
-- [ ] **PLY-07**: Mọi hành động có nút rõ ràng (có chữ, cao 44–48 px) với phím tắt phụ hiện dạng gợi ý (`Space`, `R`, `←/→`, `O`, `M`, `B`, `I`, `T`); Liam tập trọn 30 câu chỉ bằng chuột, và cũng làm được chỉ bằng bàn phím
+- [x] **PLY-07**: Mọi hành động có nút rõ ràng (có chữ, cao 44–48 px) với phím tắt phụ hiện dạng gợi ý (`Space`, `R`, `←/→`, `O`, `M`, `B`, `I`, `T`); Liam tập trọn 30 câu chỉ bằng chuột, và cũng làm được chỉ bằng bàn phím
 
 ### Ghi âm (REC) — M3, F2
 
@@ -171,7 +171,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SET-04 | Phase 2 | Pending |
 | LES-01 | Phase 2 | Pending |
 | LES-02 | Phase 2 | Pending |
-| LES-03 | Phase 2 | Pending |
+| LES-03 | Phase 2 | Complete |
 | LES-04 | Phase 2 | Pending |
 | LES-05 | Phase 2 | Pending |
 | LES-06 | Phase 2 | Pending |
@@ -182,7 +182,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLY-04 | Phase 2 | Pending |
 | PLY-05 | Phase 2 | Pending |
 | PLY-06 | Phase 2 | Pending |
-| PLY-07 | Phase 2 | Pending |
+| PLY-07 | Phase 2 | Complete |
 | REC-01 | Phase 2 | Pending |
 | REC-02 | Phase 2 | Pending |
 | REC-03 | Phase 2 | Pending |

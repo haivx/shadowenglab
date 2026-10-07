@@ -1,0 +1,80 @@
+/* synced from docs/design/tokens.css (do not edit here; run the tokens test after changing the source) */
+/*
+ * ShadowEngLab · design tokens v0.2
+ * Nguồn: Radix Colors (light). Chỉ giữ các bậc có vai trò.
+ * Dùng với Tailwind + shadcn/ui: shadcn đọc các biến semantic ở phần dưới.
+ * Dark mode: chưa thiết kế (ngoài phạm vi Step 1).
+ */
+
+:root {
+  /* ---------- Thang màu gốc (Radix) ---------- */
+  --slate-1: #FCFCFD;  --slate-2: #F9F9FB;  --slate-3: #F0F0F3;  --slate-4: #E8E8EC;
+  --slate-5: #E0E1E6;  --slate-6: #D9D9E0;  --slate-7: #CDCED6;  --slate-8: #B9BBC6;
+  --slate-9: #8B8D98;  --slate-11: #60646C; --slate-12: #1C2024;
+
+  --teal-3: #E0F8F3;   --teal-9: #12A594;   --teal-11: #008573;  --teal-12: #0D3D38;
+  --orange-3: #FFEFD6; --orange-9: #F76B15; --orange-11: #CC4E00; --orange-12: #582D1D;
+
+  --green-3: #E6F6EB;  --green-7: #ADDDC0;  --green-9: #30A46C;  --green-11: #218358;
+  --amber-3: #FFF7C2;  --amber-7: #E9C162;  --amber-9: #FFC53D;  --amber-11: #AB6400;
+  --red-3: #FEEBEC;    --red-7: #F4A9AA;    --red-9: #E5484D;    --red-11: #CE2C31;  --red-12: #641723;
+
+  --blue-9: #0090FF;   --blue-11: #0D74CE;
+  --violet-9: #6E56CF; --violet-11: #6550B9;
+
+  /* ---------- Semantic: nền, chữ, viền (shadcn) ---------- */
+  --background: var(--slate-1);
+  --foreground: var(--slate-12);
+  --card: #FFFFFF;
+  --card-foreground: var(--slate-12);
+  --muted: var(--slate-3);
+  --muted-foreground: var(--slate-11);
+  --border: var(--slate-4);
+  --input: var(--slate-7);
+  --ring: var(--slate-12);
+  --primary: var(--slate-12);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--slate-3);
+  --secondary-foreground: var(--slate-12);
+  --destructive: var(--red-9);
+  --destructive-foreground: #FFFFFF;
+
+  /* ---------- Semantic: nhận diện nguồn âm thanh ----------
+   * Chỉ dùng để phân biệt "Bản gốc" và "Bạn": đường biểu đồ, nút nghe, hàng âm.
+   * KHÔNG dùng cho điểm số. */
+  --original: var(--teal-9);
+  --original-text: var(--teal-11);
+  --original-soft: var(--teal-3);
+  --you: var(--orange-9);
+  --you-text: var(--orange-11);
+  --you-soft: var(--orange-3);
+
+  /* ---------- Semantic: điểm số (đèn giao thông) ----------
+   * good ≥ 80 · ok 60–79 · bad < 60 · unrated = bản gốc không đủ rõ */
+  --score-good: var(--green-9);       --score-good-text: var(--green-11);  --score-good-soft: var(--green-3);
+  --score-ok: var(--amber-9);         --score-ok-text: var(--amber-11);    --score-ok-soft: var(--amber-3);
+  --score-bad: var(--red-9);          --score-bad-text: var(--red-11);     --score-bad-soft: var(--red-3);
+  --score-unrated: var(--slate-8);    --score-unrated-text: var(--slate-11);
+
+  /* ---------- Semantic: trạng thái ---------- */
+  --recording: var(--red-9);
+  --warning-soft: var(--amber-3);
+  --warning-border: var(--amber-7);
+  --warning-text: var(--amber-11);
+
+  /* ---------- Chuỗi biểu đồ không mang nghĩa điểm ---------- */
+  --series-1: var(--slate-12);
+  --series-2: var(--violet-9);
+  --series-3: var(--blue-9);
+
+  /* ---------- Hình khối ---------- */
+  --radius-sm: 6px;   /* badge, kbd */
+  --radius: 8px;      /* nút, input, chip */
+  --radius-lg: 12px;  /* khối lớn, card thư viện */
+  --radius-xl: 16px;  /* dialog */
+
+  /* ---------- Chữ ---------- */
+  --font-sans: 'Figtree', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-ipa: 'Noto Sans', sans-serif;
+}
