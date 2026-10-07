@@ -98,3 +98,18 @@ class JobRunner:
             self._mark_failed(lesson_id, exc)
         except Exception:
             logger.exception("mark_failed lỗi cho bài %s", lesson_id)
+
+
+# --- RED stubs (02-03 Task 2): thay bằng bản thật ở commit GREEN ---
+
+
+class InvalidState(Exception):
+    """Bài không ở trạng thái cho phép thao tác (HTTP 409 invalid_state)."""
+
+
+def recover_interrupted() -> list[str]:
+    raise NotImplementedError
+
+
+def retry_lesson(lesson_id: str, runner: JobRunner) -> object:
+    raise NotImplementedError
