@@ -51,29 +51,52 @@ export function estimateMinutes(durationSec: number): number {
 export const END_BEFORE_START_ERROR = "Kết thúc phải sau Bắt đầu.";
 
 export function rangeFormatError(durationSec: number): string {
-  void durationSec;
-  throw new Error("not implemented");
+  return `Nhập thời gian dạng mm:ss, trong khoảng 00:00–${formatClockMs(durationSec)}.`;
 }
 
 export type RangeValidation =
   | { ok: true; range: TimeRange }
   | { ok: false; startError?: string; endError?: string };
 
+/** Giây hợp lệ trong [0, duration], hoặc null (sai định dạng / ngoài video). */
+function parseWithin(text: string, durationSec: number): number | null {
+  const seconds = parseClock(text);
+  return seconds !== null && seconds <= durationSec ? seconds : null;
+}
+
+/**
+ * Kiểm tra hai ô mm:ss. Mỗi ô lỗi riêng; chỉ khi cả hai đọc được mới so thứ tự
+ * (Kết thúc phải sau Bắt đầu, báo ở ô Kết thúc).
+ */
 export function validateRange(
   startText: string,
   endText: string,
   durationSec: number,
 ): RangeValidation {
-  void [startText, endText, durationSec];
-  throw new Error("not implemented");
+  const start = parseWithin(startText, durationSec);
+  const end = parseWithin(endText, durationSec);
+  const formatError = rangeFormatError(durationSec);
+
+  if (start === null || end === null) {
+    return {
+      ok: false,
+      ...(start === null ? { startError: formatError } : {}),
+      ...(end === null ? { endError: formatError } : {}),
+    };
+  }
+  if (end <= start) {
+    return { ok: false, endError: END_BEFORE_START_ERROR };
+  }
+  return { ok: true, range: { start, end } };
 }
 
+/** Dịch một thumb 1 giây (10 giây khi giữ Shift), giữ trong [0, duration]. */
 export function clampThumb(
   value: number,
   step: number,
   shift: boolean,
   durationSec: number,
 ): number {
-  void [value, step, shift, durationSec];
-  throw new Error("not implemented");
+  const next = value + step * (shift ? 10 : 1);
+  return Math.min(Math.max(next, 0), durationSec);
 }
