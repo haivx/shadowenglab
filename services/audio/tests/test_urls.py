@@ -10,6 +10,7 @@ from audio_service.lesson.urls import (
     VIDEO_ID_RE,
     InvalidYoutubeUrl,
     canonical_watch_url,
+    is_channel_url,
     parse_youtube_url,
 )
 
@@ -119,3 +120,44 @@ def test_allow_list_and_id_pattern() -> None:
     )
     assert VIDEO_ID_RE.fullmatch(VID)
     assert not VIDEO_ID_RE.fullmatch(VID + "\n")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/@HBOMax",
+        "https://youtube.com/@HBOMax/videos",
+        "https://www.youtube.com/channel/UCxyz123",
+        "https://m.youtube.com/c/foo",
+        "https://www.youtube.com/user/foo",
+        "  https://www.youtube.com/@HBOMax  ",
+        "HTTPS://WWW.YOUTUBE.COM/@HBOMax",
+    ],
+)
+def test_is_channel_url_true_for_channel_links(url: str) -> None:
+    assert is_channel_url(url) is True
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"https://www.youtube.com/watch?v={VID}",
+        f"https://youtu.be/{VID}",
+        f"https://www.youtube.com/shorts/{VID}",
+        "https://www.youtube.com/playlist?list=PL1",
+        "https://www.youtube.com/",
+        "https://example.com/@foo",
+        "https://youtu.be/@foo",
+        "https://youtube.com.evil.com/@foo",
+        "https://user@www.youtube.com/@foo",
+        "https://www.youtube.com:8080/@foo",
+        "ftp://www.youtube.com/@foo",
+        "javascript:alert(1)",
+        "www.youtube.com/@foo",
+        "https://www.youtube.com/@fo o",
+        "https://www.youtube.com/@foo" + "a" * 3000,
+        "",
+    ],
+)
+def test_is_channel_url_false_for_everything_else(url: str) -> None:
+    assert is_channel_url(url) is False

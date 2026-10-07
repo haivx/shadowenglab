@@ -13,8 +13,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from yt_dlp.utils import DownloadError
 
 from audio_service.config import get_settings, lesson_json_path, video_asset_path
+from audio_service.lesson import download
+from audio_service.lesson.pipeline import PipelineDeps
 from audio_service.main import create_app
 
 LESSON_ID = "01HZX3Y7Q8K2M4N6P8R0S2T4V6"
@@ -148,3 +151,211 @@ def test_video_response_never_leaks_the_data_dir(client: TestClient, data_dir: P
         assert str(data_dir) not in client.get(url).text
     store_lesson(make_lesson())
     assert str(data_dir) not in client.get(f"/lessons/{LESSON_ID}/video").text
+
+
+# ---------------------------------------------------------------- GET /videos/preview
+
+CHANNEL_MSG = "Đây là link kênh. Hãy dán link một video (có “watch?v=” hoặc “youtu.be/”)."
+INVALID_URL_MSG = (
+    "Link này không phải link video YouTube. Hãy dán link có “watch?v=” hoặc “youtu.be/”."
+)
+UNAVAILABLE_MSG = (
+    "Không lấy được video này (giới hạn khu vực, video riêng tư hoặc livestream). Thử video khác."
+)
+WATCH_URL = f"https://www.youtube.com/watch?v={VIDEO_ID}"
+
+
+class MediaFakes:
+    """`fetch_info` / `download_video` giả; các stage còn lại không bao giờ chạy ở đây."""
+
+    def __init__(
+        self,
+        info: download.VideoInfo | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.info = info or download.VideoInfo(
+            VIDEO_ID, "Fake title", 12.5, "https://img/t.jpg", channel="Fake channel"
+        )
+        self.error = error
+        self.calls: list[str] = []
+        self.download_calls: list[str] = []
+        self.download_error: Exception | None = None
+        self.file_existed_at_download: list[bool] = []
+
+    def fetch_info(self, video_id: str) -> download.VideoInfo:
+        self.calls.append(video_id)
+        if self.error is not None:
+            raise self.error
+        return self.info
+
+    def download_video(self, video_id: str) -> Path:
+        self.download_calls.append(video_id)
+        path = video_asset_path(video_id, "video.mp4")
+        self.file_existed_at_download.append(path.exists())
+        if self.download_error is not None:
+            raise self.download_error
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"new video bytes")
+        return path
+
+    def deps(self) -> PipelineDeps:
+        def unused(*_a: object, **_k: object) -> Any:
+            raise AssertionError("stage không được gọi trong test này")
+
+        return PipelineDeps(
+            fetch_info=self.fetch_info,
+            download_video=self.download_video,
+            extract_audio=unused,
+            separate=unused,
+            transcribe=unused,
+            load_ppg=unused,
+            compute_ppg=unused,
+            extract_f0=unused,
+            frame_energy=unused,
+            free_memory=lambda: None,
+        )
+
+
+def make_client(fakes: MediaFakes) -> TestClient:
+    return TestClient(create_app(deps=fakes.deps()), base_url="http://127.0.0.1")
+
+
+def preview(client: TestClient, url: str) -> Any:
+    return client.get("/videos/preview", params={"url": url})
+
+
+def test_preview_returns_video_preview(data_dir: Path) -> None:
+    fakes = MediaFakes()
+    with make_client(fakes) as client:
+        res = preview(client, WATCH_URL)
+    assert res.status_code == 200
+    assert res.json() == {
+        "videoId": VIDEO_ID,
+        "title": "Fake title",
+        "durationSec": 12.5,
+        "channel": "Fake channel",
+        "thumbnailUrl": "https://img/t.jpg",
+    }
+    assert fakes.calls == [VIDEO_ID]  # yt-dlp chỉ nhận video id đã kiểm tra
+
+
+def test_preview_omits_absent_optionals(data_dir: Path) -> None:
+    fakes = MediaFakes(info=download.VideoInfo(VIDEO_ID, "T", 30.0, None))
+    with make_client(fakes) as client:
+        body = preview(client, WATCH_URL).json()
+    assert body == {"videoId": VIDEO_ID, "title": "T", "durationSec": 30.0}
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/@HBOMax",
+        "https://www.youtube.com/channel/UCxyz123",
+        "https://www.youtube.com/c/foo",
+        "https://www.youtube.com/user/foo",
+    ],
+)
+def test_preview_channel_link_is_400_channel_url(data_dir: Path, url: str) -> None:
+    fakes = MediaFakes()
+    with make_client(fakes) as client:
+        res = preview(client, url)
+    assert res.status_code == 400
+    assert res.json() == {"code": "channel_url", "message": CHANNEL_MSG}
+    assert fakes.calls == []
+
+
+@pytest.mark.parametrize(
+    "url", ["https://example.com", "not a url", "https://www.youtube.com/playlist?list=PL1", " "]
+)
+def test_preview_invalid_link_is_400_invalid_url(data_dir: Path, url: str) -> None:
+    fakes = MediaFakes()
+    with make_client(fakes) as client:
+        res = preview(client, url)
+    assert res.status_code == 400
+    assert res.json() == {"code": "invalid_url", "message": INVALID_URL_MSG}
+    assert fakes.calls == []
+
+
+def test_preview_download_error_is_404_without_ytdlp_text(data_dir: Path) -> None:
+    secret = "ERROR: [youtube] dUDi-F6eAvk: Private video. Sign in /Users/liam/secret"
+    fakes = MediaFakes(error=DownloadError(secret))
+    with make_client(fakes) as client:
+        res = preview(client, WATCH_URL)
+    assert res.status_code == 404
+    assert res.json() == {"code": "video_unavailable", "message": UNAVAILABLE_MSG}
+    assert "Private" not in res.text and "/Users" not in res.text
+
+
+def test_preview_unexpected_error_is_502_without_leak(data_dir: Path) -> None:
+    fakes = MediaFakes(error=RuntimeError("boom /Users/liam/x"))
+    with make_client(fakes) as client:
+        res = preview(client, WATCH_URL)
+    assert res.status_code == 502
+    assert res.json()["code"] == "upstream_error"
+    assert "boom" not in res.text and "/Users" not in res.text
+
+
+@pytest.mark.parametrize("status", ["is_live", "is_upcoming"])
+def test_preview_live_or_upcoming_is_422_live_video(data_dir: Path, status: str) -> None:
+    info = download.VideoInfo(VIDEO_ID, "Live", 0.0, None, live_status=status)
+    with make_client(MediaFakes(info=info)) as client:
+        res = preview(client, WATCH_URL)
+    assert res.status_code == 422
+    assert res.json() == {"code": "live_video", "message": UNAVAILABLE_MSG}
+
+
+@pytest.mark.parametrize(
+    "availability", ["private", "needs_auth", "subscriber_only", "premium_only"]
+)
+def test_preview_restricted_availability_is_404(data_dir: Path, availability: str) -> None:
+    info = download.VideoInfo(VIDEO_ID, "T", 30.0, None, availability=availability)
+    with make_client(MediaFakes(info=info)) as client:
+        res = preview(client, WATCH_URL)
+    assert res.status_code == 404
+    assert res.json() == {"code": "video_unavailable", "message": UNAVAILABLE_MSG}
+
+
+@pytest.mark.parametrize("availability", ["public", "unlisted", None])
+def test_preview_public_availability_is_ok(data_dir: Path, availability: str | None) -> None:
+    info = download.VideoInfo(VIDEO_ID, "T", 30.0, None, availability=availability)
+    with make_client(MediaFakes(info=info)) as client:
+        assert preview(client, WATCH_URL).status_code == 200
+
+
+def test_preview_url_over_2048_chars_is_rejected(data_dir: Path) -> None:
+    with make_client(MediaFakes()) as client:
+        res = preview(client, WATCH_URL + "&x=" + "a" * 2100)
+    assert res.status_code == 422
+    assert res.json()["code"] == "invalid_request"
+
+
+def test_preview_flags_existing_lesson_for_default_range(data_dir: Path) -> None:
+    store_lesson(make_lesson())  # ready, 0 - 12.5 = khoảng mặc định của video 12.5 s
+    with make_client(MediaFakes()) as client:
+        body = preview(client, WATCH_URL).json()
+    assert body["existingLessonId"] == LESSON_ID
+
+
+def test_preview_ignores_failed_lesson(data_dir: Path) -> None:
+    store_lesson(make_lesson(status="failed"))
+    with make_client(MediaFakes()) as client:
+        assert "existingLessonId" not in preview(client, WATCH_URL).json()
+
+
+def test_preview_ignores_lesson_with_other_range_or_video(data_dir: Path) -> None:
+    other_range = make_lesson()
+    other_range["range"] = {"start": 2.0, "end": 10.0}
+    store_lesson(other_range)
+    store_lesson(make_lesson(lesson_id="01HZX3Y7Q8K2M4N6P8R0S2T4V7", video_id="aaaaaaaaaaa"))
+    with make_client(MediaFakes()) as client:
+        assert "existingLessonId" not in preview(client, WATCH_URL).json()
+
+
+def test_preview_uses_five_minute_default_for_long_video(data_dir: Path) -> None:
+    long_info = download.VideoInfo(VIDEO_ID, "Long", 900.0, None)
+    lesson = make_lesson()
+    lesson["durationSec"] = 900.0
+    lesson["range"] = {"start": 0.0, "end": 300.0}
+    store_lesson(lesson)
+    with make_client(MediaFakes(info=long_info)) as client:
+        assert preview(client, WATCH_URL).json()["existingLessonId"] == LESSON_ID

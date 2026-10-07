@@ -72,3 +72,7 @@ def parse_youtube_url(url: str) -> str:
 def canonical_watch_url(video_id: str) -> str:
     """URL chuẩn duy nhất được đưa cho yt-dlp."""
     return f"https://www.youtube.com/watch?v={_check_id(video_id)}"
+
+
+def is_channel_url(url: str) -> bool:
+    raise NotImplementedError
