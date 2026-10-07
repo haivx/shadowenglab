@@ -1,0 +1,21 @@
+[
+  {
+    "name": "minimal",
+    "data": {
+      "videoId": "dUDi-F6eAvk",
+      "title": "Phỏng vấn: Nhấn mạnh trong câu",
+      "durationSec": 312.5
+    }
+  },
+  {
+    "name": "full",
+    "data": {
+      "videoId": "dUDi-F6eAvk",
+      "title": "Phỏng vấn: Nhấn mạnh trong câu",
+      "durationSec": 312.5,
+      "channel": "English Lab",
+      "thumbnailUrl": "https://i.ytimg.com/vi/dUDi-F6eAvk/hqdefault.jpg",
+      "existingLessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0"
+    }
+  }
+]

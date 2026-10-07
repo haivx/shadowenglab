@@ -2,13 +2,19 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ApiError,
+  AppSettings,
+  AttemptAck,
   ClipManifest,
   ExtraPauseData,
   IssueCode,
   Label,
   Lesson,
+  LessonListItem,
   Schemas,
   Scores,
+  UpdateSegmentTextRequest,
+  VideoPreview,
   Word,
   type SchemaName,
 } from "./index";
@@ -31,13 +37,30 @@ const fixtureFiles = readdirSync(FIXTURE_DIR).filter((f) =>
 );
 
 describe("fixtures", () => {
-  it("covers all four fixture files", () => {
+  it("covers all fifteen fixture files", () => {
     expect(fixtureFiles.sort()).toEqual([
+      "ApiError.json",
+      "AppSettings.json",
+      "AttemptAck.json",
       "ClipManifest.json",
+      "CreateLessonRequest.json",
       "Label.json",
       "Lesson.json",
+      "LessonListItem.json",
+      "LessonProgress.json",
+      "OpenAiKeyCheckRequest.json",
+      "OpenAiKeyCheckResult.json",
       "ScoreResult.json",
+      "SystemStatus.json",
+      "UpdateSegmentTextRequest.json",
+      "VideoPreview.json",
     ]);
+  });
+
+  it("has a Schemas entry for every fixture file", () => {
+    for (const file of fixtureFiles) {
+      expect(Object.keys(Schemas)).toContain(file.replace(/\.json$/, ""));
+    }
   });
 
   for (const file of fixtureFiles) {
@@ -141,6 +164,169 @@ describe("negative and boundary edges", () => {
   });
 });
 
+describe("phase 2 contract edges", () => {
+  const preview = { videoId: "v", title: "t", durationSec: 10 };
+  const ack = {
+    lessonId: "01J",
+    segmentIndex: 0,
+    attempt: 1,
+    durationMs: 0,
+    voiced: false,
+    savedForEval: false,
+  };
+  const settings = {
+    playbackRate: 1,
+    repeat: 1,
+    recordFactor: 1.5,
+    dataDir: "/data",
+    accent: "US",
+  };
+  const lessonSummary = {
+    id: "01J",
+    videoId: "v",
+    title: "t",
+    durationSec: 10,
+    range: { start: 0, end: 10 },
+    status: "ready",
+    createdAt: "2026-10-07T00:00:00Z",
+  };
+
+  it("rejects an optional field sent as null (VideoPreview.channel)", () => {
+    expect(VideoPreview.safeParse(preview).success).toBe(true);
+    expect(VideoPreview.safeParse({ ...preview, channel: null }).success).toBe(
+      false,
+    );
+  });
+
+  it("AttemptAck.attempt starts at 1: 0 rejected, 1 accepted", () => {
+    expect(AttemptAck.safeParse(ack).success).toBe(true);
+    expect(AttemptAck.safeParse({ ...ack, attempt: 0 }).success).toBe(false);
+  });
+
+  it("AppSettings.repeat accepts 1..3, rejects 4", () => {
+    expect(AppSettings.safeParse(settings).success).toBe(true);
+    expect(AppSettings.safeParse({ ...settings, repeat: 3 }).success).toBe(
+      true,
+    );
+    expect(AppSettings.safeParse({ ...settings, repeat: 4 }).success).toBe(
+      false,
+    );
+  });
+
+  it('AppSettings.accent only accepts "US"', () => {
+    expect(AppSettings.safeParse({ ...settings, accent: "UK" }).success).toBe(
+      false,
+    );
+  });
+
+  it("AppSettings.playbackRate stays within [0.5, 1]", () => {
+    for (const ok of [0.5, 0.75, 1]) {
+      expect(
+        AppSettings.safeParse({ ...settings, playbackRate: ok }).success,
+      ).toBe(true);
+    }
+    for (const bad of [0.49, 1.01]) {
+      expect(
+        AppSettings.safeParse({ ...settings, playbackRate: bad }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("AppSettings.recordFactor stays within [1, 2]", () => {
+    for (const ok of [1, 1.25, 2]) {
+      expect(
+        AppSettings.safeParse({ ...settings, recordFactor: ok }).success,
+      ).toBe(true);
+    }
+    for (const bad of [0.99, 2.01]) {
+      expect(
+        AppSettings.safeParse({ ...settings, recordFactor: bad }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("UpdateSegmentTextRequest.text is 1..500 chars after trim", () => {
+    const parse = (text: string) =>
+      UpdateSegmentTextRequest.safeParse({ text }).success;
+    expect(parse("a")).toBe(true);
+    expect(parse("a".repeat(500))).toBe(true);
+    expect(parse("")).toBe(false);
+    expect(parse("   ")).toBe(false);
+    expect(parse("a".repeat(501))).toBe(false);
+  });
+
+  it("LessonListItem.firstUnpracticedIndex is nullable but never absent or negative", () => {
+    const item = {
+      lesson: lessonSummary,
+      segmentCount: 3,
+      practicedCount: 3,
+    };
+    expect(
+      LessonListItem.safeParse({ ...item, firstUnpracticedIndex: null })
+        .success,
+    ).toBe(true);
+    expect(
+      LessonListItem.safeParse({ ...item, firstUnpracticedIndex: 0 }).success,
+    ).toBe(true);
+    expect(LessonListItem.safeParse(item).success).toBe(false);
+    expect(
+      LessonListItem.safeParse({ ...item, firstUnpracticedIndex: -1 }).success,
+    ).toBe(false);
+  });
+
+  it("LessonListItem.lesson carries no segments", () => {
+    const parsed = LessonListItem.parse({
+      lesson: { ...lessonSummary, segments: [] },
+      segmentCount: 0,
+      practicedCount: 0,
+      firstUnpracticedIndex: 0,
+    });
+    expect("segments" in parsed.lesson).toBe(false);
+  });
+
+  it("ApiError accepts duplicate_lesson with lessonId, rejects unknown code", () => {
+    expect(
+      ApiError.safeParse({
+        code: "duplicate_lesson",
+        message: "m",
+        lessonId: "01J",
+      }).success,
+    ).toBe(true);
+    expect(ApiError.safeParse({ code: "teapot", message: "m" }).success).toBe(
+      false,
+    );
+  });
+
+  it("ApiErrorCode has exactly the 20 approved codes", () => {
+    const codes = [
+      "invalid_request",
+      "invalid_url",
+      "channel_url",
+      "video_unavailable",
+      "live_video",
+      "invalid_range",
+      "duplicate_lesson",
+      "not_found",
+      "invalid_state",
+      "invalid_segment",
+      "unsupported_media",
+      "payload_too_large",
+      "recording_too_long",
+      "busy",
+      "no_openai_key",
+      "upstream_error",
+      "network_error",
+      "invalid_settings",
+      "forbidden_origin",
+      "internal_error",
+    ];
+    for (const code of codes) {
+      expect(ApiError.safeParse({ code, message: "m" }).success).toBe(true);
+    }
+    expect(codes).toHaveLength(20);
+  });
+});
+
 describe("committed schema naming", () => {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, "utf-8")) as {
     $defs: Record<string, unknown>;
@@ -159,6 +345,20 @@ describe("committed schema naming", () => {
       "Issue",
       "WordFlags",
       "ClipWord",
+      "AttemptAck",
+      "AppSettings",
+      "VideoPreview",
+      "CreateLessonRequest",
+      "LessonSummary",
+      "LessonListItem",
+      "SegmentProgress",
+      "LessonProgress",
+      "ModelStatuses",
+      "SystemStatus",
+      "OpenAiKeyCheckRequest",
+      "OpenAiKeyCheckResult",
+      "UpdateSegmentTextRequest",
+      "ApiError",
     ]) {
       expect(keys).toContain(name);
     }

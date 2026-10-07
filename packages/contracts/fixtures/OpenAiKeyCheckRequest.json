@@ -1,0 +1,4 @@
+[
+  { "name": "test-saved-key", "data": {} },
+  { "name": "test-new-key", "data": { "apiKey": "sk-test-0000000000000000" } }
+]

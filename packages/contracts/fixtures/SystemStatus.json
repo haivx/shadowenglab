@@ -1,0 +1,23 @@
+[
+  {
+    "name": "all-ready-no-key",
+    "data": {
+      "models": { "demucs": "ready", "whisper": "ready", "wav2vec2": "ready" },
+      "hasKey": false,
+      "activeDataDir": "/Users/liam/shadowenglab-data"
+    }
+  },
+  {
+    "name": "loading-with-masked-key",
+    "data": {
+      "models": {
+        "demucs": "loading",
+        "whisper": "missing",
+        "wav2vec2": "ready"
+      },
+      "hasKey": true,
+      "maskedKey": "sk-…abcd",
+      "activeDataDir": "/Users/liam/shadowenglab-data"
+    }
+  }
+]

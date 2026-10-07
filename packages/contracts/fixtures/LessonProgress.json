@@ -1,0 +1,30 @@
+[
+  {
+    "name": "none-practiced",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "segments": [],
+      "firstUnpracticedIndex": 0
+    }
+  },
+  {
+    "name": "partial",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+      "segments": [
+        { "segmentIndex": 0, "attempts": 2, "voicedAttempts": 2 },
+        { "segmentIndex": 1, "attempts": 1, "voicedAttempts": 0 },
+        { "segmentIndex": 2, "attempts": 4, "voicedAttempts": 3 }
+      ],
+      "firstUnpracticedIndex": 1
+    }
+  },
+  {
+    "name": "all-practiced",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ2",
+      "segments": [{ "segmentIndex": 0, "attempts": 1, "voicedAttempts": 1 }],
+      "firstUnpracticedIndex": null
+    }
+  }
+]

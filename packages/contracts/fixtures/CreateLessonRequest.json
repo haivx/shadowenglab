@@ -1,0 +1,14 @@
+[
+  {
+    "name": "url-only",
+    "data": { "url": "https://www.youtube.com/watch?v=dUDi-F6eAvk" }
+  },
+  {
+    "name": "with-range",
+    "data": {
+      "url": "https://youtu.be/dUDi-F6eAvk",
+      "start": 10,
+      "end": 70.25
+    }
+  }
+]

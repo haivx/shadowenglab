@@ -1,0 +1,59 @@
+[
+  {
+    "name": "ready-in-progress",
+    "data": {
+      "lesson": {
+        "id": "01JABCDEFGHJKMNPQRSTVWXYZ0",
+        "videoId": "dUDi-F6eAvk",
+        "title": "Phỏng vấn: Nhấn mạnh trong câu",
+        "durationSec": 312.5,
+        "thumbnailUrl": "https://i.ytimg.com/vi/dUDi-F6eAvk/hqdefault.jpg",
+        "range": { "start": 0, "end": 300 },
+        "padMs": 150,
+        "status": "ready",
+        "audioQuality": { "label": "music", "nonVocalRatio": 0.31 },
+        "createdAt": "2026-10-07T08:00:00Z"
+      },
+      "segmentCount": 42,
+      "practicedCount": 5,
+      "firstUnpracticedIndex": 5
+    }
+  },
+  {
+    "name": "failed-with-error",
+    "data": {
+      "lesson": {
+        "id": "01JABCDEFGHJKMNPQRSTVWXYZ1",
+        "videoId": "abcdefghijk",
+        "title": "Video lỗi",
+        "durationSec": 90,
+        "range": { "start": 0, "end": 90 },
+        "padMs": 150,
+        "status": "failed",
+        "error": { "step": "downloading", "message": "Không tải được video." },
+        "createdAt": "2026-10-07T09:30:00Z"
+      },
+      "segmentCount": 0,
+      "practicedCount": 0,
+      "firstUnpracticedIndex": 0
+    }
+  },
+  {
+    "name": "all-practiced",
+    "data": {
+      "lesson": {
+        "id": "01JABCDEFGHJKMNPQRSTVWXYZ2",
+        "videoId": "xyzxyzxyz00",
+        "title": "Bài đã tập xong",
+        "durationSec": 120,
+        "range": { "start": 0, "end": 120 },
+        "padMs": 150,
+        "status": "ready",
+        "createdAt": "2026-10-06T20:00:00Z"
+      },
+      "segmentCount": 10,
+      "practicedCount": 10,
+      "firstUnpracticedIndex": null
+    }
+  }
+]

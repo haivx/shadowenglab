@@ -1,0 +1,14 @@
+[
+  {
+    "name": "minimal",
+    "data": { "code": "invalid_url", "message": "Link YouTube không hợp lệ." }
+  },
+  {
+    "name": "duplicate-lesson",
+    "data": {
+      "code": "duplicate_lesson",
+      "message": "Bài này đã có sẵn.",
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0"
+    }
+  }
+]
