@@ -1,6 +1,6 @@
 // Máy trạng thái phòng tập (PLY-02, ADR 0001). File này KHÔNG import React, DOM hay fetch:
 // mọi tác dụng phụ là actor khai báo trong `setup`, UI/test thay bằng `playerMachine.provide`.
-import { fromCallback, fromPromise, setup } from "xstate";
+import { assign, fromCallback, fromPromise, sendTo, setup } from "xstate";
 import type { AttemptAck } from "@shadowenglab/contracts";
 
 export type RepeatCount = 1 | 2 | 3;
@@ -94,22 +94,208 @@ export interface UploadInput {
   blob: Blob;
 }
 
-export const playerMachine = setup({
+/** Trần thời gian ghi, khớp giới hạn 60 s của backend (RESEARCH Pattern 5b). */
+const MAX_RECORD_MS = 60_000;
+
+function currentRecording(context: PlayerContext): PlayerRecording | undefined {
+  return context.recordings[context.segmentIndex];
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+const machineSetup = setup({
   types: {
     context: {} as PlayerContext,
     events: {} as PlayerEvent,
     input: {} as PlayerInput,
   },
   actors: {
+    // Stub mặc định; UI thật và test thay bằng `playerMachine.provide({ actors })`.
     playSample: fromCallback<PlayerEvent, PlaySampleInput>(() => () => {}),
-    playBlob: fromPromise<void, PlayBlobInput>(async () => {}),
-    playBoth: fromPromise<void, PlayBothInput>(async () => {}),
+    playBlob: fromPromise<undefined, PlayBlobInput>(async () => undefined),
+    playBoth: fromPromise<undefined, PlayBothInput>(async () => undefined),
     record: fromCallback<PlayerEvent, RecordInput>(() => () => {}),
     uploadAttempt: fromPromise<AttemptAck, UploadInput>(async () => {
       throw new Error("uploadAttempt actor chưa được cung cấp");
     }),
   },
-}).createMachine({
+  delays: {
+    recordDelay: ({ context }) => {
+      const sentenceMs =
+        context.segmentDurationsMs[context.segmentIndex] ?? MAX_RECORD_MS;
+      return Math.min(
+        MAX_RECORD_MS,
+        Math.round(sentenceMs * context.recordFactor),
+      );
+    },
+  },
+  guards: {
+    canNext: ({ context }) => context.segmentIndex < context.segmentCount - 1,
+    canPrev: ({ context }) => context.segmentIndex > 0,
+    validGoto: ({ context, event }) =>
+      event.type === "GOTO" &&
+      Number.isInteger(event.index) &&
+      event.index >= 0 &&
+      event.index < context.segmentCount,
+    hasRecording: ({ context }) => currentRecording(context) !== undefined,
+    hasUploaded: ({ context }) =>
+      currentRecording(context)?.status === "uploaded",
+    hasNoVoice: ({ context }) =>
+      currentRecording(context)?.status === "noVoice",
+    hasFailed: ({ context }) => currentRecording(context)?.status === "failed",
+  },
+  actions: {
+    goNext: assign({ segmentIndex: ({ context }) => context.segmentIndex + 1 }),
+    goPrev: assign({ segmentIndex: ({ context }) => context.segmentIndex - 1 }),
+    goTo: assign({
+      segmentIndex: ({ context, event }) =>
+        event.type === "GOTO" ? event.index : context.segmentIndex,
+    }),
+    resetRep: assign({ rep: 0 }),
+    setRep: assign({
+      rep: ({ context, event }) =>
+        event.type === "REP" ? event.n : context.rep,
+    }),
+    resetLevel: assign({ level: { bars: 0, speech: false } }),
+    setLevel: assign({
+      level: ({ context, event }) =>
+        event.type === "LEVEL"
+          ? { bars: event.bars, speech: event.speech }
+          : context.level,
+    }),
+    setRate: assign({
+      rate: ({ context, event }) =>
+        event.type === "SET_RATE" ? event.rate : context.rate,
+    }),
+    setRepeat: assign({
+      repeat: ({ context, event }) =>
+        event.type === "SET_REPEAT" ? event.repeat : context.repeat,
+    }),
+    setRecordFactor: assign({
+      recordFactor: ({ context, event }) =>
+        event.type === "SET_RECORD_FACTOR"
+          ? event.recordFactor
+          : context.recordFactor,
+    }),
+    setSegments: assign({
+      segmentDurationsMs: ({ context, event }) =>
+        event.type === "SEGMENTS_UPDATED"
+          ? event.segmentDurationsMs
+          : context.segmentDurationsMs,
+    }),
+    storeRecording: assign({
+      recordings: ({ context, event }) =>
+        event.type === "STOPPED"
+          ? {
+              ...context.recordings,
+              [context.segmentIndex]: {
+                blob: event.blob,
+                durationMs: event.durationMs,
+                status: "pending" as const,
+              },
+            }
+          : context.recordings,
+    }),
+    markPending: assign({
+      recordings: ({ context }) => {
+        const rec = currentRecording(context);
+        return rec
+          ? {
+              ...context.recordings,
+              [context.segmentIndex]: { ...rec, status: "pending" as const },
+            }
+          : context.recordings;
+      },
+      lastError: undefined,
+    }),
+    micFailed: assign({ lastError: "mic" }),
+    sampleFailed: assign({ lastError: "sample" }),
+    stopRecorder: sendTo("recorder", { type: "STOP" }),
+  },
+});
+
+/** Điều hướng câu: chỉ cho phép ở trạng thái không ghi và không xử lý (PLY-04). */
+const navigation = {
+  NEXT: { guard: "canNext", target: "#player.idle", actions: "goNext" },
+  PREV: { guard: "canPrev", target: "#player.idle", actions: "goPrev" },
+  GOTO: { guard: "validGoto", target: "#player.idle", actions: "goTo" },
+} as const;
+
+/** Đổi cài đặt phiên: chỉ ngoài recording/scoring. */
+const settings = {
+  SET_RATE: { actions: "setRate" },
+  SET_REPEAT: { actions: "setRepeat" },
+  SET_RECORD_FACTOR: { actions: "setRecordFactor" },
+} as const;
+
+/** Từ `idle`/`previewing`: về trạng thái đúng với bản ghi của câu hiện tại. */
+const backToRecordingState = [
+  { guard: "hasUploaded", target: "#player.reviewing" },
+  { guard: "hasNoVoice", target: "#player.noVoice" },
+  { guard: "hasFailed", target: "#player.error" },
+  { target: "#player.idle" },
+] as const;
+
+const sampleInput = ({
+  context,
+}: {
+  context: PlayerContext;
+}): PlaySampleInput => ({
+  segmentIndex: context.segmentIndex,
+  repeat: 1,
+  rate: context.rate,
+});
+
+const blobInput = ({ context }: { context: PlayerContext }): PlayBlobInput => {
+  const rec = currentRecording(context);
+  if (!rec) throw new Error("Không có bản ghi để phát");
+  return { blob: rec.blob };
+};
+
+/** Các cách nghe lại ở reviewing / noVoice / error: bản gốc (O), của bạn (M), lần lượt (B). */
+function listenStates() {
+  return {
+    initial: "idle",
+    on: {
+      LISTEN_ORIGINAL: { target: ".original" },
+      LISTEN_YOURS: { guard: "hasRecording", target: ".yours" },
+      LISTEN_BOTH: { guard: "hasRecording", target: ".both" },
+    },
+    states: {
+      idle: {},
+      original: {
+        invoke: { src: "playSample", input: sampleInput },
+        on: { SAMPLE_DONE: "idle", SAMPLE_FAILED: "idle", STOP: "idle" },
+      },
+      yours: {
+        invoke: {
+          src: "playBlob",
+          input: blobInput,
+          onDone: "idle",
+          onError: "idle",
+        },
+        on: { STOP: "idle" },
+      },
+      both: {
+        invoke: {
+          src: "playBoth",
+          input: ({ context }: { context: PlayerContext }): PlayBothInput => ({
+            segmentIndex: context.segmentIndex,
+            rate: context.rate,
+            blob: blobInput({ context }).blob,
+          }),
+          onDone: "idle",
+          onError: "idle",
+        },
+        on: { STOP: "idle" },
+      },
+    },
+  } as const;
+}
+
+export const playerMachine = machineSetup.createMachine({
   id: "player",
   initial: "idle",
   context: ({ input }) => ({
@@ -123,7 +309,199 @@ export const playerMachine = setup({
     recordings: {},
     level: { bars: 0, speech: false },
   }),
+  on: {
+    // Dùng sau "Mất chữ cuối?" ở mọi trạng thái; recordDelay đã hẹn không bị đổi giữa chừng.
+    SEGMENTS_UPDATED: { actions: "setSegments" },
+  },
   states: {
-    idle: {},
+    idle: {
+      on: {
+        ...navigation,
+        ...settings,
+        PLAY: "playing",
+        PREVIEW: "previewing",
+        RECORD: "recording",
+        LISTEN_YOURS: [
+          { guard: "hasUploaded", target: "#player.reviewing.yours" },
+          { guard: "hasNoVoice", target: "#player.noVoice.yours" },
+          { guard: "hasFailed", target: "#player.error.yours" },
+        ],
+        LISTEN_BOTH: [
+          { guard: "hasUploaded", target: "#player.reviewing.both" },
+          { guard: "hasNoVoice", target: "#player.noVoice.both" },
+          { guard: "hasFailed", target: "#player.error.both" },
+        ],
+      },
+    },
+    previewing: {
+      // O: phát mẫu một lần, không ghi tiếp.
+      invoke: { src: "playSample", input: sampleInput },
+      entry: "resetRep",
+      on: {
+        ...navigation,
+        ...settings,
+        REP: { actions: "setRep" },
+        STOP: "idle",
+        SAMPLE_DONE: backToRecordingState,
+        SAMPLE_FAILED: { target: "idle", actions: "sampleFailed" },
+      },
+    },
+    playing: {
+      // Space: phát mẫu x repeat rồi tự chuyển sang ghi.
+      entry: "resetRep",
+      invoke: {
+        src: "playSample",
+        input: ({ context }) => ({
+          segmentIndex: context.segmentIndex,
+          repeat: context.repeat,
+          rate: context.rate,
+        }),
+      },
+      on: {
+        ...navigation,
+        ...settings,
+        REP: { actions: "setRep" },
+        STOP: "idle",
+        SAMPLE_DONE: "recording",
+        SAMPLE_FAILED: { target: "idle", actions: "sampleFailed" },
+      },
+    },
+    recording: {
+      entry: "resetLevel",
+      invoke: {
+        id: "recorder",
+        src: "record",
+        input: ({ context }) => ({ segmentIndex: context.segmentIndex }),
+      },
+      after: { recordDelay: { actions: "stopRecorder" } },
+      on: {
+        STOP: { actions: "stopRecorder" },
+        SILENCE: { actions: "stopRecorder" },
+        LEVEL: { actions: "setLevel" },
+        STOPPED: { target: "scoring", actions: "storeRecording" },
+        RECORD_FAILED: { target: "error", actions: "micFailed" },
+      },
+    },
+    scoring: {
+      // P1: bước xử lý = tải bản ghi lên (D-05). Phase 3 gắn chấm vào đây mà không đổi hình dạng machine.
+      invoke: {
+        src: "uploadAttempt",
+        input: ({ context }) => {
+          const rec = currentRecording(context);
+          if (!rec) throw new Error("Không có bản ghi để tải lên");
+          return { segmentIndex: context.segmentIndex, blob: rec.blob };
+        },
+        onDone: [
+          {
+            guard: ({ event }) => event.output.voiced,
+            target: "reviewing",
+            actions: assign({
+              recordings: ({ context, event }) => {
+                const rec = currentRecording(context);
+                return rec
+                  ? {
+                      ...context.recordings,
+                      [context.segmentIndex]: {
+                        ...rec,
+                        status: "uploaded" as const,
+                        attempt: event.output.attempt,
+                      },
+                    }
+                  : context.recordings;
+              },
+            }),
+          },
+          {
+            target: "noVoice",
+            actions: assign({
+              recordings: ({ context, event }) => {
+                const rec = currentRecording(context);
+                return rec
+                  ? {
+                      ...context.recordings,
+                      [context.segmentIndex]: {
+                        ...rec,
+                        status: "noVoice" as const,
+                        attempt: event.output.attempt,
+                      },
+                    }
+                  : context.recordings;
+              },
+            }),
+          },
+        ],
+        onError: {
+          target: "error",
+          actions: assign({
+            lastError: ({ event }) => errorMessage(event.error),
+            recordings: ({ context }) => {
+              const rec = currentRecording(context);
+              return rec
+                ? {
+                    ...context.recordings,
+                    [context.segmentIndex]: {
+                      ...rec,
+                      status: "failed" as const,
+                    },
+                  }
+                : context.recordings;
+            },
+          }),
+        },
+      },
+      // Vẫn nghe lại bản ghi của mình trong lúc xử lý (M).
+      initial: "idle",
+      states: {
+        idle: {
+          on: { LISTEN_YOURS: { guard: "hasRecording", target: "yours" } },
+        },
+        yours: {
+          invoke: {
+            src: "playBlob",
+            input: blobInput,
+            onDone: "idle",
+            onError: "idle",
+          },
+          on: { STOP: "idle" },
+        },
+      },
+    },
+    reviewing: {
+      ...listenStates(),
+      on: {
+        ...listenStates().on,
+        ...navigation,
+        ...settings,
+        PLAY: "playing",
+        RECORD: "recording",
+      },
+    },
+    noVoice: {
+      ...listenStates(),
+      on: {
+        ...listenStates().on,
+        ...navigation,
+        ...settings,
+        PLAY: "playing",
+        RECORD: "recording",
+      },
+    },
+    error: {
+      ...listenStates(),
+      on: {
+        ...listenStates().on,
+        ...navigation,
+        ...settings,
+        PLAY: "playing",
+        RECORD: "recording",
+        RETRY_UPLOAD: {
+          guard: "hasFailed",
+          target: "scoring",
+          actions: "markPending",
+        },
+      },
+    },
   },
 });
+
+export type PlayerMachine = typeof playerMachine;

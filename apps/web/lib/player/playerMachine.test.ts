@@ -24,7 +24,11 @@ const INPUT: PlayerInput = {
 
 type SendBack = (event: PlayerEvent) => void;
 
-function ack(segmentIndex: number, attempt: number, voiced: boolean): AttemptAck {
+function ack(
+  segmentIndex: number,
+  attempt: number,
+  voiced: boolean,
+): AttemptAck {
   return {
     lessonId: "lesson-1",
     segmentIndex,
@@ -56,32 +60,36 @@ function makeFakes() {
     upload: async (input) => ack(input.segmentIndex, 1, true),
   };
   const actors = {
-    playSample: fromCallback<PlayerEvent, PlaySampleInput>(({ input, sendBack }) => {
-      calls.samples.push(input);
-      ctl.sample = sendBack;
-      return () => {
-        calls.sampleCleanups += 1;
-      };
-    }),
-    record: fromCallback<PlayerEvent, RecordInput>(({ input, sendBack, receive }) => {
-      calls.records.push(input);
-      ctl.recorder = sendBack;
-      receive((event) => {
-        if (event.type === "STOP") calls.recorderStops += 1;
-      });
-      return () => {};
-    }),
+    playSample: fromCallback<PlayerEvent, PlaySampleInput>(
+      ({ input, sendBack }) => {
+        calls.samples.push(input);
+        ctl.sample = sendBack;
+        return () => {
+          calls.sampleCleanups += 1;
+        };
+      },
+    ),
+    record: fromCallback<PlayerEvent, RecordInput>(
+      ({ input, sendBack, receive }) => {
+        calls.records.push(input);
+        ctl.recorder = sendBack;
+        receive((event) => {
+          if (event.type === "STOP") calls.recorderStops += 1;
+        });
+        return () => {};
+      },
+    ),
     uploadAttempt: fromPromise<AttemptAck, UploadInput>(async ({ input }) => {
       calls.uploads.push(input);
       return ctl.upload(input);
     }),
-    playBlob: fromPromise<void, PlayBlobInput>(async ({ input }) => {
+    playBlob: fromPromise<undefined, PlayBlobInput>(async ({ input }) => {
       calls.blobs.push(input);
-      await new Promise<void>(() => {});
+      await new Promise<never>(() => {});
     }),
-    playBoth: fromPromise<void, PlayBothInput>(async ({ input }) => {
+    playBoth: fromPromise<undefined, PlayBothInput>(async ({ input }) => {
       calls.boths.push(input);
-      await new Promise<void>(() => {});
+      await new Promise<never>(() => {});
     }),
   };
   return { calls, ctl, actors };
@@ -259,7 +267,11 @@ describe("playerMachine: điều hướng và đồng thời", () => {
 
     h.ctl.recorder?.({ type: "STOPPED", blob: BLOB(), durationMs: 1000 });
     h.ctl.upload = () => new Promise<AttemptAck>(() => {});
-    for (const event of [{ type: "NEXT" }, { type: "GOTO", index: 2 }, { type: "PLAY" }] as const) {
+    for (const event of [
+      { type: "NEXT" },
+      { type: "GOTO", index: 2 },
+      { type: "PLAY" },
+    ] as const) {
       h.actor.send(event);
     }
     snap = h.actor.getSnapshot();
@@ -331,13 +343,19 @@ describe("playerMachine: nghe lại và cài đặt", () => {
 
     h.actor.send({ type: "LISTEN_ORIGINAL" });
     expect(h.actor.getSnapshot().matches({ reviewing: "original" })).toBe(true);
-    expect(h.calls.samples.at(-1)).toEqual({ segmentIndex: 0, repeat: 1, rate: 1 });
+    expect(h.calls.samples.at(-1)).toEqual({
+      segmentIndex: 0,
+      repeat: 1,
+      rate: 1,
+    });
     h.ctl.sample?.({ type: "SAMPLE_DONE" });
     expect(h.actor.getSnapshot().matches({ reviewing: "idle" })).toBe(true);
 
     h.actor.send({ type: "LISTEN_YOURS" });
     expect(h.actor.getSnapshot().matches({ reviewing: "yours" })).toBe(true);
-    expect(h.calls.blobs[0]?.blob).toBe(h.actor.getSnapshot().context.recordings[0]?.blob);
+    expect(h.calls.blobs[0]?.blob).toBe(
+      h.actor.getSnapshot().context.recordings[0]?.blob,
+    );
     h.actor.send({ type: "STOP" });
     expect(h.actor.getSnapshot().matches({ reviewing: "idle" })).toBe(true);
 
@@ -396,7 +414,10 @@ describe("playerMachine: nghe lại và cài đặt", () => {
     const h = start();
     toRecording(h);
     h.ctl.recorder?.({ type: "LEVEL", bars: 7, speech: true });
-    expect(h.actor.getSnapshot().context.level).toEqual({ bars: 7, speech: true });
+    expect(h.actor.getSnapshot().context.level).toEqual({
+      bars: 7,
+      speech: true,
+    });
   });
 
   it("SET_RATE / SET_REPEAT / SET_RECORD_FACTOR đổi context ngoài recording/scoring; SEGMENTS_UPDATED thay độ dài câu", async () => {
@@ -407,7 +428,10 @@ describe("playerMachine: nghe lại và cài đặt", () => {
     let ctx = h.actor.getSnapshot().context;
     expect([ctx.rate, ctx.repeat, ctx.recordFactor]).toEqual([0.75, 2, 2]);
 
-    h.actor.send({ type: "SEGMENTS_UPDATED", segmentDurationsMs: [2300, 3000, 2500, 2000, 4000] });
+    h.actor.send({
+      type: "SEGMENTS_UPDATED",
+      segmentDurationsMs: [2300, 3000, 2500, 2000, 4000],
+    });
     expect(h.actor.getSnapshot().context.segmentDurationsMs[0]).toBe(2300);
 
     toRecording(h);
