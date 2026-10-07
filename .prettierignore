@@ -8,5 +8,7 @@ docs/**
 .planning/**
 .claude/**
 **/*.md
+# Bản sao nguyên văn của docs/design/tokens.css (test lệch token so sánh với nguồn).
+apps/web/app/tokens.css
 **/next-env.d.ts
 .gsd/**

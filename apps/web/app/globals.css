@@ -1,0 +1,47 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Token bổ sung (UI-SPEC G3) và biến font (Token Implementation Map mục 2). */
+:root {
+  --success: var(--green-9);
+  --success-text: var(--green-11);
+  --success-soft: var(--green-3);
+  --destructive-text: var(--red-11);
+  --destructive-soft: var(--red-3);
+  --destructive-border: var(--red-7);
+  --video-bg: #111316;
+
+  --font-sans:
+    var(--font-figtree), var(--font-noto-sans), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-ipa: var(--font-noto-sans), sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+
+  /* Phím tắt/bàn phím: viền focus 2px, lệch 2px (UI-SPEC Shell and tokens). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
