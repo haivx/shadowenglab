@@ -81,7 +81,7 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 2/19 plans executed
+**Plans:** 5/19 plans executed
 **UI hint**: yes
 
 Plans:
@@ -90,9 +90,9 @@ Plans:
 - [x] 02-02-PLAN.md — Cổng dependency: khai báo package, resolve lockfile, Liam duyệt, cài frozen (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 02-03-PLAN.md — Backend tracer: job runner tạo bài nền (pool tải + worker model FIFO), retry, gián đoạn, ranh giới API (wave 2)
-- [ ] 02-04-PLAN.md — Web tracer: client API Zod + TanStack Query, token/font, shadcn primitives, AppHeader (wave 2)
-- [ ] 02-05-PLAN.md — Player machine XState + phím tắt + đo mức âm, test trước UI (wave 2)
+- [x] 02-03-PLAN.md — Backend tracer: job runner tạo bài nền (pool tải + worker model FIFO), retry, gián đoạn, ranh giới API (wave 2)
+- [x] 02-04-PLAN.md — Web tracer: client API Zod + TanStack Query, token/font, shadcn primitives, AppHeader (wave 2)
+- [x] 02-05-PLAN.md — Player machine XState + phím tắt + đo mức âm, test trước UI (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 02-06-PLAN.md — Thư viện + tiến độ: SQLite attempts, GET /lessons, progress, helper đường dẫn (wave 3)
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 2/19 | In Progress | - |
+| 2. P1 · Tạo bài và trình phát | 5/19 | In Progress | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
