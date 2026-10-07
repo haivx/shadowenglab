@@ -218,7 +218,7 @@ def test_validation_error_does_not_echo_the_input(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "name", ["media", "attempts", "segments", "translate", "settings", "system"]
+    "name", ["attempts", "segments", "translate", "settings", "system"]
 )
 def test_p1_router_shells_exist_and_are_mounted_empty(client: TestClient, name: str) -> None:
     import importlib
