@@ -14,6 +14,7 @@ import pytest
 import soundfile as sf
 from fastapi.testclient import TestClient
 
+from audio_service import db
 from audio_service.config import get_settings, lesson_json_path
 from audio_service.main import create_app
 
@@ -300,3 +301,120 @@ def test_very_short_recording_normalizes_and_is_not_voiced(
     assert res.json()["voiced"] is False
     assert res.json()["durationMs"] <= 260
     assert tmp_files(data_dir) == []
+
+
+# --- Task 3: "Lưu clip cho eval" (D-09, 02-01 mục D) -------------------------------------------
+
+
+def clip_files(data_dir: Path) -> list[Path]:
+    root = data_dir / "eval_clips"
+    return sorted(root.iterdir()) if root.exists() else []
+
+
+def put_eval_clip(
+    client: TestClient,
+    body: bytes,
+    *,
+    lesson_id: str = LESSON_ID,
+    index: int = 0,
+    attempt: int = 1,
+) -> Any:
+    return client.put(
+        f"/lessons/{lesson_id}/segments/{index}/attempts/{attempt}/eval-clip",
+        files={"audio": ("rec.webm", body, "application/octet-stream")},
+    )
+
+
+def saved_flag(lesson_id: str, index: int, attempt: int) -> bool:
+    row = db.get_attempt(lesson_id, index, attempt)
+    assert row is not None
+    return row.saved_for_eval
+
+
+def test_save_for_eval_on_upload_stores_clip_and_sidecar(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = post(client, webm(voice_like(), tmp_path), save=True)
+
+    assert res.status_code == 201
+    assert res.json()["savedForEval"] is True
+    wav = data_dir / "eval_clips" / f"{LESSON_ID}_0000_01.wav"
+    sidecar = wav.with_suffix(".json")
+    assert [p.name for p in clip_files(data_dir)] == [sidecar.name, wav.name]
+    info = sf.info(wav)
+    assert (info.samplerate, info.channels) == (16000, 1)
+    assert json.loads(sidecar.read_text(encoding="utf-8")) == {
+        "lessonId": LESSON_ID,
+        "segmentIndex": 0,
+        "attempt": 1,
+        "text": "Sentence 0",
+    }
+    assert saved_flag(LESSON_ID, 0, 1) is True
+    assert tmp_files(data_dir) == []
+
+
+def test_upload_without_save_for_eval_leaves_no_clip(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    for save in (None, False):
+        res = post(client, webm(voice_like(), tmp_path), save=save)
+        assert res.json()["savedForEval"] is False
+
+    assert clip_files(data_dir) == []
+    assert saved_flag(LESSON_ID, 0, 1) is False
+
+
+def test_put_eval_clip_stores_the_blob_without_a_new_attempt(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    blob = webm(voice_like(), tmp_path)
+    first = post(client, blob)
+    assert first.json()["savedForEval"] is False
+    assert clip_files(data_dir) == []
+
+    res = put_eval_clip(client, blob)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["savedForEval"] is True
+    assert body["attempt"] == 1
+    assert body["lessonId"] == LESSON_ID
+    assert body["segmentIndex"] == 0
+    assert body["voiced"] == first.json()["voiced"]
+    assert body["durationMs"] == first.json()["durationMs"]
+    assert (data_dir / "eval_clips" / f"{LESSON_ID}_0000_01.wav").is_file()
+    assert saved_flag(LESSON_ID, 0, 1) is True
+    assert db.get_attempt(LESSON_ID, 0, 2) is None  # PUT không tạo lượt mới
+    assert [r.attempts for r in db.segment_progress(LESSON_ID)] == [1]
+    assert tmp_files(data_dir) == []
+
+
+def test_put_eval_clip_for_missing_attempt_is_404_not_found(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = put_eval_clip(client, webm(voice_like(), tmp_path), attempt=9)
+
+    assert_api_error(res, 404, "not_found", data_dir)
+    assert clip_files(data_dir) == []
+
+
+def test_put_eval_clip_on_not_ready_lesson_is_409(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = put_eval_clip(client, webm(voice_like(), tmp_path), lesson_id=QUEUED_ID)
+
+    assert_api_error(res, 409, "invalid_state", data_dir)
+
+
+def test_put_eval_clip_rejects_bad_segment_and_bad_media(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    post(client, webm(voice_like(), tmp_path))
+
+    out_of_range = put_eval_clip(client, webm(voice_like(), tmp_path), index=5)
+    garbage = put_eval_clip(client, b"#EXTM3U\nfile:///etc/hosts\n")
+
+    assert_api_error(out_of_range, 404, "invalid_segment", data_dir)
+    assert_api_error(garbage, 415, "unsupported_media", data_dir)
+    assert clip_files(data_dir) == []
+    assert saved_flag(LESSON_ID, 0, 1) is False
