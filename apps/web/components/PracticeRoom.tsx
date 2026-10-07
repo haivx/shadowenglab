@@ -1,9 +1,12 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useActorRef, useSelector } from "@xstate/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fromPromise } from "xstate";
 import type {
   AppSettings,
+  AttemptAck,
   Lesson,
   LessonProgress,
 } from "@shadowenglab/contracts";
@@ -23,14 +26,25 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { uploadAttempt } from "@/lib/api";
+import { makeRecordActor } from "@/lib/audio/recorder";
 import {
   makePlaySample,
   sampleWindow,
   type PlayableLesson,
 } from "@/lib/player/playRange";
-import { playerMachine, type RepeatCount } from "@/lib/player/playerMachine";
+import {
+  playerMachine,
+  type RepeatCount,
+  type UploadInput,
+} from "@/lib/player/playerMachine";
 import { useShortcuts } from "@/lib/player/useShortcuts";
-import { useLesson, useLessonProgress, useSettings } from "@/lib/queries";
+import {
+  queryKeys,
+  useLesson,
+  useLessonProgress,
+  useSettings,
+} from "@/lib/queries";
 
 type SessionDefaults = Pick<
   AppSettings,
@@ -70,6 +84,11 @@ function segmentDurationsMs(lesson: Lesson): number[] {
   return lesson.segments.map((segment) =>
     Math.round((segment.end - segment.start) * 1000 + segment.endExtraMs),
   );
+}
+
+/** Trạng thái cấp trên cùng; scoring/reviewing/noVoice/error có trạng thái con nên `value` là object. */
+function topLevelState(value: string | Record<string, unknown>): string {
+  return typeof value === "string" ? value : (Object.keys(value)[0] ?? "");
 }
 
 interface PracticeRoomProps {
@@ -186,14 +205,28 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     lessonRef.current = lesson;
   }, [lesson]);
 
-  // Machine tạo một lần: actor playSample đọc video/bài qua ref nên luôn thấy dữ liệu mới nhất.
-  // Actor ghi âm và tải lên do 02-14 cung cấp qua `provide`.
+  const lessonIdRef = useRef(lesson.id);
+  useEffect(() => {
+    lessonIdRef.current = lesson.id;
+  }, [lesson.id]);
+
+  // Machine tạo một lần: các actor đọc video/bài qua ref nên luôn thấy dữ liệu mới nhất.
+  // Tải lên mặc định saveForEval=false; `Lưu clip cho eval` gửi lại riêng (REC-04, D-09).
+  // `signal` huỷ yêu cầu khi rời trạng thái scoring (chuyển câu không thể xảy ra ở đó, nhưng unmount thì có).
   const [machine] = useState(() =>
     playerMachine.provide({
       actors: {
         playSample: makePlaySample(
           () => videoRef.current,
           () => lessonRef.current,
+        ),
+        record: makeRecordActor(),
+        uploadAttempt: fromPromise<AttemptAck, UploadInput>(
+          ({ input, signal }) =>
+            uploadAttempt(lessonIdRef.current, input.segmentIndex, input.blob, {
+              saveForEval: false,
+              signal,
+            }),
         ),
       },
     }),
@@ -230,6 +263,20 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
 
   const { context } = snapshot;
   const index = context.segmentIndex;
+  const top = topLevelState(snapshot.value);
+
+  // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
+  const queryClient = useQueryClient();
+  const previousTop = useRef(top);
+  useEffect(() => {
+    const was = previousTop.current;
+    previousTop.current = top;
+    if (was === "scoring" && (top === "reviewing" || top === "noVoice")) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.lessonProgress(lesson.id),
+      });
+    }
+  }, [top, queryClient, lesson.id]);
 
   // Tiến độ của lần phát hiện tại cho thanh trong SentenceStatePanel.
   const getPassProgress = useCallback(() => {
@@ -247,7 +294,14 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const segment = lesson.segments[index];
   if (!segment) return null;
 
-  const top = typeof snapshot.value === "string" ? snapshot.value : "";
+  // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
+  const recordDurationMs = Math.min(
+    60_000,
+    Math.round(
+      (context.segmentDurationsMs[index] ?? 60_000) * context.recordFactor,
+    ),
+  );
+
   const listening = top === "playing" || top === "previewing";
 
   return (
@@ -301,8 +355,17 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               autoRecord={top === "playing"}
               getPassProgress={getPassProgress}
             />
+          ) : top === "recording" ? (
+            <SentenceStatePanel
+              variant="recording"
+              sentence={segment.text}
+              durationMs={recordDurationMs}
+              bars={context.level.bars}
+            />
+          ) : top === "scoring" ? (
+            <SentenceStatePanel variant="processing" sentence={segment.text} />
           ) : (
-            // 02-14 thay các trạng thái recording / noVoice / scoring / error bằng SentenceStatePanel.
+            // noVoice / error: biến thể riêng ở tác vụ sau.
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>
