@@ -168,6 +168,10 @@ None - no external service configuration required.
 - S2 is complete; 02-14 and later plans can rely on lessons created from S1 appearing as `queued` cards.
 - The plan's human-check (channel link, invalid link, private video, 3-minute and 20-minute videos, thumb mouse/keyboard, `99:99`, duplicate create) still needs a browser run with `make dev`.
 
+## Self-Check: PASSED
+
+All four created files exist on disk; commits `5fdd196`, `b2b4e95`, `a342615`, `be5f360` are in the branch history; the working tree is clean.
+
 ---
 *Phase: 02-p1-t-o-b-i-v-tr-nh-ph-t*
 *Completed: 2026-10-07*
