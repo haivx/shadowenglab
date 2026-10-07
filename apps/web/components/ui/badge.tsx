@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Badge (components.md): bo 6, padding 2/8, chữ 12/600.
- * `success` = giá trị "score-good" của design, đặt bí danh G3 (UI-SPEC);
+ * `success` = màu "điểm tốt" của design, đặt bí danh G3 (UI-SPEC);
  * P1 không dùng màu điểm số.
  */
 const badgeVariants = cva(
