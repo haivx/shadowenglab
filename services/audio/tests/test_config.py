@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from audio_service import config as cfg
 from audio_service.config import (
     REPO_ROOT,
     InvalidIdError,
@@ -92,3 +93,55 @@ def test_symlinked_lesson_dir_escaping_data_dir_rejected(data_dir: Path, tmp_pat
         lesson_dir(ULID)
     with pytest.raises(InvalidIdError):
         lesson_json_path(ULID)
+
+
+# --- 02-06: app.db, eval_clips, tmp, stems -------------------------------------------------
+# Gọi qua module (`cfg.<hàm>`) để mỗi test tự báo lỗi riêng, không làm hỏng cả module khi thiếu hàm.
+
+
+def test_app_db_path_is_inside_data_dir(data_dir: Path) -> None:
+    assert cfg.app_db_path() == data_dir / "app.db"
+
+
+def test_eval_clips_dir_and_tmp_dir_are_created_on_demand(data_dir: Path) -> None:
+    assert not (data_dir / "eval_clips").exists()
+    assert cfg.eval_clips_dir() == data_dir / "eval_clips"
+    assert cfg.tmp_dir() == data_dir / "tmp"
+    assert (data_dir / "eval_clips").is_dir()
+    assert (data_dir / "tmp").is_dir()
+    assert cfg.tmp_dir() == data_dir / "tmp"  # gọi lần hai không lỗi
+
+
+def test_stems_dir_follows_layout(data_dir: Path) -> None:
+    assert (
+        cfg.stems_dir(VIDEO_ID, 0, 300000) == data_dir / "videos" / VIDEO_ID / "stems" / "0-300000"
+    )
+
+
+@pytest.mark.parametrize("bad", ["../../etc", "abc", VIDEO_ID + "x", "", "dUDi/F6eAvk"])
+def test_stems_dir_rejects_bad_video_id(data_dir: Path, bad: str) -> None:
+    with pytest.raises(InvalidIdError):
+        cfg.stems_dir(bad, 0, 1000)
+
+
+@pytest.mark.parametrize(("start", "end"), [(-1, 1000), (1000, 1000), (2000, 1000), (0, 0)])
+def test_stems_dir_rejects_negative_or_inverted_range(data_dir: Path, start: int, end: int) -> None:
+    with pytest.raises(InvalidIdError):
+        cfg.stems_dir(VIDEO_ID, start, end)
+
+
+def test_symlinked_eval_clips_dir_escaping_data_dir_rejected(
+    data_dir: Path, tmp_path_factory
+) -> None:
+    outside = tmp_path_factory.mktemp("outside")
+    (data_dir / "eval_clips").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(InvalidIdError):
+        cfg.eval_clips_dir()
+
+
+def test_symlinked_stems_dir_escaping_data_dir_rejected(data_dir: Path, tmp_path_factory) -> None:
+    outside = tmp_path_factory.mktemp("outside")
+    (data_dir / "videos" / VIDEO_ID).mkdir(parents=True)
+    (data_dir / "videos" / VIDEO_ID / "stems").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(InvalidIdError):
+        cfg.stems_dir(VIDEO_ID, 0, 1000)
