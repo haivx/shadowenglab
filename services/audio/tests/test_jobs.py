@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from test_lessons_api import URL, Fakes, wait_for_status
 
 from audio_service.config import get_settings, lesson_dir, lesson_json_path
 from audio_service.contract_io import write_contract_json
@@ -22,7 +23,6 @@ from audio_service.contracts_gen import Lesson
 from audio_service.lesson import store, transcribe
 from audio_service.lesson.jobs import InvalidState, JobRunner, recover_interrupted, retry_lesson
 from audio_service.main import create_app
-from test_lessons_api import URL, Fakes, wait_for_status
 
 WAIT_S = 5.0
 

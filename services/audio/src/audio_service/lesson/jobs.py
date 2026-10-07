@@ -13,11 +13,23 @@ from __future__ import annotations
 
 import logging
 import queue
+import shutil
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Protocol
+
+from audio_service.config import lesson_dir
+from audio_service.contract_io import dump_contract
+from audio_service.contracts_gen import Lesson, LessonError
+from audio_service.lesson import store
 
 logger = logging.getLogger(__name__)
+
+
+class Submitter(Protocol):
+    def submit(self, lesson_id: str) -> None: ...
+
 
 StageFn = Callable[[str], object]
 FailFn = Callable[[str, BaseException], None]
@@ -100,7 +112,9 @@ class JobRunner:
             logger.exception("mark_failed lỗi cho bài %s", lesson_id)
 
 
-# --- RED stubs (02-03 Task 2): thay bằng bản thật ở commit GREEN ---
+INTERRUPTED_MESSAGE = "bị gián đoạn"
+
+_TERMINAL = frozenset({"ready", "failed"})
 
 
 class InvalidState(Exception):
@@ -108,8 +122,56 @@ class InvalidState(Exception):
 
 
 def recover_interrupted() -> list[str]:
-    raise NotImplementedError
+    """Khởi động lại process: bài đang dở thành `failed` + "bị gián đoạn" (D-03).
+
+    Không chạy lại gì cả: người dùng bấm Thử lại. Idempotent: bài đã failed/ready không đổi.
+    Trả danh sách id đã đổi.
+    """
+    changed: list[str] = []
+    for lesson in store.iter_lessons():
+        if lesson.status in _TERMINAL:
+            continue
+        lesson_id = lesson.id
+        was_changed: list[bool] = []
+
+        def interrupt(current: Lesson, was_changed: list[bool] = was_changed) -> Lesson:
+            if current.status in _TERMINAL:
+                return current
+            was_changed.append(True)
+            error = LessonError.model_validate(
+                {"step": current.status, "message": INTERRUPTED_MESSAGE}
+            )
+            return current.model_copy(update={"status": "failed", "error": error})
+
+        try:
+            store.update_lesson(lesson_id, interrupt)
+        except Exception:
+            logger.exception("không đánh dấu được bài %s là bị gián đoạn", lesson_id)
+            continue
+        if was_changed:
+            changed.append(lesson_id)
+    return changed
 
 
-def retry_lesson(lesson_id: str, runner: JobRunner) -> object:
-    raise NotImplementedError
+def retry_lesson(lesson_id: str, runner: Submitter) -> Lesson:
+    """Dựng lại bài `failed` cho cùng lessonId rồi nộp lại (LES-07, D-03).
+
+    lesson.json mới dựng từ dict contract bỏ hẳn `error`/`audioQuality` (không bao giờ null,
+    Pitfall 5). Stage dùng lại cache theo videoId nên tải/tách giọng được bỏ qua khi đã có.
+    Raise InvalidState khi bài không failed; FileNotFoundError/InvalidIdError khi không có bài.
+    """
+
+    def rebuild(current: Lesson) -> Lesson:
+        if current.status != "failed":
+            raise InvalidState(current.status)
+        payload = dump_contract(current)
+        payload.pop("error", None)
+        payload.pop("audioQuality", None)
+        payload["segments"] = []
+        payload["status"] = "queued"
+        return Lesson.model_validate(payload)
+
+    lesson = store.update_lesson(lesson_id, rebuild)
+    shutil.rmtree(lesson_dir(lesson_id) / "seg", ignore_errors=True)
+    runner.submit(lesson_id)
+    return lesson

@@ -13,7 +13,7 @@ from audio_service.config import InvalidIdError, lesson_json_path
 from audio_service.contracts_gen import CreateLessonRequest, Lesson
 from audio_service.errors import ApiErrorException
 from audio_service.lesson import pipeline, store
-from audio_service.lesson.jobs import JobRunner
+from audio_service.lesson.jobs import InvalidState, JobRunner, retry_lesson
 from audio_service.lesson.urls import InvalidYoutubeUrl, parse_youtube_url
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,18 @@ def create_lesson(body: CreateLessonRequest, request: Request) -> Lesson:
     runner = _runner(request)
     runner.submit(lesson.id)
     return lesson
+
+
+@router.post(
+    "/{lesson_id}/retry", status_code=202, response_model=Lesson, response_model_exclude_unset=True
+)
+def retry(lesson_id: str, request: Request) -> Lesson:
+    try:
+        return retry_lesson(lesson_id, _runner(request))
+    except (InvalidIdError, FileNotFoundError):
+        raise ApiErrorException(404, "not_found", "Không tìm thấy bài này.") from None
+    except InvalidState:
+        raise ApiErrorException(409, "invalid_state", "Bài này không ở trạng thái lỗi.") from None
 
 
 @router.get("/{lesson_id}", response_model=Lesson, response_model_exclude_unset=True)

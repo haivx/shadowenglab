@@ -88,6 +88,12 @@ def _real_separate(stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]
         separate.free_accelerator_memory()
 
 
+def _free_memory() -> None:
+    """Sau mỗi bài: nhả Whisper trước rồi bộ nhớ accelerator (D-18)."""
+    transcribe.release_whisper()
+    separate.free_accelerator_memory()
+
+
 def default_deps() -> PipelineDeps:
     return PipelineDeps(
         fetch_info=download.fetch_info,
@@ -99,7 +105,7 @@ def default_deps() -> PipelineDeps:
         compute_ppg=features.compute_ppg,
         extract_f0=features.extract_f0,
         frame_energy=features.frame_energy,
-        free_memory=separate.free_accelerator_memory,
+        free_memory=_free_memory,
     )
 
 

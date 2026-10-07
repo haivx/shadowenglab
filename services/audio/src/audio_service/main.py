@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from audio_service import __version__
 from audio_service.errors import install_error_handlers
 from audio_service.lesson import pipeline
-from audio_service.lesson.jobs import JobRunner
+from audio_service.lesson.jobs import JobRunner, recover_interrupted
 from audio_service.routers import lesson, scoring
 
 
@@ -43,6 +43,7 @@ def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
             mark_failed=pipeline.mark_failed,
         )
         app.state.runner = runner
+        recover_interrupted()  # D-03: bài dở dang -> failed 'bị gián đoạn', không tự chạy lại
         runner.start()
         try:
             yield
