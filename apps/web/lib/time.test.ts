@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampThumb,
   defaultRange,
   estimateMinutes,
   estimateSentences,
   formatClockMs,
   parseClock,
+  validateRange,
 } from "./time";
 
 describe("parseClock", () => {
@@ -89,5 +91,94 @@ describe("estimateMinutes", () => {
   it("is at least one minute", () => {
     expect(estimateMinutes(10)).toBe(1);
     expect(estimateMinutes(0)).toBe(1);
+  });
+});
+
+describe("validateRange", () => {
+  const duration = 1200;
+  const formatError = "Nhập thời gian dạng mm:ss, trong khoảng 00:00–20:00.";
+
+  it("returns the parsed range for valid input", () => {
+    expect(validateRange("03:00", "08:00", duration)).toEqual({
+      ok: true,
+      range: { start: 180, end: 480 },
+    });
+  });
+
+  it("accepts the full video span", () => {
+    expect(validateRange("00:00", "20:00", duration)).toEqual({
+      ok: true,
+      range: { start: 0, end: 1200 },
+    });
+  });
+
+  it("flags only the start field when it cannot be parsed", () => {
+    expect(validateRange("abc", "08:00", duration)).toEqual({
+      ok: false,
+      startError: formatError,
+    });
+  });
+
+  it("flags only the end field when it cannot be parsed", () => {
+    expect(validateRange("03:00", "99:99", duration)).toEqual({
+      ok: false,
+      endError: formatError,
+    });
+  });
+
+  it("flags a time beyond the video duration on that field", () => {
+    expect(validateRange("00:00", "21:00", duration)).toEqual({
+      ok: false,
+      endError: formatError,
+    });
+    expect(validateRange("25:00", "08:00", duration)).toEqual({
+      ok: false,
+      startError: formatError,
+    });
+  });
+
+  it("flags both fields when both are invalid", () => {
+    expect(validateRange("", "x", duration)).toEqual({
+      ok: false,
+      startError: formatError,
+      endError: formatError,
+    });
+  });
+
+  it("puts the order error on the end field when end is not after start", () => {
+    expect(validateRange("08:00", "03:00", duration)).toEqual({
+      ok: false,
+      endError: "Kết thúc phải sau Bắt đầu.",
+    });
+    expect(validateRange("05:00", "05:00", duration)).toEqual({
+      ok: false,
+      endError: "Kết thúc phải sau Bắt đầu.",
+    });
+  });
+
+  it("does not report an order error while a field is unparsable", () => {
+    expect(validateRange("zz", "00:00", duration)).toEqual({
+      ok: false,
+      startError: formatError,
+    });
+  });
+});
+
+describe("clampThumb", () => {
+  it("moves by one second", () => {
+    expect(clampThumb(100, 1, false, 600)).toBe(101);
+    expect(clampThumb(100, -1, false, 600)).toBe(99);
+  });
+
+  it("moves by ten seconds with Shift", () => {
+    expect(clampThumb(100, 1, true, 600)).toBe(110);
+    expect(clampThumb(100, -1, true, 600)).toBe(90);
+  });
+
+  it("stays within 0 and the duration", () => {
+    expect(clampThumb(0, -1, false, 600)).toBe(0);
+    expect(clampThumb(5, -1, true, 600)).toBe(0);
+    expect(clampThumb(600, 1, false, 600)).toBe(600);
+    expect(clampThumb(595, 1, true, 600)).toBe(600);
   });
 });

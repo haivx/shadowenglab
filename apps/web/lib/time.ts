@@ -47,3 +47,33 @@ export function estimateSentences(durationSec: number): [number, number] {
 export function estimateMinutes(durationSec: number): number {
   return Math.max(1, Math.round((0.8 * durationSec) / 60));
 }
+
+export const END_BEFORE_START_ERROR = "Kết thúc phải sau Bắt đầu.";
+
+export function rangeFormatError(durationSec: number): string {
+  void durationSec;
+  throw new Error("not implemented");
+}
+
+export type RangeValidation =
+  | { ok: true; range: TimeRange }
+  | { ok: false; startError?: string; endError?: string };
+
+export function validateRange(
+  startText: string,
+  endText: string,
+  durationSec: number,
+): RangeValidation {
+  void [startText, endText, durationSec];
+  throw new Error("not implemented");
+}
+
+export function clampThumb(
+  value: number,
+  step: number,
+  shift: boolean,
+  durationSec: number,
+): number {
+  void [value, step, shift, durationSec];
+  throw new Error("not implemented");
+}
