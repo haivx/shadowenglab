@@ -2,8 +2,10 @@
 
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { CreateLessonDialog } from "@/components/CreateLessonDialog";
 import { LessonCard } from "@/components/LessonCard";
 import { SystemBanners } from "@/components/SystemBanners";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,14 @@ function CreateLessonButton() {
       </Link>
     </Button>
   );
+}
+
+/** Mở hộp thoại S2 khi `?create=1`; đóng thì bỏ tham số (quay về `/`). */
+function CreateDialogHost() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  if (searchParams.get("create") !== "1") return null;
+  return <CreateLessonDialog open onClose={() => router.replace("/")} />;
 }
 
 /** Thẻ khung xương khi tải lần đầu: khối 16:9 + 3 dòng, nền muted. */
@@ -124,6 +134,9 @@ export default function LibraryPage() {
           <TabsContent value={tab}>{body}</TabsContent>
         </Tabs>
       </main>
+      <Suspense fallback={null}>
+        <CreateDialogHost />
+      </Suspense>
     </>
   );
 }
