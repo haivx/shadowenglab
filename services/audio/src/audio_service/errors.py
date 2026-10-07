@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import get_args
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from audio_service.contract_io import dump_contract
@@ -51,3 +52,8 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiErrorException)
     async def _api_error(_request: Request, exc: ApiErrorException) -> JSONResponse:
         return error_response(exc.status_code, exc.code, exc.message, lesson_id=exc.lesson_id)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_request: Request, _exc: RequestValidationError) -> JSONResponse:
+        # Cố ý bỏ `exc.errors()`: chúng chứa input của người gửi (T-02-07).
+        return error_response(422, "invalid_request", "Dữ liệu gửi lên không hợp lệ.")

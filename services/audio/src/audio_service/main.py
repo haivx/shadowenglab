@@ -6,20 +6,35 @@ Chạy MỘT process (không `--workers N`): job runner và cổng model sống 
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from functools import partial
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
 from audio_service import __version__
-from audio_service.errors import install_error_handlers
+from audio_service.errors import error_response, install_error_handlers
 from audio_service.lesson import pipeline
 from audio_service.lesson.jobs import JobRunner, recover_interrupted
-from audio_service.routers import lesson, scoring
+from audio_service.routers import (
+    attempts,
+    lesson,
+    library,
+    media,
+    scoring,
+    segments,
+    settings,
+    system,
+    translate,
+)
+
+WEB_ORIGIN = "http://localhost:3000"
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 class Health(BaseModel):
@@ -52,20 +67,41 @@ def create_app(*, deps: pipeline.PipelineDeps | None = None) -> FastAPI:
 
     app = FastAPI(title="ShadowEngLab audio service", version=__version__, lifespan=lifespan)
     install_error_handlers(app)
-    # Chỉ web local được gọi; Phase 2 mở rộng methods khi thêm POST.
+
+    @app.middleware("http")
+    async def reject_foreign_origin_writes(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Pitfall 7: POST multipart là "simple request", CORS không chặn trước khi handler chạy.
+        # Script/curl không gửi Origin nên không bị ảnh hưởng; trình duyệt luôn gửi Origin khi ghi.
+        origin = request.headers.get("origin")
+        if request.method not in SAFE_METHODS and origin is not None and origin != WEB_ORIGIN:
+            return error_response(403, "forbidden_origin", "Yêu cầu không đến từ app ShadowEngLab.")
+        return await call_next(request)
+
+    # Chỉ web local được gọi (T-02-05). Add sau = bọc ngoài: CORS xử lý preflight trước guard.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
-        allow_methods=["GET"],
+        allow_origins=[WEB_ORIGIN],
+        allow_methods=["GET", "POST", "PUT", "PATCH"],
         allow_headers=["Content-Type"],
         allow_credentials=False,
     )
+    # Chống DNS rebinding: Host lạ -> 400.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
     @app.get("/health", response_model=Health)
     def health() -> Health:
         return Health(status="ok", service="audio", version=__version__)
 
     app.include_router(lesson.router)
+    app.include_router(library.router)
+    app.include_router(media.router)
+    app.include_router(attempts.router)
+    app.include_router(segments.router)
+    app.include_router(translate.router)
+    app.include_router(settings.router)
+    app.include_router(system.router)
     app.include_router(scoring.router)
     return app
 
