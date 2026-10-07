@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { LessonCard } from "@/components/LessonCard";
+import { SystemBanners } from "@/components/SystemBanners";
 import { Button } from "@/components/ui/button";
 import { librarySummary } from "@/lib/lessonView";
 import { useLessons } from "@/lib/queries";
@@ -17,6 +18,7 @@ export default function LibraryPage() {
     <>
       <AppHeader />
       <main className="mx-auto flex max-w-[1360px] flex-col gap-6 p-8">
+        <SystemBanners />
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h1 className="text-[34px] font-extrabold leading-tight tracking-[-0.03em]">
