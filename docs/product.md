@@ -68,7 +68,7 @@ App chính gồm 7 module. Toàn bộ UI và trình phát chạy phía client v�
 - Dán link, backend chạy `yt-dlp` để lấy video (360–480p) và audio. Cache theo `videoId`, không xử lý lại video đã có.
 - Tách giọng bằng Demucs để có bản vocal sạch, dùng cho phần chấm.
 - Transcribe bằng mlx-whisper local để lấy text có dấu câu và word timestamps.
-- Tách câu dựa trên word timestamps và khoảng lặng: mỗi câu dài 3–8 giây. Câu dài hơn khoảng 15 từ thì cắt tại dấu phẩy hoặc khoảng lặng. Mảnh ngắn dưới khoảng 1.5 giây thì gộp với câu bên cạnh.
+- Tách câu dựa trên word timestamps và khoảng lặng: mỗi câu dài 3–8 giây và tối đa 18 từ. Câu dài hơn khoảng 15 từ thì cắt tại dấu phẩy hoặc khoảng lặng; mảnh ngắn dưới 3 giây thì gộp với câu bên cạnh nếu câu gộp không quá 8 giây và 18 từ (D-21).
 - Tính sẵn các feature của bản gốc cho từng câu: F0, năng lượng, prominence theo từ, PPG.
 - Cho phép chọn một đoạn của video dài (ví dụ phút 3 đến phút 6).
 

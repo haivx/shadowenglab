@@ -3,7 +3,9 @@
 Đầu ra là các span nửa mở `(start_index, end_index)` trên danh sách từ, không phải model
 contract, để module này độc lập với contract sinh tự động; bước dựng bài đổi span thành `Segment`.
 
-Các ngưỡng là giá trị khởi đầu (RESEARCH A1), sẽ chỉnh trên video thật. Hạn chế đã biết: từ
+Các ngưỡng do Liam chốt ngày 2026-10-06 (D-21): câu dài 3-8 giây và tối đa 18 từ. Quy tắc cắt
+câu dài (> MAX_WORDS = 15 từ hoặc > MAX_DUR_S) giữ nguyên; 18 từ là trần khi GỘP mảnh ngắn
+(MAX_MERGED_WORDS). Hạn chế đã biết: từ
 viết tắt kết thúc bằng dấu chấm ("Dr.", "Mr.") bị coi là hết câu; mảnh quá ngắn sinh ra từ đó
 được bước gộp xử lý khi có thể.
 """
@@ -21,8 +23,9 @@ HARD_GAP_S = 0.7
 SOFT_GAP_S = 0.25
 MAX_DUR_S = 8.0
 MAX_WORDS = 15
-MIN_DUR_S = 1.5
-MAX_MERGED_S = 9.0
+MIN_DUR_S = 3.0  # D-21: mảnh ngắn hơn thì gộp với câu bên cạnh
+MAX_MERGED_S = 8.0  # D-21: câu gộp không dài quá 8 s
+MAX_MERGED_WORDS = 18  # D-21: câu gộp không quá 18 từ
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +129,7 @@ def _merge_short(words: Sequence[AsrWord], chunks: list[Span]) -> list[Span]:
                 target = i
             else:
                 continue
-            if _dur(words, merged) > MAX_MERGED_S:
+            if _dur(words, merged) > MAX_MERGED_S or merged[1] - merged[0] > MAX_MERGED_WORDS:
                 continue
             chunks[target : target + 2] = [merged]
             break
@@ -143,7 +146,7 @@ def split_sentences(words: Sequence[AsrWord]) -> list[tuple[int, int]]:
        tại khoảng lặng >= SOFT_GAP_S, nếu không có thì tại khoảng lặng lớn nhất; chọn điểm
        gần giữa nhất và ưu tiên hai nửa đều >= MIN_DUR_S.
     3. Span ngắn hơn MIN_DUR_S được gộp vào hàng xóm có khoảng lặng nhỏ hơn nếu kết quả
-       <= MAX_MERGED_S.
+       <= MAX_MERGED_S và <= MAX_MERGED_WORDS từ.
     """
     if not words:
         return []

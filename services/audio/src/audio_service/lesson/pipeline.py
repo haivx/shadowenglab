@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import shutil
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,10 +30,11 @@ from yt_dlp.utils import DownloadError
 from audio_service.config import (
     lesson_json_path,
     segment_features_path,
+    stems_dir,
     video_asset_path,
 )
 from audio_service.contracts_gen import AudioQuality, Lesson, LessonError, Segment
-from audio_service.lesson import audio_io, download, features, separate, store, transcribe
+from audio_service.lesson import audio_io, download, features, ipa, separate, store, transcribe
 from audio_service.lesson.quality import audio_quality_label, non_vocal_ratio
 from audio_service.lesson.segment import AsrWord, split_sentences
 from audio_service.lesson.timing import StepTimer
@@ -46,9 +47,11 @@ END_EXTRA_MS = 0  # D-05: "Mất chữ cuối?" chỉnh sau, P0 luôn 0
 ERROR_MESSAGE_MAX = 500
 DEFAULT_WHOLE_VIDEO_MAX_S = 360.0  # LES-02: <= 6 phút lấy cả video
 DEFAULT_RANGE_LONG_S = 300.0  # video dài hơn: mặc định 0-5 phút
+STEM_MARGIN_S = 1.0  # D-19: tách giọng trên [range.start - 1 s, range.end + 1 s]
 
 DOWNLOAD_BLOCKED_MESSAGE = "video bị giới hạn khu vực, riêng tư hoặc tắt tải xuống"
 NO_SPEECH_MESSAGE = "không tìm thấy câu nói nào trong đoạn này. Hãy chọn đoạn khác hoặc video khác"
+STEMS_MISSING_MESSAGE = "không tìm thấy giọng đã tách của đoạn này. Hãy tạo lại bài"
 UNEXPECTED_ERROR_MESSAGE = "lỗi không mong đợi (xem log của make dev)"
 
 
@@ -66,6 +69,9 @@ class PipelineDeps:
     extract_f0: Callable[[np.ndarray], np.ndarray]
     frame_energy: Callable[[np.ndarray], np.ndarray]
     free_memory: Callable[[], None]
+    # Vocab id -> token IPA của model PPG (D-14). Mặc định rỗng = không có IPA; bản thật ở
+    # default_deps.
+    load_vocab: Callable[[], Mapping[int, str]] = lambda: {}
 
 
 def _real_separate(stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
@@ -106,6 +112,7 @@ def default_deps() -> PipelineDeps:
         extract_f0=features.extract_f0,
         frame_energy=features.frame_energy,
         free_memory=_free_memory,
+        load_vocab=ipa.load_inv_vocab,
     )
 
 
@@ -325,6 +332,37 @@ def stage_model(
         raise
 
 
+def _stem_span(lesson: Lesson) -> tuple[int, int, float, float]:
+    """(start_ms, end_ms, base, stop) của stem theo khoảng bài (D-19).
+
+    `base`/`stop` là giây tuyệt đối của đầu/cuối stem, suy ra từ số nguyên ms đã làm tròn (cũng là
+    tên thư mục cache) để bài khác cùng khoảng luôn đọc stem với cùng `base_offset`.
+    """
+    start_ms = round(lesson.range.start * 1000)
+    end_ms = round(lesson.range.end * 1000)
+    base = max(0.0, start_ms / 1000.0 - STEM_MARGIN_S)
+    stop = min(lesson.duration_sec, end_ms / 1000.0 + STEM_MARGIN_S)
+    return start_ms, end_ms, base, stop
+
+
+def _stem_paths(lesson: Lesson) -> tuple[Path, Path]:
+    start_ms, end_ms, _, _ = _stem_span(lesson)
+    folder = stems_dir(lesson.video_id, start_ms, end_ms)
+    return folder / "vocals.wav", folder / "no_vocals.wav"
+
+
+def load_range_vocals16(lesson: Lesson) -> tuple[np.ndarray, float]:
+    """Vocal 16 kHz mono của khoảng bài từ stem đã cache, kèm `base_offset` (giây tuyệt đối).
+
+    Dùng lại cho "Mất chữ cuối?" (02-15): mốc tuyệt đối trừ `base_offset` là chỉ số trong mảng.
+    """
+    vocals_path, _ = _stem_paths(lesson)
+    if not vocals_path.exists():
+        raise StepError(STEMS_MISSING_MESSAGE)
+    vocals, sr = audio_io.read_audio(vocals_path)
+    return audio_io.to_mono_16k(vocals, sr), _stem_span(lesson)[2]
+
+
 def _run_model_stage(
     lesson_id: str,
     deps: PipelineDeps,
@@ -335,17 +373,19 @@ def _run_model_stage(
     video_id = lesson.video_id
     range_start, range_end = lesson.range.start, lesson.range.end
     audio_path = video_asset_path(video_id, "audio.wav")
-    vocals_path = video_asset_path(video_id, "vocals.wav")
-    no_vocals_path = video_asset_path(video_id, "no_vocals.wav")
+    vocals_path, no_vocals_path = _stem_paths(lesson)
+    _, _, base, stop = _stem_span(lesson)
 
-    # --- separating: trên TOÀN BỘ audio của video, cache theo videoId (D-07/D-08) ---
+    # --- separating: chỉ trên [range ± 1 s], cache theo (videoId, start, end) (D-19) ---
     _set_status(lesson_id, timer, on_status, status="separating")
     with timer.step("demucs"):
         if vocals_path.exists() and no_vocals_path.exists():
             vocals, sr = audio_io.read_audio(vocals_path)
             no_vocals, _ = audio_io.read_audio(no_vocals_path)
         else:
-            stereo, sr = audio_io.read_audio(audio_path)
+            whole, sr = audio_io.read_audio(audio_path)
+            stereo = np.ascontiguousarray(audio_io.slice_seconds(whole, sr, base, stop))
+            del whole
             vocals, no_vocals = deps.separate(stereo, sr)
             del stereo
             deps.free_memory()
@@ -353,22 +393,24 @@ def _run_model_stage(
             audio_io.write_audio(no_vocals_path, no_vocals, sr)
     with timer.step("quality"):
         ratio = non_vocal_ratio(
-            audio_io.slice_seconds(vocals, sr, range_start, range_end),
-            audio_io.slice_seconds(no_vocals, sr, range_start, range_end),
+            audio_io.slice_seconds(vocals, sr, range_start - base, range_end - base),
+            audio_io.slice_seconds(no_vocals, sr, range_start - base, range_end - base),
         )
         quality = AudioQuality.model_validate(
             {"label": audio_quality_label(ratio), "nonVocalRatio": ratio}
         )
     del no_vocals
 
-    # --- transcribing ---
+    # --- transcribing: mảng vocal bắt đầu ở giây `base`; Whisper chỉ nhận đúng khoảng ---
     _set_status(lesson_id, timer, on_status, status="transcribing", audio_quality=quality)
     with timer.step("resample"):
         vocals16 = audio_io.to_mono_16k(vocals, sr)
         del vocals
     with timer.step("whisper"):
         words = deps.transcribe(
-            audio_io.slice_seconds(vocals16, audio_io.TARGET_SR, range_start, range_end),
+            audio_io.slice_seconds(
+                vocals16, audio_io.TARGET_SR, range_start - base, range_end - base
+            ),
             offset_s=range_start,
         )
         deps.free_memory()  # giải phóng Whisper ngay sau bước của nó (D-18, Pitfall 2)
@@ -380,46 +422,110 @@ def _run_model_stage(
     if not segments:
         raise StepError(NO_SPEECH_MESSAGE)
 
-    # --- analyzing: F0 + energy + PPG của bản gốc, cắt theo cửa sổ có đệm (D-05) ---
+    # --- analyzing: F0 + energy + PPG + IPA của bản gốc, cắt theo cửa sổ có đệm (D-05, D-14) ---
     seg_dir = segment_features_path(lesson_id, 0).parent
     shutil.rmtree(seg_dir, ignore_errors=True)  # .npz cũ của lần chạy trước (retry) sẽ mồ côi
     lesson = _set_status(lesson_id, timer, on_status, status="analyzing", segments=segments)
+    vocab = _load_vocab(deps)
     with timer.step("ppg"):
         ppg_model = deps.load_ppg()
+    analyzed: list[Segment] = []
     try:
         for seg in segments:
-            w_start, w_end = features.segment_window(
-                seg.start,
-                seg.end,
-                lesson.pad_ms,
-                seg.end_extra_ms,
-                lo=0.0,
-                hi=lesson.duration_sec,
-            )
-            clip = audio_io.slice_seconds(vocals16, audio_io.TARGET_SR, w_start, w_end)
-            with timer.step("f0"):
-                f0 = deps.extract_f0(clip)
-                energy = deps.frame_energy(clip)
-            with timer.step("ppg"):
-                ppg = deps.compute_ppg(clip, ppg_model)
-            with timer.step("write_features"):
-                out = segment_features_path(lesson_id, seg.index)
-                out.parent.mkdir(parents=True, exist_ok=True)
-                np.savez_compressed(
-                    out,
-                    f0_hz=f0,
-                    energy=energy,
-                    ppg=ppg,
-                    window=np.array([w_start, w_end]),
-                    sr=audio_io.TARGET_SR,
-                    f0_hop_s=0.01,
-                    ppg_fps=50.0,
+            analyzed.append(
+                analyze_segment(
+                    lesson_id,
+                    seg,
+                    vocals16,
+                    base,
+                    lesson.duration_sec,
+                    lesson.pad_ms,
+                    ppg_model,
+                    vocab,
+                    deps,
+                    timer,
                 )
+            )
     finally:
         del ppg_model
         deps.free_memory()
 
-    return _set_status(lesson_id, timer, on_status, status="ready")
+    return _set_status(lesson_id, timer, on_status, status="ready", segments=analyzed)
+
+
+def _load_vocab(deps: PipelineDeps) -> Mapping[int, str]:
+    """Vocab IPA; thiếu cache thì không có IPA (không chặn tạo bài, precision trước recall)."""
+    try:
+        return deps.load_vocab()
+    except Exception:
+        logger.warning("không nạp được vocab IPA; bài này không có IPA", exc_info=True)
+        return {}
+
+
+def _with_ipa(seg: Segment, ipa_by_word: Mapping[int, str]) -> Segment:
+    """Dựng lại các từ có IPA từ dict; từ không có IPA giữ nguyên, không bao giờ ghi None."""
+    words = []
+    for position, word in enumerate(seg.words):
+        raw = word.model_dump(by_alias=True, exclude_unset=True)
+        raw.pop("ipa", None)
+        if position in ipa_by_word:
+            raw["ipa"] = ipa_by_word[position]
+        words.append(type(word).model_validate(raw))
+    return seg.model_copy(update={"words": words})
+
+
+def analyze_segment(
+    lesson_id: str,
+    seg: Segment,
+    vocals16: np.ndarray,
+    base_offset: float,
+    duration_sec: float,
+    pad_ms: int,
+    ppg_model: Any,
+    vocab: Mapping[int, str],
+    deps: PipelineDeps,
+    timer: StepTimer,
+) -> Segment:
+    """F0 + energy + PPG của một câu, ghi `seg/{index:04d}.npz`, trả Segment có `ipa` ở từ chắc.
+
+    `vocals16` là vocal 16 kHz mono bắt đầu ở giây tuyệt đối `base_offset`; cửa sổ và `window` trong
+    .npz vẫn là giây tuyệt đối của video (D-01). IPA chỉ từ PPG của người nói gốc (D-14).
+    Dùng lại cho "Mất chữ cuối?" (02-15).
+    """
+    w_start, w_end = features.segment_window(
+        seg.start,
+        seg.end,
+        pad_ms,
+        seg.end_extra_ms,
+        lo=base_offset,
+        hi=min(duration_sec, base_offset + vocals16.shape[-1] / audio_io.TARGET_SR),
+    )
+    clip = audio_io.slice_seconds(
+        vocals16, audio_io.TARGET_SR, w_start - base_offset, w_end - base_offset
+    )
+    with timer.step("f0"):
+        f0 = deps.extract_f0(clip)
+        energy = deps.frame_energy(clip)
+    with timer.step("ppg"):
+        ppg = deps.compute_ppg(clip, ppg_model)
+    with timer.step("write_features"):
+        out = segment_features_path(lesson_id, seg.index)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            out,
+            f0_hz=f0,
+            energy=energy,
+            ppg=ppg,
+            window=np.array([w_start, w_end]),
+            sr=audio_io.TARGET_SR,
+            f0_hop_s=0.01,
+            ppg_fps=ipa.PPG_FPS,
+        )
+    with timer.step("ipa"):
+        ipa_by_word = ipa.ipa_for_segment(
+            ppg, w_start, ipa.PPG_FPS, [(w.start, w.end) for w in seg.words], vocab
+        )
+    return _with_ipa(seg, ipa_by_word)
 
 
 def run_lesson(

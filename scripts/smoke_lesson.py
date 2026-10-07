@@ -11,8 +11,10 @@ Thoát 2: URL hoặc khoảng sai. Thoát 1: pipeline lỗi.
 from __future__ import annotations
 
 import argparse
+import statistics
 import sys
 import time
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -27,10 +29,46 @@ from audio_service.lesson.urls import InvalidYoutubeUrl
 NPZ_KEYS = ("f0_hz", "energy", "ppg", "window")
 
 
+def sentence_length_stats(
+    durations: Sequence[float], word_counts: Sequence[int]
+) -> dict[str, int | float]:
+    """Phân bố độ dài câu (D-04, D-21): đếm theo nhóm < 3 s / 3-8 s / > 8 s, median, từ nhiều nhất.
+
+    Hàm thuần. Mốc 3 s và 8 s tính vào nhóm giữa (3 s <= d <= 8 s).
+    """
+    return {
+        "count": len(durations),
+        "under_3": sum(1 for d in durations if d < 3.0),
+        "between_3_8": sum(1 for d in durations if 3.0 <= d <= 8.0),
+        "over_8": sum(1 for d in durations if d > 8.0),
+        "median_s": float(statistics.median(durations)) if durations else 0.0,
+        "max_words": max(word_counts, default=0),
+    }
+
+
+def format_sentence_length_stats(stats: dict[str, int | float]) -> str:
+    """Khối "Phân bố độ dài câu" in sau bảng thời gian."""
+    return "\n".join(
+        [
+            "Phân bố độ dài câu",
+            f"  số câu        : {stats['count']}",
+            f"  < 3 s         : {stats['under_3']}",
+            f"  3-8 s         : {stats['between_3_8']}",
+            f"  > 8 s         : {stats['over_8']}",
+            f"  median        : {stats['median_s']:.2f} s",
+            f"  nhiều từ nhất : {stats['max_words']}",
+        ]
+    )
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Chạy pipeline tạo bài trên một video YouTube.")
+    parser = argparse.ArgumentParser(
+        description="Chạy pipeline tạo bài trên một video YouTube."
+    )
     parser.add_argument("url", help="link video YouTube")
-    parser.add_argument("--start", type=float, default=None, help="giây bắt đầu (mặc định 0)")
+    parser.add_argument(
+        "--start", type=float, default=None, help="giây bắt đầu (mặc định 0)"
+    )
     parser.add_argument(
         "--end", type=float, default=None, help="giây kết thúc (mặc định hết video)"
     )
@@ -45,7 +83,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def _self_check(lesson_id: str) -> Lesson:
     """Đọc lại lesson.json bằng model sinh từ contract và kiểm từng segment có đủ feature."""
-    lesson = Lesson.model_validate_json(lesson_json_path(lesson_id).read_text(encoding="utf-8"))
+    lesson = Lesson.model_validate_json(
+        lesson_json_path(lesson_id).read_text(encoding="utf-8")
+    )
     assert lesson.status == "ready", f"status là {lesson.status}, cần ready"
     assert len(lesson.segments) >= 1, "không có segment nào"
     for seg in lesson.segments:
@@ -68,7 +108,9 @@ def main(argv: list[str] | None = None) -> int:
 
     t0 = time.perf_counter()
     try:
-        run = run_lesson(args.url, start=args.start, end=args.end, timer=timer, on_status=on_status)
+        run = run_lesson(
+            args.url, start=args.start, end=args.end, timer=timer, on_status=on_status
+        )
     except (InvalidYoutubeUrl, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -78,7 +120,9 @@ def main(argv: list[str] | None = None) -> int:
         failed = last[-1] if last else None
         step = failed.error.step if failed and failed.error else "?"
         message = (
-            failed.error.message if failed and failed.error else f"{type(exc).__name__}: {exc}"
+            failed.error.message
+            if failed and failed.error
+            else f"{type(exc).__name__}: {exc}"
         )
         print(f"PIPELINE FAILED at step '{step}': {message}", file=sys.stderr)
         return 1
@@ -99,6 +143,15 @@ def main(argv: list[str] | None = None) -> int:
     }
     print()
     print(format_timing_table(run.timings, extras))
+    print()
+    print(
+        format_sentence_length_stats(
+            sentence_length_stats(
+                [seg.end - seg.start for seg in lesson.segments],
+                [len(seg.words) for seg in lesson.segments],
+            )
+        )
+    )
 
     write_json_atomic(
         lesson_dir(lesson.id) / "timing.json",

@@ -18,6 +18,7 @@ from audio_service.config import (
     get_settings,
     lesson_json_path,
     segment_features_path,
+    stems_dir,
     video_asset_path,
 )
 from audio_service.contract_io import dump_contract
@@ -32,7 +33,11 @@ from audio_service.lesson.pipeline import (
     PipelineDeps,
     StepError,
     build_segments,
+    create_lesson,
+    load_range_vocals16,
     run_lesson,
+    stage_download,
+    stage_model,
 )
 from audio_service.lesson.segment import AsrWord
 from audio_service.lesson.urls import InvalidYoutubeUrl
@@ -60,16 +65,17 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     get_settings.cache_clear()
 
 
-# Hai câu rõ ràng (kết thúc bằng dấu câu), mỗi câu >= 1.5 s, để split_sentences cho đúng 2 segment.
+# Hai câu rõ ràng (kết thúc bằng dấu câu), mỗi câu >= 3 s (MIN_DUR_S, D-21) để split_sentences
+# cho đúng 2 segment.
 _WORDS = [
-    (" Hello", 0.5, 0.9, 0.9),
-    (" there,", 1.0, 1.4, 0.8),
-    (" my", 1.5, 1.7, 0.95),
-    (" friend.", 1.8, 2.4, 0.7),
-    (" How", 3.0, 3.3, 0.9),
-    (" are", 3.4, 3.6, 0.85),
-    (" you", 3.7, 3.9, 0.99),
-    (" today?", 4.0, 4.6, 0.6),
+    (" Hello", 0.5, 1.1, 0.9),
+    (" there,", 1.2, 1.9, 0.8),
+    (" my", 2.0, 2.4, 0.95),
+    (" friend.", 2.5, 3.8, 0.7),
+    (" How", 4.4, 4.8, 0.9),
+    (" are", 4.9, 5.3, 0.85),
+    (" you", 5.4, 5.8, 0.99),
+    (" today?", 5.9, 7.6, 0.6),
 ]
 
 
@@ -83,13 +89,20 @@ class Fakes:
         words: list[tuple[str, float, float, float]] | None = None,
         thumbnail: str | None = None,
         duration: float = DURATION,
+        vocab_error: Exception | None = None,
+        ramp: bool = False,
     ) -> None:
         self.calls: list[str] = []
         self.transcribe_args: list[tuple[int, float]] = []
+        self.transcribe_first_sample: list[float] = []
+        self.separate_samples: list[int] = []
+        self.f0_clip_lengths: list[int] = []
+        self.ramp = ramp
         self.transcribe_error = transcribe_error
         self.words = _WORDS if words is None else words
         self.thumbnail = thumbnail
         self.duration = duration
+        self.vocab_error = vocab_error
 
     def deps(self) -> PipelineDeps:
         return PipelineDeps(
@@ -103,6 +116,7 @@ class Fakes:
             extract_f0=self.extract_f0,
             frame_energy=self.frame_energy,
             free_memory=lambda: self.calls.append("free_memory"),
+            load_vocab=self.load_vocab,
         )
 
     def fetch_info(self, video_id: str) -> VideoInfo:
@@ -119,17 +133,22 @@ class Fakes:
     def extract_audio(self, video_path: Path, wav_path: Path) -> None:
         self.calls.append("extract_audio")
         t = np.arange(int(SR * self.duration)) / SR
-        tone = (0.3 * np.sin(2 * math.pi * 220.0 * t)).astype(np.float32)
+        if self.ramp:  # mẫu = t / 100: biết được lát cắt bắt đầu từ giây nào
+            tone = (t / 100.0).astype(np.float32)
+        else:
+            tone = (0.3 * np.sin(2 * math.pi * 220.0 * t)).astype(np.float32)
         write_audio(wav_path, np.stack([tone, tone]), SR)
 
     def separate(self, stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
         self.calls.append("separate")
         assert stereo.ndim == 2 and stereo.shape[0] == 2 and sr == SR
+        self.separate_samples.append(stereo.shape[1])
         return (0.9 * stereo).astype(np.float32), (0.1 * stereo).astype(np.float32)
 
     def transcribe(self, audio16k: np.ndarray, *, offset_s: float) -> list[AsrWord]:
         self.calls.append("transcribe")
         self.transcribe_args.append((len(audio16k), offset_s))
+        self.transcribe_first_sample.append(float(audio16k[0]))
         if self.transcribe_error is not None:
             raise self.transcribe_error
         return [AsrWord(t, s + offset_s, e + offset_s, p) for t, s, e, p in self.words]
@@ -138,10 +157,22 @@ class Fakes:
         self.calls.append("load_ppg")
         return object()
 
+    def load_vocab(self) -> dict[int, str]:
+        self.calls.append("load_vocab")
+        if self.vocab_error is not None:
+            raise self.vocab_error
+        return {0: "<pad>", 1: "<s>", 2: "</s>", 3: "<unk>", 4: "h"}
+
     def compute_ppg(self, clip: np.ndarray, _model: object) -> np.ndarray:
-        return np.full((max(len(clip) // 320, 1), 5), 0.2, dtype=np.float32)
+        """Toàn blank, một đỉnh tự tin ở frame 15: rơi vào từ 0 của mỗi câu (không vào từ 1)."""
+        ppg = np.zeros((max(len(clip) // 320, 1), 5), dtype=np.float32)
+        ppg[:, 0] = 1.0
+        if ppg.shape[0] > 15:
+            ppg[15] = [0.02, 0.02, 0.02, 0.02, 0.92]
+        return ppg
 
     def extract_f0(self, clip: np.ndarray) -> np.ndarray:
+        self.f0_clip_lengths.append(len(clip))
         return np.zeros(max(len(clip) // 160, 1), dtype=np.float32)
 
     def frame_energy(self, clip: np.ndarray) -> np.ndarray:
@@ -222,8 +253,8 @@ def test_word_index_restarts_at_zero_in_every_segment(data_dir: Path) -> None:
         "How are you today?",
     ]
     assert raw["segments"][1]["words"][0]["text"] == "How"  # đã strip khoảng trắng của Whisper
-    assert raw["segments"][1]["start"] == 3.0
-    assert raw["segments"][1]["end"] == 4.6
+    assert raw["segments"][1]["start"] == 4.4
+    assert raw["segments"][1]["end"] == 7.6
 
 
 def test_one_npz_per_segment_with_expected_keys_and_padded_window(data_dir: Path) -> None:
@@ -241,6 +272,27 @@ def test_one_npz_per_segment_with_expected_keys_and_padded_window(data_dir: Path
             assert float(npz["f0_hop_s"]) == 0.01
             assert float(npz["ppg_fps"]) == 50.0
     assert not segment_features_path(run.lesson.id, 2).exists()
+
+
+def test_confident_words_get_ipa_from_the_ppg_and_the_rest_have_no_key(data_dir: Path) -> None:
+    run = run_lesson(URL, deps=Fakes().deps())
+
+    raw = json.loads(run.lesson_path.read_text(encoding="utf-8"))
+    for seg in raw["segments"]:
+        assert seg["words"][0]["ipa"] == "h"
+        assert all("ipa" not in word for word in seg["words"][1:])  # vắng mặt, không phải null
+    assert "null" not in run.lesson_path.read_text(encoding="utf-8")
+    Lesson.model_validate(raw)
+
+
+def test_missing_vocab_degrades_to_no_ipa_without_failing_the_lesson(data_dir: Path) -> None:
+    fakes = Fakes(vocab_error=FileNotFoundError("vocab.json not cached"))
+
+    run = run_lesson(URL, deps=fakes.deps())
+
+    assert run.lesson.status == "ready"
+    raw = json.loads(run.lesson_path.read_text(encoding="utf-8"))
+    assert all("ipa" not in word for seg in raw["segments"] for word in seg["words"])
 
 
 def test_range_offsets_the_words_and_limits_the_whisper_input(data_dir: Path) -> None:
@@ -323,12 +375,19 @@ def test_failure_in_an_early_stage_reports_the_current_status(data_dir: Path) ->
 # --- cache (D-07) ---------------------------------------------------------------------------
 
 
+def _stem_files(start_ms: int, end_ms: int) -> tuple[Path, Path]:
+    folder = stems_dir(VIDEO_ID, start_ms, end_ms)
+    return folder / "vocals.wav", folder / "no_vocals.wav"
+
+
 def test_second_run_reuses_video_audio_and_stems(data_dir: Path) -> None:
     first = Fakes()
     run1 = run_lesson(URL, deps=first.deps())
     assert {"download_video", "extract_audio", "separate"} <= set(first.calls)
-    for asset in ("video.mp4", "audio.wav", "vocals.wav", "no_vocals.wav"):
+    for asset in ("video.mp4", "audio.wav"):
         assert video_asset_path(VIDEO_ID, asset).exists()  # type: ignore[arg-type]
+    for stem in _stem_files(0, 12000):
+        assert stem.exists()
 
     second = Fakes()
     run2 = run_lesson(URL, deps=second.deps())
@@ -345,7 +404,7 @@ def test_second_run_reuses_video_audio_and_stems(data_dir: Path) -> None:
 def test_partial_cache_without_stems_still_separates(data_dir: Path) -> None:
     first = Fakes()
     run_lesson(URL, deps=first.deps())
-    video_asset_path(VIDEO_ID, "no_vocals.wav").unlink()
+    _stem_files(0, 12000)[1].unlink()
 
     second = Fakes()
     run_lesson(URL, deps=second.deps())
@@ -353,6 +412,101 @@ def test_partial_cache_without_stems_still_separates(data_dir: Path) -> None:
     assert "separate" in second.calls
     assert "download_video" not in second.calls
     assert "extract_audio" not in second.calls
+
+
+# --- tách giọng theo đoạn đã chọn (D-19, LES-02) ---------------------------------------------
+
+
+def test_separation_input_is_the_range_plus_one_second_each_side(data_dir: Path) -> None:
+    fakes = Fakes()
+
+    run_lesson(URL, start=4.0, end=8.0, deps=fakes.deps())
+
+    assert fakes.separate_samples == [6 * SR]  # [3, 9) s thay vì cả video 12 s
+
+
+def test_separation_margin_is_clamped_to_the_video(data_dir: Path) -> None:
+    fakes = Fakes()
+
+    run_lesson(URL, start=0.5, end=11.5, deps=fakes.deps())
+
+    assert fakes.separate_samples == [12 * SR]  # [0, 12) kẹp trong video
+
+
+def test_stems_are_cached_per_range_and_reused_only_for_the_same_range(data_dir: Path) -> None:
+    first = Fakes()
+    run_lesson(URL, start=4.0, end=8.0, deps=first.deps())
+    for stem in _stem_files(4000, 8000):
+        assert stem.exists()
+    assert not _stem_files(0, 12000)[0].exists()  # không còn stem cả video
+
+    same = Fakes()
+    run_lesson(URL, start=4.0, end=8.0, deps=same.deps())
+    assert same.separate_samples == []  # dùng lại cache
+
+    different = Fakes()
+    run_lesson(URL, start=2.0, end=8.0, deps=different.deps())
+    assert different.separate_samples == [8 * SR]  # [1, 9) s: tách lại cho khoảng khác
+    for stem in _stem_files(2000, 8000):
+        assert stem.exists()
+    for stem in _stem_files(4000, 8000):
+        assert stem.exists()  # cache cũ không bị trộn hay xoá
+
+
+def test_transcribe_gets_the_range_slice_and_windows_stay_absolute(data_dir: Path) -> None:
+    fakes = Fakes(ramp=True)
+
+    run = run_lesson(URL, start=4.0, end=8.0, deps=fakes.deps())
+
+    ((n_samples, offset),) = fakes.transcribe_args
+    assert n_samples == 4 * 16000
+    assert offset == 4.0
+    # mẫu = 0.9 * t / 100 (vocals = 0.9 * x): lát cắt phải bắt đầu đúng giây 4.0 của video
+    assert fakes.transcribe_first_sample[0] == pytest.approx(0.9 * 4.0 / 100.0, abs=1e-4)
+    first = run.lesson.segments[0]
+    assert first.start == pytest.approx(4.5)  # mốc tuyệt đối theo video (D-01)
+    with np.load(segment_features_path(run.lesson.id, 0)) as npz:
+        lo, hi = (float(x) for x in npz["window"])
+    assert lo == pytest.approx(first.start - 0.15)
+    assert hi == pytest.approx(first.end + 0.15)
+    assert fakes.f0_clip_lengths[0] == pytest.approx((hi - lo) * 16000, abs=2)
+
+
+def test_entering_analyzing_removes_stale_segment_features(data_dir: Path) -> None:
+    fakes = Fakes()
+    deps = fakes.deps()
+    lesson = create_lesson(URL, deps=deps)
+    stage_download(lesson.id, deps=deps)
+    stale = segment_features_path(lesson.id, 9)
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_bytes(b"orphan from an earlier run")
+
+    done = stage_model(lesson.id, deps=deps)
+
+    assert len(done.segments) == 2
+    assert not stale.exists()
+    assert sorted(p.name for p in stale.parent.glob("*.npz")) == ["0000.npz", "0001.npz"]
+
+
+def test_load_range_vocals16_returns_the_cached_stem_and_its_base_offset(data_dir: Path) -> None:
+    fakes = Fakes(ramp=True)
+    run = run_lesson(URL, start=4.0, end=8.0, deps=fakes.deps())
+
+    vocals16, base_offset = load_range_vocals16(run.lesson)
+
+    assert base_offset == 3.0
+    assert vocals16.ndim == 1 and vocals16.dtype == np.float32
+    assert len(vocals16) == 6 * 16000
+    assert float(vocals16[16000]) == pytest.approx(0.9 * 4.0 / 100.0, abs=1e-4)  # giây 4.0
+
+
+def test_load_range_vocals16_without_stems_raises_a_clear_error(data_dir: Path) -> None:
+    run = run_lesson(URL, start=4.0, end=8.0, deps=Fakes().deps())
+    for stem in _stem_files(4000, 8000):
+        stem.unlink()
+
+    with pytest.raises(StepError, match="giọng"):
+        load_range_vocals16(run.lesson)
 
 
 # --- đầu vào sai ----------------------------------------------------------------------------
