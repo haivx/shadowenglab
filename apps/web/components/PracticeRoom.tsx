@@ -1,14 +1,21 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useActorRef, useSelector } from "@xstate/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { fromPromise } from "xstate";
 import type {
   AppSettings,
+  AttemptAck,
   Lesson,
   LessonProgress,
 } from "@shadowenglab/contracts";
+import { AttemptStrip } from "@/components/AttemptStrip";
 import { PlayerControls } from "@/components/PlayerControls";
 import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
+import { ResultActionBar } from "@/components/ResultActionBar";
+import { ReviewBlock } from "@/components/ReviewBlock";
 import { SentenceStatePanel } from "@/components/SentenceStatePanel";
 import {
   TranscriptList,
@@ -23,14 +30,30 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { uploadAttempt } from "@/lib/api";
+import { makeRecordActor } from "@/lib/audio/recorder";
+import {
+  makePlayBlob,
+  makePlayBoth,
+  makePlayOriginalOnce,
+} from "@/lib/player/listenActors";
 import {
   makePlaySample,
   sampleWindow,
   type PlayableLesson,
 } from "@/lib/player/playRange";
-import { playerMachine, type RepeatCount } from "@/lib/player/playerMachine";
+import {
+  playerMachine,
+  type RepeatCount,
+  type UploadInput,
+} from "@/lib/player/playerMachine";
 import { useShortcuts } from "@/lib/player/useShortcuts";
-import { useLesson, useLessonProgress, useSettings } from "@/lib/queries";
+import {
+  queryKeys,
+  useLesson,
+  useLessonProgress,
+  useSettings,
+} from "@/lib/queries";
 
 type SessionDefaults = Pick<
   AppSettings,
@@ -70,6 +93,15 @@ function segmentDurationsMs(lesson: Lesson): number[] {
   return lesson.segments.map((segment) =>
     Math.round((segment.end - segment.start) * 1000 + segment.endExtraMs),
   );
+}
+
+const UPLOAD_ERROR_TOAST_ID = "upload-error";
+const UPLOAD_ERROR_TEXT =
+  "Không xử lý được bản ghi. Bản ghi của bạn vẫn còn, bấm Thử lại để gửi lại.";
+
+/** Trạng thái cấp trên cùng; scoring/reviewing/noVoice/error có trạng thái con nên `value` là object. */
+function topLevelState(value: string | Record<string, unknown>): string {
+  return typeof value === "string" ? value : (Object.keys(value)[0] ?? "");
 }
 
 interface PracticeRoomProps {
@@ -186,14 +218,35 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     lessonRef.current = lesson;
   }, [lesson]);
 
-  // Machine tạo một lần: actor playSample đọc video/bài qua ref nên luôn thấy dữ liệu mới nhất.
-  // Actor ghi âm và tải lên do 02-14 cung cấp qua `provide`.
+  const lessonIdRef = useRef(lesson.id);
+  useEffect(() => {
+    lessonIdRef.current = lesson.id;
+  }, [lesson.id]);
+
+  // Machine tạo một lần: các actor đọc video/bài qua ref nên luôn thấy dữ liệu mới nhất.
+  // Tải lên mặc định saveForEval=false; `Lưu clip cho eval` gửi lại riêng (REC-04, D-09).
+  // `signal` huỷ yêu cầu khi rời trạng thái scoring (chuyển câu không thể xảy ra ở đó, nhưng unmount thì có).
   const [machine] = useState(() =>
     playerMachine.provide({
       actors: {
         playSample: makePlaySample(
           () => videoRef.current,
           () => lessonRef.current,
+        ),
+        playBlob: makePlayBlob(),
+        playBoth: makePlayBoth(
+          makePlayOriginalOnce(
+            () => videoRef.current,
+            () => lessonRef.current,
+          ),
+        ),
+        record: makeRecordActor(),
+        uploadAttempt: fromPromise<AttemptAck, UploadInput>(
+          ({ input, signal }) =>
+            uploadAttempt(lessonIdRef.current, input.segmentIndex, input.blob, {
+              saveForEval: false,
+              signal,
+            }),
         ),
       },
     }),
@@ -215,6 +268,8 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   });
   const snapshot = useSelector(actorRef, (state) => state);
   const [videoReady, setVideoReady] = useState(false);
+  // Lượt đã lưu clip cho eval trong phiên này, khoá `câu:lượt` (REC-04).
+  const [savedClips, setSavedClips] = useState<ReadonlySet<string>>(new Set());
 
   const practiced = useMemo(
     () =>
@@ -230,6 +285,36 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
 
   const { context } = snapshot;
   const index = context.segmentIndex;
+  const top = topLevelState(snapshot.value);
+
+  // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
+  // Tải lên thất bại (scoring -> error): toast bền với `Thử lại`; rời error thì tắt toast (REC-03).
+  const queryClient = useQueryClient();
+  const previousTop = useRef(top);
+  useEffect(() => {
+    const was = previousTop.current;
+    previousTop.current = top;
+    if (was === "scoring" && (top === "reviewing" || top === "noVoice")) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.lessonProgress(lesson.id),
+      });
+    }
+    if (was === "scoring" && top === "error") {
+      toast.error(UPLOAD_ERROR_TEXT, {
+        id: UPLOAD_ERROR_TOAST_ID,
+        duration: Infinity,
+        closeButton: true,
+        action: {
+          label: "Thử lại",
+          onClick: () => actorRef.send({ type: "RETRY_UPLOAD" }),
+        },
+      });
+    } else if (was === "error" && top !== "error") {
+      toast.dismiss(UPLOAD_ERROR_TOAST_ID);
+    }
+  }, [top, queryClient, lesson.id, actorRef]);
+  // Rời S3 thì không để toast cũ nằm lại.
+  useEffect(() => () => void toast.dismiss(UPLOAD_ERROR_TOAST_ID), []);
 
   // Tiến độ của lần phát hiện tại cho thanh trong SentenceStatePanel.
   const getPassProgress = useCallback(() => {
@@ -247,7 +332,20 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const segment = lesson.segments[index];
   if (!segment) return null;
 
-  const top = typeof snapshot.value === "string" ? snapshot.value : "";
+  const recording = context.recordings[index];
+  const voicedAttempts =
+    progress?.segments.find((item) => item.segmentIndex === index)
+      ?.voicedAttempts ?? 0;
+  const isLast = index >= lesson.segments.length - 1;
+
+  // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
+  const recordDurationMs = Math.min(
+    60_000,
+    Math.round(
+      (context.segmentDurationsMs[index] ?? 60_000) * context.recordFactor,
+    ),
+  );
+
   const listening = top === "playing" || top === "previewing";
 
   return (
@@ -289,9 +387,10 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
           />
         </aside>
         <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9 min-[1160px]:overflow-y-auto">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
-            <span className="font-bold text-foreground">Câu {index + 1}</span>
-          </div>
+          <AttemptStrip
+            sentenceNumber={index + 1}
+            voicedAttempts={voicedAttempts}
+          />
           {listening ? (
             <SentenceStatePanel
               variant="playing"
@@ -301,14 +400,68 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               autoRecord={top === "playing"}
               getPassProgress={getPassProgress}
             />
+          ) : top === "recording" ? (
+            <SentenceStatePanel
+              variant="recording"
+              sentence={segment.text}
+              durationMs={recordDurationMs}
+              bars={context.level.bars}
+            />
+          ) : top === "scoring" ? (
+            <SentenceStatePanel variant="processing" sentence={segment.text} />
+          ) : top === "noVoice" ? (
+            <SentenceStatePanel
+              variant="noVoice"
+              sentence={segment.text}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
+          ) : top === "error" && context.lastError === "mic" ? (
+            <SentenceStatePanel
+              variant="micError"
+              sentence={segment.text}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
+          ) : top === "error" ? (
+            <SentenceStatePanel
+              variant="uploadError"
+              sentence={segment.text}
+              onRetry={() => actorRef.send({ type: "RETRY_UPLOAD" })}
+              onRecord={() => actorRef.send({ type: "RECORD" })}
+            />
           ) : (
-            // 02-14 thay các trạng thái recording / noVoice / scoring / error bằng SentenceStatePanel.
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>
           )}
+          {top === "reviewing" &&
+          recording?.status === "uploaded" &&
+          recording.attempt !== undefined ? (
+            <ReviewBlock
+              key={`${index}:${recording.attempt}`}
+              lessonId={lesson.id}
+              segmentIndex={index}
+              attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
+              attempt={recording.attempt}
+              blob={recording.blob}
+              durationMs={recording.durationMs}
+              isLast={isLast}
+              saved={savedClips.has(`${index}:${recording.attempt}`)}
+              onSaved={() => {
+                const key = `${index}:${recording.attempt}`;
+                setSavedClips((prev) => new Set(prev).add(key));
+              }}
+            />
+          ) : null}
         </main>
       </div>
+      <ResultActionBar
+        stateValue={snapshot.value}
+        segmentIndex={index}
+        segmentCount={context.segmentCount}
+        hasRecording={recording !== undefined}
+        videoReady={videoReady}
+        send={actorRef.send}
+      />
     </div>
   );
 }
