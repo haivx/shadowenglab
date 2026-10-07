@@ -95,6 +95,16 @@ const config: Config = {
         lg: "var(--radius-lg)",
         xl: "var(--radius-xl)",
       },
+      // Thanh tiến độ không phần trăm (Progress indeterminate); tắt khi giảm chuyển động.
+      keyframes: {
+        "progress-slide": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(250%)" },
+        },
+      },
+      animation: {
+        "progress-slide": "progress-slide 1.4s ease-in-out infinite",
+      },
     },
   },
   plugins: [animate],
