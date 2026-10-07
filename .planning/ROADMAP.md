@@ -81,7 +81,7 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 9/19 plans executed
+**Plans:** 14/19 plans executed
 **UI hint**: yes
 
 Plans:
@@ -101,11 +101,11 @@ Plans:
 - [x] 02-09-PLAN.md — S3 phát theo câu: video tự host, điều khiển, danh sách câu, phím tắt (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 02-10-PLAN.md — Lượt ghi backend: chuẩn hoá WAV 16 kHz, VAD, attempts, lưu clip eval (wave 4)
-- [ ] 02-11-PLAN.md — Trạng thái hệ thống, Settings, OpenAI key, warm-up nạp → giải phóng (wave 4)
-- [ ] 02-12-PLAN.md — Pipeline: IPA từ PPG, tách câu D-21, tách giọng theo đoạn, đo 5 phút (wave 4)
-- [ ] 02-13-PLAN.md — S2 tạo bài: preview, lỗi link, RangePicker (wave 4)
-- [ ] 02-14-PLAN.md — S3 ghi âm: Lượt của bạn, upload, nghe so sánh, không tiếng/lỗi, lưu clip eval (wave 4)
+- [x] 02-10-PLAN.md — Lượt ghi backend: chuẩn hoá WAV 16 kHz, VAD, attempts, lưu clip eval (wave 4)
+- [x] 02-11-PLAN.md — Trạng thái hệ thống, Settings, OpenAI key, warm-up nạp → giải phóng (wave 4)
+- [x] 02-12-PLAN.md — Pipeline: IPA từ PPG, tách câu D-21, tách giọng theo đoạn, đo 5 phút (wave 4)
+- [x] 02-13-PLAN.md — S2 tạo bài: preview, lỗi link, RangePicker (wave 4)
+- [x] 02-14-PLAN.md — S3 ghi âm: Lượt của bạn, upload, nghe so sánh, không tiếng/lỗi, lưu clip eval (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 02-15-PLAN.md — Backend Sửa câu + Mất chữ cuối? (tính lại feature + IPA dưới cổng model) (wave 5)
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 9/19 | In Progress | - |
+| 2. P1 · Tạo bài và trình phát | 14/19 | In Progress | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
