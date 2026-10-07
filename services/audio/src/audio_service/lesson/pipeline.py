@@ -30,6 +30,7 @@ from yt_dlp.utils import DownloadError
 from audio_service.config import (
     lesson_json_path,
     segment_features_path,
+    stems_dir,
     video_asset_path,
 )
 from audio_service.contracts_gen import AudioQuality, Lesson, LessonError, Segment
@@ -46,9 +47,11 @@ END_EXTRA_MS = 0  # D-05: "Mất chữ cuối?" chỉnh sau, P0 luôn 0
 ERROR_MESSAGE_MAX = 500
 DEFAULT_WHOLE_VIDEO_MAX_S = 360.0  # LES-02: <= 6 phút lấy cả video
 DEFAULT_RANGE_LONG_S = 300.0  # video dài hơn: mặc định 0-5 phút
+STEM_MARGIN_S = 1.0  # D-19: tách giọng trên [range.start - 1 s, range.end + 1 s]
 
 DOWNLOAD_BLOCKED_MESSAGE = "video bị giới hạn khu vực, riêng tư hoặc tắt tải xuống"
 NO_SPEECH_MESSAGE = "không tìm thấy câu nói nào trong đoạn này. Hãy chọn đoạn khác hoặc video khác"
+STEMS_MISSING_MESSAGE = "không tìm thấy giọng đã tách của đoạn này. Hãy tạo lại bài"
 UNEXPECTED_ERROR_MESSAGE = "lỗi không mong đợi (xem log của make dev)"
 
 
@@ -329,6 +332,37 @@ def stage_model(
         raise
 
 
+def _stem_span(lesson: Lesson) -> tuple[int, int, float, float]:
+    """(start_ms, end_ms, base, stop) của stem theo khoảng bài (D-19).
+
+    `base`/`stop` là giây tuyệt đối của đầu/cuối stem, suy ra từ số nguyên ms đã làm tròn (cũng là
+    tên thư mục cache) để bài khác cùng khoảng luôn đọc stem với cùng `base_offset`.
+    """
+    start_ms = round(lesson.range.start * 1000)
+    end_ms = round(lesson.range.end * 1000)
+    base = max(0.0, start_ms / 1000.0 - STEM_MARGIN_S)
+    stop = min(lesson.duration_sec, end_ms / 1000.0 + STEM_MARGIN_S)
+    return start_ms, end_ms, base, stop
+
+
+def _stem_paths(lesson: Lesson) -> tuple[Path, Path]:
+    start_ms, end_ms, _, _ = _stem_span(lesson)
+    folder = stems_dir(lesson.video_id, start_ms, end_ms)
+    return folder / "vocals.wav", folder / "no_vocals.wav"
+
+
+def load_range_vocals16(lesson: Lesson) -> tuple[np.ndarray, float]:
+    """Vocal 16 kHz mono của khoảng bài từ stem đã cache, kèm `base_offset` (giây tuyệt đối).
+
+    Dùng lại cho "Mất chữ cuối?" (02-15): mốc tuyệt đối trừ `base_offset` là chỉ số trong mảng.
+    """
+    vocals_path, _ = _stem_paths(lesson)
+    if not vocals_path.exists():
+        raise StepError(STEMS_MISSING_MESSAGE)
+    vocals, sr = audio_io.read_audio(vocals_path)
+    return audio_io.to_mono_16k(vocals, sr), _stem_span(lesson)[2]
+
+
 def _run_model_stage(
     lesson_id: str,
     deps: PipelineDeps,
@@ -339,17 +373,19 @@ def _run_model_stage(
     video_id = lesson.video_id
     range_start, range_end = lesson.range.start, lesson.range.end
     audio_path = video_asset_path(video_id, "audio.wav")
-    vocals_path = video_asset_path(video_id, "vocals.wav")
-    no_vocals_path = video_asset_path(video_id, "no_vocals.wav")
+    vocals_path, no_vocals_path = _stem_paths(lesson)
+    _, _, base, stop = _stem_span(lesson)
 
-    # --- separating: trên TOÀN BỘ audio của video, cache theo videoId (D-07/D-08) ---
+    # --- separating: chỉ trên [range ± 1 s], cache theo (videoId, start, end) (D-19) ---
     _set_status(lesson_id, timer, on_status, status="separating")
     with timer.step("demucs"):
         if vocals_path.exists() and no_vocals_path.exists():
             vocals, sr = audio_io.read_audio(vocals_path)
             no_vocals, _ = audio_io.read_audio(no_vocals_path)
         else:
-            stereo, sr = audio_io.read_audio(audio_path)
+            whole, sr = audio_io.read_audio(audio_path)
+            stereo = np.ascontiguousarray(audio_io.slice_seconds(whole, sr, base, stop))
+            del whole
             vocals, no_vocals = deps.separate(stereo, sr)
             del stereo
             deps.free_memory()
@@ -357,22 +393,24 @@ def _run_model_stage(
             audio_io.write_audio(no_vocals_path, no_vocals, sr)
     with timer.step("quality"):
         ratio = non_vocal_ratio(
-            audio_io.slice_seconds(vocals, sr, range_start, range_end),
-            audio_io.slice_seconds(no_vocals, sr, range_start, range_end),
+            audio_io.slice_seconds(vocals, sr, range_start - base, range_end - base),
+            audio_io.slice_seconds(no_vocals, sr, range_start - base, range_end - base),
         )
         quality = AudioQuality.model_validate(
             {"label": audio_quality_label(ratio), "nonVocalRatio": ratio}
         )
     del no_vocals
 
-    # --- transcribing ---
+    # --- transcribing: mảng vocal bắt đầu ở giây `base`; Whisper chỉ nhận đúng khoảng ---
     _set_status(lesson_id, timer, on_status, status="transcribing", audio_quality=quality)
     with timer.step("resample"):
         vocals16 = audio_io.to_mono_16k(vocals, sr)
         del vocals
     with timer.step("whisper"):
         words = deps.transcribe(
-            audio_io.slice_seconds(vocals16, audio_io.TARGET_SR, range_start, range_end),
+            audio_io.slice_seconds(
+                vocals16, audio_io.TARGET_SR, range_start - base, range_end - base
+            ),
             offset_s=range_start,
         )
         deps.free_memory()  # giải phóng Whisper ngay sau bước của nó (D-18, Pitfall 2)
@@ -399,7 +437,7 @@ def _run_model_stage(
                     lesson_id,
                     seg,
                     vocals16,
-                    0.0,
+                    base,
                     lesson.duration_sec,
                     lesson.pad_ms,
                     ppg_model,
@@ -460,7 +498,7 @@ def analyze_segment(
         pad_ms,
         seg.end_extra_ms,
         lo=base_offset,
-        hi=duration_sec,
+        hi=min(duration_sec, base_offset + vocals16.shape[-1] / audio_io.TARGET_SR),
     )
     clip = audio_io.slice_seconds(
         vocals16, audio_io.TARGET_SR, w_start - base_offset, w_end - base_offset
