@@ -315,18 +315,28 @@ Accessibility additions: result region is a labelled `section`; hero indices exp
 
 ## UI Considerations
 
-> Shape-rooted state coverage from the UI-consideration probe (10 elements). Copy for empty/error rows lives in `## Copywriting Contract`; this table references it.
+> Shape-rooted state coverage from the UI-consideration probe (10 elements; engine re-run post-verification 2026-10-08, kinds confirmed by Liam, E8 confirmed as a status panel). Copy for empty/error rows lives in `## Copywriting Contract`; this table references it.
 
-Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 11 dismissed (with reason) — 49 applicable.
+Applicable state considerations resolved: 44 covered, 3 backstop, 0 unresolved, 17 dismissed (with reason) — 64 applicable.
 
 | Category | Element(s) | Status | Resolution / Reason |
 |----------|------------|--------|---------------------|
 | overflow | E1 ScoreHero | ✅ covered | Row is `flex-wrap`; below ~560px the three indices drop under the big number, nothing is clipped |
 | long-text | E1 ScoreHero | ➖ dismissed | Numeric and fixed Vietnamese labels only |
+| empty | E1 ScoreHero | ➖ dismissed | Rendered only in `reviewing` / past-attempt view, i.e. only once a `ScoreResult` exists |
+| loading | E1 ScoreHero | ➖ dismissed | The wait is shown by the scoring panel (E8) or the past-attempt skeleton (E9), never inside the hero |
+| error | E1 ScoreHero | ✅ covered | A `ScoreResult` that fails Zod validation never reaches the hero; the error panel / past-attempt error is shown instead |
+| populated | E1 ScoreHero | ✅ covered | 72/800 overall + caption `giống bản gốc`, three 24/700 indices with labels, colours via `scoreLevel()` on the rounded integer |
+| partial | E1 ScoreHero | ✅ covered | `scores.sound === null` → no fourth "âm" column and no placeholder (D-07) |
+| zero-one-many | E1 ScoreHero | ➖ dismissed | Always exactly three indices in P2 |
 | empty | E2 IntonationChart | ✅ covered | Either contour with < 10 non-null points → neutral `Alert` "Không đo được đủ cao độ…" instead of the plot |
 | loading | E2 IntonationChart | ➖ dismissed | Contour data is embedded in the `ScoreResult` already on screen; nothing loads |
 | error | E2 IntonationChart | ✅ covered | A `ScoreResult` that fails Zod validation never reaches the chart; the whole result falls into the error panel / past-attempt error |
 | populated | E2 IntonationChart | ✅ covered | Two contours (`--original`, `--you`), dashed baseline, stress bars, word row, ‖ markers; breaks at unvoiced frames |
+| partial | E2 IntonationChart | ✅ covered | A contour with gaps draws broken lines (`connectNulls={false}`); all stress z ≤ 0 → every bar is the 3px stub; < 10 voiced points → the neutral `Alert` (empty row) |
+| overflow | E2 IntonationChart | ✅ covered | Chart fills the column (min 480); word cells shrink with their `wordBounds` share; labels truncate with ellipsis |
+| zero-one-many | E2 IntonationChart | 🧪 backstop | Visual test with a 1-word and a 25-word sentence: the word row fills / shrinks without overlap, and 0, 1 or several ‖ markers render correctly |
+| long-text | E2 IntonationChart | ✅ covered | Long word labels truncate with ellipsis and carry `title` |
 | empty | E3 TipList | ✅ covered | `tips.length === 0` renders the praise (≥ 80) or neutral (< 80) line, never an empty list |
 | loading | E3 TipList | ➖ dismissed | Rendered together with the result; the scoring skeleton covers the wait |
 | error | E3 TipList | ➖ dismissed | No separate fetch; a bad result is handled at the panel level |
@@ -338,6 +348,7 @@ Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 
 | loading | E4 Sentence words (hover) | ➖ dismissed | Highlight is synchronous local state |
 | error | E4 Sentence words (hover) | ✅ covered | `words` empty or text mismatching `segment.text` → plain paragraph, highlighting disabled, no error shown |
 | long-text | E4 Sentence words (hover) | 🧪 backstop | Visual test with an 18-word sentence at 1280px: wrapped words keep the `−4/−6` highlight compensation without overlapping the next line |
+| overflow | E4 Sentence words (hover) | ✅ covered | `flex-wrap` with `gap 6px 14px`; nothing is clipped; highlight padding is compensated by negative margin so layout does not shift |
 | empty | E5 AttemptStrip | ✅ covered | No scored attempts → only `Câu {n}` plus the P1 ghost buttons |
 | loading | E5 AttemptStrip | ✅ covered | Chips derive from this session's results until the list query resolves; no spinner |
 | error | E5 AttemptStrip | ✅ covered | List query failure falls back to session chips silently (enhancement only) |
@@ -367,6 +378,10 @@ Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 
 | loading | E9 Past-attempt result | ✅ covered | Three-block skeleton below the strip, `aria-busy`, strip stays usable |
 | error | E9 Past-attempt result | ✅ covered | `Không tải được kết quả của lượt này.` + `Thử lại`; Zod failure treated identically |
 | populated | E9 Past-attempt result | ✅ covered | Same layout as the newest result; M/B disabled with tooltip if no in-session audio |
+| partial | E9 Past-attempt result | ✅ covered | No in-session recording → `Của bạn (M)` / `Lần lượt cả hai (B)` are `aria-disabled` with tooltip (D-11); a stored result missing fields fails Zod → the E9 error row |
+| overflow | E9 Past-attempt result | ➖ dismissed | Same layout as the newest result; the E1–E4 overflow rules apply |
+| zero-one-many | E9 Past-attempt result | ➖ dismissed | Same layout as the newest result; the E1–E4 zero-one-many rules apply |
+| long-text | E9 Past-attempt result | ➖ dismissed | Same layout as the newest result; the E1–E4 long-text rules apply |
 | loading | E10 Save-clip button | ✅ covered | Disabled while the mutation is pending (P1) |
 | error | E10 Save-clip button | ✅ covered | Toast `Không lưu được clip. Thử lại.`, button re-enabled (P1) |
 | long-text | E10 Save-clip button | ➖ dismissed | Fixed two-state label |
