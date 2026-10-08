@@ -20,10 +20,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-06)
+See: .planning/PROJECT.md (updated 2026-10-08)
 
 **Core value:** Sau mỗi lượt nói, Liam biết đáng tin mình lệch khỏi người nói gốc ở đâu — so audio với audio gốc, precision trước recall.
-**Current focus:** Phase 02 — P1 · Tạo bài và trình phát
+**Current focus:** Phase 3 — P2 · Chấm ngữ điệu
 
 ## Current Position
 
@@ -32,7 +32,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-10-08 — Phase 02 complete, transitioned to Phase 3
 
-Next step: `/gsd-discuss-phase 2` — Discuss trước; Liam chốt contract trong `packages/contracts` rồi mới Plan.
+Next step: `/gsd-discuss-phase 3` — Discuss trước; Liam chốt contract trong `packages/contracts` rồi mới Plan.
 
 Progress: [███░░░░░░░] 25%
 
@@ -83,6 +83,10 @@ Recent decisions affecting current work:
 - [Phase 1]: Contract bounds: seconds>=0, ms int>=0, ratios/probabilities in [0,1], indexes int>=0, attempt int>=1
 - [Phase 1]: Smoke video URL: https://www.youtube.com/watch?v=dUDi-F6eAvk
 - [Phase 1]: Wave 3 ui.safety-gate (blocking) overridden by Liam: 01-07 shells are bare frames; UI-SPEC deferred to the first phase with real screens (design in docs/design/)
+- [Phase 2]: Contract P1 (02-01 mục A–H) Liam duyệt nguyên đề xuất; package mới duyệt qua cổng 02-02
+- [Phase 2]: Tách câu D-21 (3 s / 8 s / 18 từ): câu < 3 s trên video smoke giảm 35/59 → 7/46
+- [Phase 2]: Dịch câu dùng `gpt-6-luna` (effort none) qua httpx — ứng viên gpt-5 nano/mini đã deprecated
+- [Phase 2]: Video tự host H.264/AAC, bỏ IFrame (ADR 0004); job runner/attempts/dataDir ghi ở ADR 0005
 
 ### Pending Todos
 
@@ -91,8 +95,9 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 1]: Bộ 3–4 video eval chưa chọn; smoke script dùng tạm một video giọng Mỹ có audio sạch
-- [Phase 2]: Nhiều câu ngắn (39/62 câu < 3 s trên video smoke) — Liam chấp nhận ở UAT Phase 1; xem lại ngưỡng tách câu (RESEARCH A1) khi dựng trình phát
-- [Phase 2]: UI audit Phase 1 = 8/24 (khung rỗng, dự kiến): cần áp token `docs/design/tokens.md` vào Tailwind, `globals.css` + font, component theo `docs/design/components.md`
+- [Phase 2]: 17 finding code review còn `open` (0 critical, 8 warning — `02-REVIEW-DISPOSITION.md`); nên xử lý trước/đầu Phase 3 (`/gsd-code-review 02 --fix`)
+- [Phase 2]: Chờ Liam chốt: `EXTEND_MAX_MS = 3000`; `POST /lessons` với link live (`live_video` thay `invalid_range`, WR-04); trần độ dài đoạn phía server (WR-05)
+- [Phase 2]: `extract_audio` (Phase 1) gọi ffmpeg không timeout; chất lượng dịch `gpt-6-luna` chưa eval
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
 
@@ -106,6 +111,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T16:12:32.696Z
+Last session: 2026-10-08T14:50:00Z
 Stopped at: Phase 02 complete, ready to plan Phase 3
-Resume file: .planning/phases/02-p1-t-o-b-i-v-tr-nh-ph-t/02-UI-SPEC.md
+Resume file: None

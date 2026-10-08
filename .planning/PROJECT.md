@@ -18,11 +18,11 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 - ✓ User flows F0–F5 (`docs/flows.md`) và product doc (`docs/product.md`) — P0 (trước GSD)
 - ✓ Monorepo + `packages/contracts` (Zod) làm nguồn sự thật kiểu dữ liệu, pydantic khớp phía Python (drift gate trong `make test`) — Phase 1
 - ✓ `make setup && make dev` chạy trên máy sạch macOS Apple Silicon, có/không API key — Phase 1
+- ✓ Tạo bài từ link YouTube (yt-dlp → Demucs theo đoạn chọn → mlx-whisper → tách câu D-21 3 s/8 s/18 từ → feature bản gốc), job nền có tiến độ, retry, khôi phục khi restart; 5 phút video xử lý ~103 s — Phase 2
+- ✓ Trình phát theo câu (XState), ghi âm + VAD, lưu lượt vào SQLite `attempts`, IPA nhận dạng từ PPG của người nói, sửa câu, nới cuối câu, dịch câu (OpenAI, tuỳ chọn), màn S1/S2/S3/S8 theo `docs/design/` — Phase 2
 
 ### Active
 
-- [ ] Tạo bài từ link YouTube (yt-dlp → Demucs → mlx-whisper → tách câu 3–8 s → feature bản gốc), job nền có tiến độ
-- [ ] Trình phát theo câu (XState), ghi âm, IPA nhận dạng từ audio mẫu
 - [ ] Chấm ngữ điệu (Lớp B) + rule engine template (Lớp C) + UI kết quả
 - [ ] Eval nội bộ với ~100 clip lỗi cố ý, `make eval` → `report.md`, precision rule ngữ điệu ≥ 90% trên held-out
 - [ ] Chấm âm PPG + DTW (Lớp A), `ref_unclear`, giải thích bằng chuỗi phone
@@ -75,7 +75,7 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 | PPG + DTW là bộ chấm âm chính; chuỗi phone chỉ giải thích | So phân phối xác suất dễ dãi ở chỗ bản gốc mơ hồ | — Pending |
 | Precision trước recall; bản gốc không rõ → `ref_unclear` | Báo nhầm hại người học hơn bỏ sót | — Pending |
 | LLM chỉ viết gợi ý từ JSON `issues`, không nhận audio; không dùng LLM đa phương thức để chấm | Gợi ý bám số liệu đo được; LLM audio không nhất quán | — Pending |
-| Tự host video (yt-dlp), IFrame API dự phòng | Seek chính xác, dùng chung nguồn với pipeline | — Pending |
+| Tự host video (yt-dlp, H.264/AAC), bỏ IFrame dự phòng (ADR 0004) | Seek chính xác, dùng chung nguồn với pipeline | ✓ Good (Phase 2 UAT) |
 | uv cho Python, XState cho trình phát | ADR 0001 | — Pending |
 | Điều phối bằng GSD; file `.planning/` là nguồn sự thật về kế hoạch/tiến độ, `roadmap-seed.md` chỉ tham khảo | ADR 0002 | — Pending |
 | App eval: 2 người chấm toàn bộ clip, không đồng bộ, 8 gold clip | Có số liệu đồng thuận trên mọi clip | — Pending |
@@ -85,6 +85,9 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 | Ngưỡng tạm `nonVocalRatio` > −15 dB → "Có nhạc nền", còn lại "Audio sạch" | Video smoke đo −17.5 dB, tai nghe xác nhận sạch (UAT Phase 1) | — Pending (tinh chỉnh ở Phase 5) |
 | UI-SPEC hoãn tới phase đầu có màn thật; shell P0 chỉ là khung rỗng | Thiết kế đã có trong `docs/design/` | ✓ Good |
 | Nhãn chất lượng audio (LES-06) tính từ tỉ lệ năng lượng non-vocal/vocal của Demucs lúc tạo bài; Phase 5 bổ sung tỉ lệ `ref_unclear` | `ref_unclear` chỉ có từ Lớp A (Phase 5), Phase 2 vẫn cần nhãn | — Pending |
+| Job runner trong process: tải song song, bước model tuần tự FIFO dưới model gate; SQLite `attempts`; dataDir: settings.json > DATA_DIR > ~/shadowenglab-data (ADR 0005) | Một máy 8 GB, không chồng model | ✓ Good (Phase 2) |
+| Dịch câu: `TRANSLATE_MODEL = gpt-6-luna`, `reasoning.effort: none`, httpx (không SDK), chỉ gửi text | Ứng viên RESEARCH (gpt-5-nano/mini, gpt-5.4-nano) đã deprecated; rẻ nhất có structured output — Liam chọn 2026-10-08 | — Pending (chất lượng dịch cần theo dõi) |
+| Nới cuối câu bước 300 ms, trần `EXTEND_MAX_MS = 3000` | Planner đề xuất ở 02-15, chưa có trong CONTEXT | — Pending (chờ Liam xác nhận) |
 
 ## Evolution
 
@@ -104,4 +107,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-06 after Phase 1*
+*Last updated: 2026-10-08 after Phase 2*
