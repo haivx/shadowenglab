@@ -10,7 +10,7 @@ export interface Option<T> {
 }
 
 /** `Tốc độ mặc định` → `playbackRate`. */
-export const PLAYBACK_RATE_OPTIONS: readonly Option<number>[] = [
+export const RATE_OPTIONS: readonly Option<number>[] = [
   { value: 0.75, label: "0.75x" },
   { value: 1, label: "1x" },
 ];
@@ -49,12 +49,16 @@ export function snapToOption(
   options: readonly Option<number>[],
   value: number,
 ): Option<number> {
-  let best = options[0];
+  let best: Option<number> | undefined;
   for (const option of options) {
-    if (Math.abs(option.value - value) < Math.abs(best.value - value)) {
+    if (
+      !best ||
+      Math.abs(option.value - value) < Math.abs(best.value - value)
+    ) {
       best = option;
     }
   }
+  if (!best) throw new Error("snapToOption: danh sách tuỳ chọn rỗng");
   return best;
 }
 
@@ -124,11 +128,12 @@ export function settingsReducer<T>(
 }
 
 /**
- * Dòng thông báo sau khi đổi thư mục dữ liệu thành công (D-12): thư mục mới chỉ có hiệu lực
- * sau khi khởi động lại, dữ liệu cũ không bị di chuyển.
+ * Thư mục dữ liệu vừa lưu khác thư mục backend đang dùng thì chỉ có hiệu lực sau khi khởi động
+ * lại, dữ liệu cũ không bị di chuyển (D-12). Đặt lại đúng thư mục đang dùng thì không cần.
  */
-export function dataDirNote(savedDir: string, activeDir: string): string {
-  return savedDir === activeDir
-    ? "Đã lưu"
-    : `Khởi động lại make dev để áp dụng; dữ liệu cũ vẫn ở ${activeDir}.`;
+export function dataDirNeedsRestart(
+  savedDir: string,
+  activeDir: string,
+): boolean {
+  return savedDir !== activeDir;
 }

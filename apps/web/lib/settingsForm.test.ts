@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  PLAYBACK_RATE_OPTIONS,
+  RATE_OPTIONS,
   RECORD_FACTOR_OPTIONS,
   REPEAT_OPTIONS,
-  dataDirNote,
+  dataDirNeedsRestart,
   initialField,
   optionLabel,
   settingsReducer,
@@ -107,11 +107,11 @@ describe("tuỳ chọn và nhãn", () => {
   });
 
   it("tốc độ: 0.75 ↔ 0.75x, 1 ↔ 1x", () => {
-    expect(PLAYBACK_RATE_OPTIONS.map((o) => [o.label, o.value])).toEqual([
+    expect(RATE_OPTIONS.map((o) => [o.label, o.value])).toEqual([
       ["0.75x", 0.75],
       ["1x", 1],
     ]);
-    expect(optionLabel(PLAYBACK_RATE_OPTIONS, 0.75)).toBe("0.75x");
+    expect(optionLabel(RATE_OPTIONS, 0.75)).toBe("0.75x");
   });
 
   it("số lần lặp: ×1, ×2, ×3", () => {
@@ -120,21 +120,19 @@ describe("tuỳ chọn và nhãn", () => {
   });
 
   it("giá trị lạ không có nhãn; snapToOption chọn tuỳ chọn gần nhất", () => {
-    expect(optionLabel(PLAYBACK_RATE_OPTIONS, 0.9)).toBeUndefined();
-    expect(snapToOption(PLAYBACK_RATE_OPTIONS, 0.9).value).toBe(1);
-    expect(snapToOption(PLAYBACK_RATE_OPTIONS, 0.6).value).toBe(0.75);
+    expect(optionLabel(RATE_OPTIONS, 0.9)).toBeUndefined();
+    expect(snapToOption(RATE_OPTIONS, 0.9).value).toBe(1);
+    expect(snapToOption(RATE_OPTIONS, 0.6).value).toBe(0.75);
     expect(snapToOption(RECORD_FACTOR_OPTIONS, 1.5).value).toBe(1.5);
   });
 });
 
-describe("dataDirNote", () => {
-  it("thư mục mới khác thư mục đang dùng: nhắc khởi động lại và nêu thư mục cũ", () => {
-    expect(dataDirNote("/new", "/old")).toBe(
-      "Khởi động lại make dev để áp dụng; dữ liệu cũ vẫn ở /old.",
-    );
+describe("dataDirNeedsRestart", () => {
+  it("thư mục mới khác thư mục đang dùng: cần khởi động lại", () => {
+    expect(dataDirNeedsRestart("/new", "/old")).toBe(true);
   });
 
   it("đặt lại đúng thư mục đang dùng thì không cần khởi động lại", () => {
-    expect(dataDirNote("/old", "/old")).toBe("Đã lưu");
+    expect(dataDirNeedsRestart("/old", "/old")).toBe(false);
   });
 });

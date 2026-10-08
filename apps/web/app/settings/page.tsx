@@ -2,8 +2,10 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { KeyField } from "@/components/KeyField";
+import { ModelStatusList } from "@/components/ModelStatusList";
+import { PracticeDefaults } from "@/components/PracticeDefaults";
 
-/** S8 Settings (UI-SPEC): bốn mục trong một cột max-width 860. */
+/** S8 Settings (UI-SPEC): các mục trong một cột max-width 860. */
 export default function SettingsPage() {
   return (
     <>
@@ -13,6 +15,8 @@ export default function SettingsPage() {
           Settings
         </h1>
         <KeyField />
+        <PracticeDefaults />
+        <ModelStatusList />
       </main>
     </>
   );
