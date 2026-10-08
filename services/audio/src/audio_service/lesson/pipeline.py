@@ -47,6 +47,7 @@ END_EXTRA_MS = 0  # D-05: "Mất chữ cuối?" chỉnh sau, P0 luôn 0
 ERROR_MESSAGE_MAX = 500
 DEFAULT_WHOLE_VIDEO_MAX_S = 360.0  # LES-02: <= 6 phút lấy cả video
 DEFAULT_RANGE_LONG_S = 300.0  # video dài hơn: mặc định 0-5 phút
+MAX_RANGE_S = 360.0  # LES-02: trần cứng 6 phút cho một bài (bảo vệ RAM khi tách giọng/đọc audio)
 STEM_MARGIN_S = 1.0  # D-19: tách giọng trên [range.start - 1 s, range.end + 1 s]
 
 DOWNLOAD_BLOCKED_MESSAGE = "video bị giới hạn khu vực, riêng tư hoặc tắt tải xuống"
@@ -183,7 +184,8 @@ def default_range(duration_sec: float) -> tuple[float, float]:
 def resolve_range(
     duration_sec: float, start: float | None, end: float | None, *, use_default: bool
 ) -> tuple[float, float]:
-    """Khoảng (start, end) giây đã kẹp vào video. ValueError khi rỗng/ngược/ngoài video.
+    """Khoảng (start, end) giây đã kẹp vào video. ValueError khi rỗng/ngược/ngoài video
+    hoặc dài hơn `MAX_RANGE_S`.
 
     `use_default=True` và cả hai đều vắng -> `default_range`; vắng một đầu -> đầu/cuối video.
     """
@@ -195,6 +197,11 @@ def resolve_range(
         raise ValueError(
             f"khoảng không hợp lệ: start={range_start}, end={range_end} "
             f"(video dài {duration_sec} s)"
+        )
+    if range_end - range_start > MAX_RANGE_S:
+        raise ValueError(
+            f"khoảng dài {range_end - range_start} s, vượt trần {MAX_RANGE_S} s: "
+            f"start={range_start}, end={range_end}"
         )
     return range_start, range_end
 

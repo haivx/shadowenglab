@@ -267,6 +267,29 @@ def test_bad_range_is_422_invalid_range(data_dir: Path, payload: dict[str, float
     assert not (data_dir / "lessons").exists()
 
 
+@pytest.mark.parametrize(
+    "payload", [{"start": 0, "end": 361}, {"start": 10, "end": 371}, {"end": 1800}], ids=str
+)
+def test_range_longer_than_six_minutes_is_422_invalid_range(
+    data_dir: Path, payload: dict[str, float]
+) -> None:
+    with make_client(Fakes(duration=3600.0)) as client:
+        res = client.post("/lessons", json={"url": URL, **payload})
+
+    assert res.status_code == 422
+    assert ApiError.model_validate(res.json()).code == "invalid_range"
+    assert not (data_dir / "lessons").exists()
+
+
+def test_range_of_exactly_six_minutes_inside_a_long_video_is_accepted(data_dir: Path) -> None:
+    with make_client(Fakes(duration=3600.0)) as client:
+        res = client.post("/lessons", json={"url": URL, "start": 100, "end": 460})
+        wait_for_status(client, res.json()["id"], {"ready", "failed"})
+
+    assert res.status_code == 201
+    assert res.json()["range"] == {"start": 100.0, "end": 460.0}
+
+
 def test_fetch_info_download_error_is_404_video_unavailable(data_dir: Path) -> None:
     fakes = Fakes(fetch_error=DownloadError("ERROR: Private video /secret/path"))
     with make_client(fakes) as client:
