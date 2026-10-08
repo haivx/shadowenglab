@@ -17,6 +17,7 @@ import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
 import { ResultActionBar } from "@/components/ResultActionBar";
 import { ReviewBlock } from "@/components/ReviewBlock";
 import { SentenceStatePanel } from "@/components/SentenceStatePanel";
+import { SpokenIpa } from "@/components/SpokenIpa";
 import {
   TranscriptList,
   TranscriptListSkeleton,
@@ -47,6 +48,7 @@ import {
   type RepeatCount,
   type UploadInput,
 } from "@/lib/player/playerMachine";
+import type { ShortcutToggle } from "@/lib/player/shortcuts";
 import { useShortcuts } from "@/lib/player/useShortcuts";
 import {
   queryKeys,
@@ -281,7 +283,17 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     [progress],
   );
 
-  useShortcuts(actorRef, { videoReady });
+  // IPA bật tắt bằng nút hoặc phím I; chỉ là state UI, không đi vào machine.
+  const [ipaOn, setIpaOn] = useState(false);
+  const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
+  const onToggle = useCallback(
+    (toggle: ShortcutToggle) => {
+      if (toggle.type === "TOGGLE_IPA") toggleIpa();
+    },
+    [toggleIpa],
+  );
+
+  useShortcuts(actorRef, { videoReady, onToggle });
 
   const { context } = snapshot;
   const index = context.segmentIndex;
@@ -390,6 +402,8 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
           <AttemptStrip
             sentenceNumber={index + 1}
             voicedAttempts={voicedAttempts}
+            ipaOn={ipaOn}
+            onToggleIpa={toggleIpa}
           />
           {listening ? (
             <SentenceStatePanel
@@ -433,6 +447,9 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               {segment.text}
             </p>
           )}
+          {ipaOn && (top === "idle" || top === "reviewing") ? (
+            <SpokenIpa words={segment.words} />
+          ) : null}
           {top === "reviewing" &&
           recording?.status === "uploaded" &&
           recording.attempt !== undefined ? (
