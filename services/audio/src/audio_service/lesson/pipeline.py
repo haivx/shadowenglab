@@ -51,6 +51,26 @@ MAX_RANGE_S = 360.0  # LES-02: trần cứng 6 phút cho một bài (bảo vệ 
 STEM_MARGIN_S = 1.0  # D-19: tách giọng trên [range.start - 1 s, range.end + 1 s]
 
 DOWNLOAD_BLOCKED_MESSAGE = "video bị giới hạn khu vực, riêng tư hoặc tắt tải xuống"
+DOWNLOAD_FAILED_MESSAGE = "không tải được video lúc này. Hãy kiểm tra mạng rồi bấm Thử lại"
+# Dấu hiệu yt-dlp báo video bị hạn chế (so khớp không phân biệt hoa thường trên text lỗi). Lỗi
+# mạng, 429/5xx, thiếu format... không nằm trong đây nên chỉ nhận thông báo trung tính.
+_DOWNLOAD_RESTRICTION_MARKERS = (
+    "private video",
+    "video unavailable",
+    "in your country",
+    "geo",
+    "sign in",
+    "log in",
+    "members-only",
+    "members only",
+    "age-restricted",
+    "confirm your age",
+    "copyright",
+    "has been removed",
+    "http 403",
+    "http error 403",
+    "forbidden",
+)
 NO_SPEECH_MESSAGE = "không tìm thấy câu nói nào trong đoạn này. Hãy chọn đoạn khác hoặc video khác"
 STEMS_MISSING_MESSAGE = "không tìm thấy giọng đã tách của đoạn này. Hãy tạo lại bài"
 UNEXPECTED_ERROR_MESSAGE = "lỗi không mong đợi (xem log của make dev)"
@@ -161,6 +181,17 @@ def build_segments(words: Sequence[AsrWord], spans: Sequence[tuple[int, int]]) -
             )
         )
     return segments
+
+
+def download_failure_message(exc: DownloadError) -> str:
+    """Thông báo cố định cho `DownloadError`: chỉ nói "bị giới hạn" khi có dấu hiệu hạn chế thật.
+
+    Text của yt-dlp chỉ dùng để phân loại, không bao giờ đi vào `lesson.json` (T-02-07).
+    """
+    text = str(exc).lower()
+    if any(marker in text for marker in _DOWNLOAD_RESTRICTION_MARKERS):
+        return DOWNLOAD_BLOCKED_MESSAGE
+    return DOWNLOAD_FAILED_MESSAGE
 
 
 def _now_iso() -> str:
@@ -315,7 +346,7 @@ def stage_download(
                 try:
                     deps.download_video(video_id)
                 except DownloadError as exc:
-                    raise StepError(DOWNLOAD_BLOCKED_MESSAGE) from exc
+                    raise StepError(download_failure_message(exc)) from exc
         with timer.step("extract_audio"):
             # Hai bài cùng video thoát khoá tải gần như cùng lúc: nếu cả hai chạy ffmpeg thì ghi
             # chung `audio.wav.part` và bài chậm hơn lỗi ở os.replace. Giữ khoá video quanh cả

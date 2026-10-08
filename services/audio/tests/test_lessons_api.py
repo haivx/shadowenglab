@@ -316,6 +316,51 @@ def test_blocked_download_fails_the_lesson_with_a_fixed_vietnamese_message(
     }
 
 
+@pytest.mark.parametrize(
+    "yt_dlp_text",
+    [
+        "ERROR: [youtube] abc: Private video. Sign in if you've been granted access",
+        "ERROR: [youtube] abc: Video unavailable",
+        "ERROR: The uploader has not made this video available in your country",
+        "ERROR: Sign in to confirm your age",
+    ],
+)
+def test_restricted_download_keeps_the_blocked_message(data_dir: Path, yt_dlp_text: str) -> None:
+    fakes = Fakes()
+    fakes.download_error = DownloadError(yt_dlp_text)
+    with make_client(fakes) as client:
+        created = client.post("/lessons", json={"url": URL}).json()
+        final = wait_for_status(client, created["id"], {"ready", "failed"})
+
+    assert final["error"]["message"] == "video bị giới hạn khu vực, riêng tư hoặc tắt tải xuống"
+
+
+@pytest.mark.parametrize(
+    "yt_dlp_text",
+    [
+        "ERROR: Unable to download webpage: <urlopen error [Errno 8] nodename nor servname>",
+        "ERROR: HTTP Error 429: Too Many Requests",
+        "ERROR: Requested format is not available",
+    ],
+)
+def test_transient_download_error_gets_a_neutral_message_without_yt_dlp_text(
+    data_dir: Path, yt_dlp_text: str
+) -> None:
+    fakes = Fakes()
+    fakes.download_error = DownloadError(yt_dlp_text)
+    with make_client(fakes) as client:
+        created = client.post("/lessons", json={"url": URL}).json()
+        final = wait_for_status(client, created["id"], {"ready", "failed"})
+
+    assert final["status"] == "failed"
+    assert final["error"] == {
+        "step": "downloading",
+        "message": "không tải được video lúc này. Hãy kiểm tra mạng rồi bấm Thử lại",
+    }
+    raw = lesson_json_path(created["id"]).read_text(encoding="utf-8")
+    assert "429" not in raw and "urlopen" not in raw
+
+
 def test_unexpected_error_stores_generic_text_without_exception_or_path(data_dir: Path) -> None:
     fakes = Fakes()
     fakes.download_error = ConnectionError(f"boom {data_dir}/videos/x")
