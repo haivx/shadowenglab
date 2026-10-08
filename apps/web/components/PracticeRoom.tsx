@@ -271,6 +271,18 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     },
   });
   const snapshot = useSelector(actorRef, (state) => state);
+
+  // Độ dài câu đổi (Mất chữ cuối?, kể cả sau khi tải lại bài): báo machine để đếm ngược ghi âm dùng độ dài mới.
+  const durationsKey = segmentDurationsMs(lesson).join(",");
+  const sentDurationsKey = useRef(durationsKey);
+  useEffect(() => {
+    if (sentDurationsKey.current === durationsKey) return;
+    sentDurationsKey.current = durationsKey;
+    actorRef.send({
+      type: "SEGMENTS_UPDATED",
+      segmentDurationsMs: segmentDurationsMs(lesson),
+    });
+  }, [durationsKey, lesson, actorRef]);
   const [videoReady, setVideoReady] = useState(false);
   // Lượt đã lưu clip cho eval trong phiên này, khoá `câu:lượt` (REC-04).
   const [savedClips, setSavedClips] = useState<ReadonlySet<string>>(new Set());
@@ -405,11 +417,20 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             currentIndex={index}
             practiced={practiced}
             onSelect={(next) => actorRef.send({ type: "GOTO", index: next })}
+            lessonId={lesson.id}
             translation={translation}
+            canEdit={
+              top === "idle" ||
+              top === "reviewing" ||
+              top === "noVoice" ||
+              top === "error"
+            }
           />
         </aside>
         <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9 min-[1160px]:overflow-y-auto">
           <AttemptStrip
+            lessonId={lesson.id}
+            segmentIndex={segment.index}
             sentenceNumber={index + 1}
             voicedAttempts={voicedAttempts}
             ipaOn={ipaOn}

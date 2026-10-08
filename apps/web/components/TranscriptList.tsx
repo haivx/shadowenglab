@@ -4,13 +4,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Segment } from "@shadowenglab/contracts";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { translateSegment } from "@/lib/api";
+import { translateSegment, updateSegmentText } from "@/lib/api";
 import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
 import { patchLessonSegment } from "@/lib/segmentCache";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ const GROUP_LABEL_CLASS =
 const TRANSLATING_TEXT = "Đang dịch…";
 const TRANSLATE_FAILED_TEXT = "Không dịch được câu này. Bấm Dịch để thử lại.";
 const NEEDS_KEY_TEXT = "Cần OPENAI_API_KEY";
+const SAVE_FAILED_TEXT = "Không lưu được. Thử lại.";
+const MAX_SEGMENT_TEXT = 500;
 
 export type TranslationRowStatus = "idle" | "loading" | "failed";
 
@@ -122,8 +125,11 @@ interface TranscriptListProps {
   practiced: ReadonlySet<number>;
   /** Chọn câu: dừng phát và đưa câu đó thành câu hiện tại. */
   onSelect: (index: number) => void;
+  lessonId: string;
   /** Bản dịch theo câu (nút `Dịch`, phím T). */
   translation: TranslationTool;
+  /** Chỉ cho sửa câu khi machine ở idle / reviewing / noVoice / error. */
+  canEdit: boolean;
 }
 
 /** Danh sách câu của S3, cuộn bên trong aside; hàng hiện tại tự cuộn vào khung nhìn. */
@@ -132,10 +138,64 @@ export function TranscriptList({
   currentIndex,
   practiced,
   onSelect,
+  lessonId,
   translation,
+  canEdit,
 }: TranscriptListProps) {
+  const queryClient = useQueryClient();
   const currentRef = useRef<HTMLButtonElement>(null);
+  // Input không forwardRef (React 18): lấy ô nhập qua form.
+  const formRef = useRef<HTMLFormElement>(null);
   const current = segments[currentIndex];
+
+  // Sửa câu (PLY-04, G14): chỉ câu hiện tại, chỉ khi machine cho phép.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saveFailed, setSaveFailed] = useState(false);
+  const isEditing = editingIndex === currentIndex && canEdit;
+
+  const save = useMutation({
+    mutationFn: (input: { segmentIndex: number; text: string }) =>
+      updateSegmentText(lessonId, input.segmentIndex, input.text),
+    onSuccess: (updated) => {
+      patchLessonSegment(queryClient, lessonId, updated);
+      setEditingIndex(null);
+      setSaveFailed(false);
+    },
+    onError: () => setSaveFailed(true),
+  });
+
+  // Rời câu đang sửa hoặc machine không còn cho sửa: thoát chế độ sửa.
+  useEffect(() => {
+    if (editingIndex !== null && (editingIndex !== currentIndex || !canEdit)) {
+      setEditingIndex(null);
+    }
+  }, [editingIndex, currentIndex, canEdit]);
+
+  useEffect(() => {
+    if (isEditing) formRef.current?.querySelector("input")?.focus();
+  }, [isEditing]);
+
+  const startEdit = () => {
+    if (!canEdit || !current) return;
+    setDraft(current.text);
+    setSaveFailed(false);
+    setEditingIndex(currentIndex);
+  };
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setSaveFailed(false);
+  };
+  const submitEdit = () => {
+    if (!current || save.isPending) return;
+    const text = draft.trim();
+    if (text === "") return;
+    if (text === current.text) {
+      cancelEdit();
+      return;
+    }
+    save.mutate({ segmentIndex: current.index, text });
+  };
 
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
@@ -177,6 +237,19 @@ export function TranscriptList({
               <TooltipContent>{NEEDS_KEY_TEXT}</TooltipContent>
             ) : null}
           </Tooltip>
+          <Button
+            variant="ghost"
+            aria-pressed={isEditing}
+            aria-disabled={canEdit ? undefined : "true"}
+            onPointerUp={canEdit ? releaseFocusOnPointerUp : undefined}
+            onClick={isEditing ? cancelEdit : startEdit}
+            className={cn(
+              "px-3 text-[13px] aria-pressed:bg-[color:var(--slate-4)]",
+              !canEdit && "cursor-not-allowed opacity-50",
+            )}
+          >
+            Sửa câu
+          </Button>
         </span>
       </div>
       <span role="status" className="sr-only">
@@ -188,6 +261,65 @@ export function TranscriptList({
         {segments.map((segment, index) => {
           const isCurrent = index === currentIndex;
           const isPracticed = practiced.has(index);
+          if (isCurrent && isEditing) {
+            return (
+              <li key={segment.index}>
+                <form
+                  ref={formRef}
+                  aria-label="Sửa câu"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitEdit();
+                  }}
+                  className="grid w-full grid-cols-[44px_minmax(0,1fr)] gap-2 border-l-[3px] border-foreground bg-card py-2.5 pl-[13px] pr-4 text-sm shadow-[inset_0_1px_0_var(--border),inset_0_-1px_0_var(--border)]"
+                >
+                  <span className="pt-3 font-mono text-[11px] font-normal text-foreground">
+                    {formatMmSs(segment.start)}
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <Input
+                      aria-label="Nội dung câu"
+                      maxLength={MAX_SEGMENT_TEXT}
+                      value={draft}
+                      aria-invalid={saveFailed ? true : undefined}
+                      onChange={(event) => setDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelEdit();
+                        }
+                      }}
+                    />
+                    {saveFailed ? (
+                      <p
+                        role="alert"
+                        className="m-0 text-[13px] font-normal text-destructive"
+                      >
+                        {SAVE_FAILED_TEXT}
+                      </p>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        variant="solid"
+                        disabled={save.isPending || draft.trim() === ""}
+                      >
+                        Lưu
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={save.isPending}
+                        onClick={cancelEdit}
+                      >
+                        Huỷ
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </li>
+            );
+          }
           return (
             <li key={segment.index}>
               <button
