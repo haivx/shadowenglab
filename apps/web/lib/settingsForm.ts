@@ -127,6 +127,17 @@ export function settingsReducer<T>(
   }
 }
 
+export type MicPermissionState = "granted" | "denied" | "prompt" | "unknown";
+
+/** Dòng quyền micro của S8 (G18); chưa rõ hoặc chưa hỏi đều đọc là `Chưa cấp`. */
+export function micPermissionLabel(
+  permission: MicPermissionState,
+): "Đã cấp" | "Chưa cấp" | "Bị chặn" {
+  if (permission === "granted") return "Đã cấp";
+  if (permission === "denied") return "Bị chặn";
+  return "Chưa cấp";
+}
+
 /**
  * Thư mục dữ liệu vừa lưu khác thư mục backend đang dùng thì chỉ có hiệu lực sau khi khởi động
  * lại, dữ liệu cũ không bị di chuyển (D-12). Đặt lại đúng thư mục đang dùng thì không cần.

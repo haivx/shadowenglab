@@ -2,6 +2,7 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { KeyField } from "@/components/KeyField";
+import { MicSection } from "@/components/MicSection";
 import { ModelStatusList } from "@/components/ModelStatusList";
 import { PracticeDefaults } from "@/components/PracticeDefaults";
 
@@ -16,6 +17,7 @@ export default function SettingsPage() {
         </h1>
         <KeyField />
         <PracticeDefaults />
+        <MicSection />
         <ModelStatusList />
       </main>
     </>

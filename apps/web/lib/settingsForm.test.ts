@@ -5,6 +5,7 @@ import {
   REPEAT_OPTIONS,
   dataDirNeedsRestart,
   initialField,
+  micPermissionLabel,
   optionLabel,
   settingsReducer,
   snapToOption,
@@ -124,6 +125,18 @@ describe("tuỳ chọn và nhãn", () => {
     expect(snapToOption(RATE_OPTIONS, 0.9).value).toBe(1);
     expect(snapToOption(RATE_OPTIONS, 0.6).value).toBe(0.75);
     expect(snapToOption(RECORD_FACTOR_OPTIONS, 1.5).value).toBe(1.5);
+  });
+});
+
+describe("micPermissionLabel", () => {
+  it("granted → Đã cấp, denied → Bị chặn", () => {
+    expect(micPermissionLabel("granted")).toBe("Đã cấp");
+    expect(micPermissionLabel("denied")).toBe("Bị chặn");
+  });
+
+  it("prompt và unknown đều là Chưa cấp", () => {
+    expect(micPermissionLabel("prompt")).toBe("Chưa cấp");
+    expect(micPermissionLabel("unknown")).toBe("Chưa cấp");
   });
 });
 
