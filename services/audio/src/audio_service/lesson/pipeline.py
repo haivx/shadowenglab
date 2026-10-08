@@ -75,24 +75,26 @@ class PipelineDeps:
     load_vocab: Callable[[], Mapping[int, str]] = lambda: {}
 
 
-def _real_separate(stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
-    """Nạp Demucs, chạy, rồi giải phóng. MPS lỗi thì thử lại một lần trên CPU."""
-    device = separate.pick_device()
+def _separate_on(device: str, stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
+    """Nạp Demucs trên `device`, tách, rồi luôn nhả model + bộ nhớ accelerator."""
     separator = separate.load_separator(device)
     try:
-        try:
-            return separate.separate_vocals(stereo, sr, separator)
-        except RuntimeError:
-            if device != "mps":
-                raise
-            logger.warning("Demucs trên MPS lỗi, thử lại trên CPU", exc_info=True)
-            del separator
-            separate.free_accelerator_memory()
-            separator = separate.load_separator("cpu")
-            return separate.separate_vocals(stereo, sr, separator)
+        return separate.separate_vocals(stereo, sr, separator)
     finally:
         del separator
         separate.free_accelerator_memory()
+
+
+def _real_separate(stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
+    """Nạp Demucs, chạy, rồi giải phóng. MPS lỗi thì thử lại một lần trên CPU."""
+    device = separate.pick_device()
+    try:
+        return _separate_on(device, stereo, sr)
+    except RuntimeError:
+        if device != "mps":
+            raise
+        logger.warning("Demucs trên MPS lỗi, thử lại trên CPU", exc_info=True)
+        return _separate_on("cpu", stereo, sr)
 
 
 def _free_memory() -> None:

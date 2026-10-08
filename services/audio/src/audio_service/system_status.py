@@ -111,22 +111,23 @@ def _warm_demucs() -> None:
     from audio_service.lesson import separate
 
     silence = np.zeros((2, DEMUCS_SAMPLE_RATE), dtype=np.float32)
-    device = separate.pick_device()
-    separator = separate.load_separator(device)
-    try:
+
+    def run_on(device: str) -> None:
+        separator = separate.load_separator(device)
         try:
             separate.separate_vocals(silence, DEMUCS_SAMPLE_RATE, separator)
-        except RuntimeError:
-            if device != "mps":
-                raise
-            logger.warning("warm-up Demucs trên MPS lỗi, thử lại trên CPU", exc_info=True)
+        finally:
             del separator
             separate.free_accelerator_memory()
-            separator = separate.load_separator("cpu")
-            separate.separate_vocals(silence, DEMUCS_SAMPLE_RATE, separator)
-    finally:
-        del separator
-        separate.free_accelerator_memory()
+
+    device = separate.pick_device()
+    try:
+        run_on(device)
+    except RuntimeError:
+        if device != "mps":
+            raise
+        logger.warning("warm-up Demucs trên MPS lỗi, thử lại trên CPU", exc_info=True)
+        run_on("cpu")
 
 
 def _warm_whisper() -> None:

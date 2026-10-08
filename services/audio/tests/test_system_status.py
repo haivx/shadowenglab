@@ -268,6 +268,28 @@ def test_demucs_loader_loads_infers_then_frees_even_when_inference_fails(
     assert events == ["load", "infer", "free"]
 
 
+def test_demucs_loader_keeps_the_real_error_when_the_cpu_fallback_fails_to_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from audio_service.lesson import separate
+
+    monkeypatch.setattr(separate, "pick_device", lambda: "mps")
+
+    def load(device: str) -> object:
+        if device == "cpu":
+            raise OSError("không nạp được model CPU")
+        return object()
+
+    def fail(*_a: object) -> None:
+        raise RuntimeError("MPS hỏng")
+
+    monkeypatch.setattr(separate, "load_separator", load)
+    monkeypatch.setattr(separate, "separate_vocals", fail)
+    monkeypatch.setattr(separate, "free_accelerator_memory", lambda: None)
+    with pytest.raises(OSError, match="CPU"):
+        system_status.real_loaders()["demucs"]()
+
+
 def test_whisper_loader_transcribes_silence_then_releases_the_holder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

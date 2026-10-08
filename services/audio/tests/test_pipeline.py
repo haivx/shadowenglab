@@ -605,6 +605,28 @@ def test_build_segments_numbers_words_from_zero_per_segment_and_omits_optionals(
     assert set(word) == {"i", "text", "start", "end", "asrProb"}  # không ipa/prominence/null
 
 
+def test_real_separate_keeps_the_real_error_when_the_cpu_fallback_fails_to_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from audio_service.lesson import pipeline, separate
+
+    monkeypatch.setattr(separate, "pick_device", lambda: "mps")
+
+    def load(device: str) -> object:
+        if device == "cpu":
+            raise OSError("không nạp được model CPU")
+        return object()
+
+    def fail(*_a: object) -> None:
+        raise RuntimeError("MPS hỏng")
+
+    monkeypatch.setattr(separate, "load_separator", load)
+    monkeypatch.setattr(separate, "separate_vocals", fail)
+    monkeypatch.setattr(separate, "free_accelerator_memory", lambda: None)
+    with pytest.raises(OSError, match="CPU"):
+        pipeline._real_separate(np.zeros((2, 8), dtype=np.float32), 44100)
+
+
 def test_build_segments_rejects_an_empty_span() -> None:
     with pytest.raises(ValueError):
         build_segments([AsrWord(" a", 0.0, 1.0, 0.5)], [(0, 0)])
