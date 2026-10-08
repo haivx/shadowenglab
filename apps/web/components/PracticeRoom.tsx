@@ -17,9 +17,11 @@ import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
 import { ResultActionBar } from "@/components/ResultActionBar";
 import { ReviewBlock } from "@/components/ReviewBlock";
 import { SentenceStatePanel } from "@/components/SentenceStatePanel";
+import { SpokenIpa } from "@/components/SpokenIpa";
 import {
   TranscriptList,
   TranscriptListSkeleton,
+  useTranslationTool,
 } from "@/components/TranscriptList";
 import { VideoPane } from "@/components/VideoPane";
 import {
@@ -47,12 +49,14 @@ import {
   type RepeatCount,
   type UploadInput,
 } from "@/lib/player/playerMachine";
+import type { ShortcutToggle } from "@/lib/player/shortcuts";
 import { useShortcuts } from "@/lib/player/useShortcuts";
 import {
   queryKeys,
   useLesson,
   useLessonProgress,
   useSettings,
+  useSystemStatus,
 } from "@/lib/queries";
 
 type SessionDefaults = Pick<
@@ -267,6 +271,18 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     },
   });
   const snapshot = useSelector(actorRef, (state) => state);
+
+  // Độ dài câu đổi (Mất chữ cuối?, kể cả sau khi tải lại bài): báo machine để đếm ngược ghi âm dùng độ dài mới.
+  const durationsKey = segmentDurationsMs(lesson).join(",");
+  const sentDurationsKey = useRef(durationsKey);
+  useEffect(() => {
+    if (sentDurationsKey.current === durationsKey) return;
+    sentDurationsKey.current = durationsKey;
+    actorRef.send({
+      type: "SEGMENTS_UPDATED",
+      segmentDurationsMs: segmentDurationsMs(lesson),
+    });
+  }, [durationsKey, lesson, actorRef]);
   const [videoReady, setVideoReady] = useState(false);
   // Lượt đã lưu clip cho eval trong phiên này, khoá `câu:lượt` (REC-04).
   const [savedClips, setSavedClips] = useState<ReadonlySet<string>>(new Set());
@@ -281,11 +297,28 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     [progress],
   );
 
-  useShortcuts(actorRef, { videoReady });
-
   const { context } = snapshot;
   const index = context.segmentIndex;
   const top = topLevelState(snapshot.value);
+
+  // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine.
+  const [ipaOn, setIpaOn] = useState(false);
+  const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
+  const systemStatus = useSystemStatus();
+  const translation = useTranslationTool({
+    lessonId: lesson.id,
+    segment: lesson.segments[index],
+    hasKey: systemStatus.data?.hasKey ?? false,
+  });
+  const toggleTranslation = translation.toggle;
+  const onToggle = useCallback(
+    (toggle: ShortcutToggle) => {
+      if (toggle.type === "TOGGLE_IPA") toggleIpa();
+      else toggleTranslation();
+    },
+    [toggleIpa, toggleTranslation],
+  );
+  useShortcuts(actorRef, { videoReady, onToggle });
 
   // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
   // Tải lên thất bại (scoring -> error): toast bền với `Thử lại`; rời error thì tắt toast (REC-03).
@@ -384,12 +417,24 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             currentIndex={index}
             practiced={practiced}
             onSelect={(next) => actorRef.send({ type: "GOTO", index: next })}
+            lessonId={lesson.id}
+            translation={translation}
+            canEdit={
+              top === "idle" ||
+              top === "reviewing" ||
+              top === "noVoice" ||
+              top === "error"
+            }
           />
         </aside>
         <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9 min-[1160px]:overflow-y-auto">
           <AttemptStrip
+            lessonId={lesson.id}
+            segmentIndex={segment.index}
             sentenceNumber={index + 1}
             voicedAttempts={voicedAttempts}
+            ipaOn={ipaOn}
+            onToggleIpa={toggleIpa}
           />
           {listening ? (
             <SentenceStatePanel
@@ -433,6 +478,9 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               {segment.text}
             </p>
           )}
+          {ipaOn && (top === "idle" || top === "reviewing") ? (
+            <SpokenIpa words={segment.words} />
+          ) : null}
           {top === "reviewing" &&
           recording?.status === "uploaded" &&
           recording.attempt !== undefined ? (
