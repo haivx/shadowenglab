@@ -81,7 +81,7 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 14/19 plans executed
+**Plans:** 18/19 plans executed
 **UI hint**: yes
 
 Plans:
@@ -108,10 +108,10 @@ Plans:
 - [x] 02-14-PLAN.md — S3 ghi âm: Lượt của bạn, upload, nghe so sánh, không tiếng/lỗi, lưu clip eval (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 02-15-PLAN.md — Backend Sửa câu + Mất chữ cuối? (tính lại feature + IPA dưới cổng model) (wave 5)
-- [ ] 02-16-PLAN.md — Dịch câu: Liam chọn model (D-23), httpx → OpenAI, cache (wave 5)
-- [ ] 02-17-PLAN.md — S8 Settings: key, mặc định luyện tập, micro, model và thư mục dữ liệu (wave 5)
-- [ ] 02-18-PLAN.md — S3 công cụ câu: IPA, Dịch, Sửa câu, Mất chữ cuối? (wave 5)
+- [x] 02-15-PLAN.md — Backend Sửa câu + Mất chữ cuối? (tính lại feature + IPA dưới cổng model) (wave 5)
+- [x] 02-16-PLAN.md — Dịch câu: Liam chọn model (D-23), httpx → OpenAI, cache (wave 5)
+- [x] 02-17-PLAN.md — S8 Settings: key, mặc định luyện tập, micro, model và thư mục dữ liệu (wave 5)
+- [x] 02-18-PLAN.md — S3 công cụ câu: IPA, Dịch, Sửa câu, Mất chữ cuối? (wave 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 - [ ] 02-19-PLAN.md — make smoke-jobs (2 bài không chặn, không key), đo 5 phút, ADR 0005, checklist UAT (wave 6)
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 14/19 | In Progress | - |
+| 2. P1 · Tạo bài và trình phát | 18/19 | In Progress | - |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
