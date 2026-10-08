@@ -21,37 +21,37 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 ### Cài đặt (SET) — M0, F0
 
-- [ ] **SET-01**: S1 hiển thị banner trạng thái hệ thống: model đã tải chưa, có `OPENAI_API_KEY` chưa, micro đã cấp quyền chưa
-- [ ] **SET-02**: Thiếu key → banner vàng không chặn ("Gợi ý sẽ dùng template, TTS tắt") kèm nút mở S8; app vẫn tạo bài và tập được
-- [ ] **SET-03**: Ở S8, Liam dán key, bấm "Kiểm tra" và thấy kết quả hợp lệ / không hợp lệ
-- [ ] **SET-04**: Ở S8, Liam chọn mặc định tốc độ phát, số lần lặp, thời gian ghi (+50%), thư mục lưu dữ liệu; giọng mục tiêu US hiển thị dạng khoá
+- [x] **SET-01**: S1 hiển thị banner trạng thái hệ thống: model đã tải chưa, có `OPENAI_API_KEY` chưa, micro đã cấp quyền chưa
+- [x] **SET-02**: Thiếu key → banner vàng không chặn ("Gợi ý sẽ dùng template, TTS tắt") kèm nút mở S8; app vẫn tạo bài và tập được
+- [x] **SET-03**: Ở S8, Liam dán key, bấm "Kiểm tra" và thấy kết quả hợp lệ / không hợp lệ
+- [x] **SET-04**: Ở S8, Liam chọn mặc định tốc độ phát, số lần lặp, thời gian ghi (+50%), thư mục lưu dữ liệu; giọng mục tiêu US hiển thị dạng khoá
 
 ### Tạo bài (LES) — M1, F1
 
-- [ ] **LES-01**: Liam dán link YouTube ở S2 và thấy preview (tiêu đề, thời lượng, thumbnail); link không hợp lệ hoặc video không cho tải báo lỗi rõ ràng
-- [ ] **LES-02**: Video > 6 phút → Liam chọn đoạn start–end bằng thanh kéo (mặc định 5 phút đầu); video ≤ 6 phút dùng toàn bộ
+- [x] **LES-01**: Liam dán link YouTube ở S2 và thấy preview (tiêu đề, thời lượng, thumbnail); link không hợp lệ hoặc video không cho tải báo lỗi rõ ràng
+- [x] **LES-02**: Video > 6 phút → Liam chọn đoạn start–end bằng thanh kéo (mặc định 5 phút đầu); video ≤ 6 phút dùng toàn bộ
 - [x] **LES-03**: Tạo bài chạy nền; card ở S1 hiện tiến độ theo bước (Tải video → Tách giọng → Phiên âm → Chia câu → Phân tích bản gốc); tạo 2 bài liên tiếp không chặn nhau và Liam vẫn tập bài khác trong lúc chờ
-- [ ] **LES-04**: Pipeline tạo bài: yt-dlp (video 360–480p + audio, cache theo `videoId`), Demucs tách vocal, mlx-whisper word timestamps, tách câu 3–8 s (cắt câu > ~15 từ tại dấu phẩy/khoảng lặng, gộp mảnh < 1.5 s), tính sẵn F0, năng lượng, prominence theo từ và PPG cho từng câu
-- [ ] **LES-05**: Video 5 phút sẵn sàng để tập trong ≤ 5 phút
-- [ ] **LES-06**: Card bài sẵn sàng hiện số câu và nhãn chất lượng audio "Audio sạch" / "Có nhạc nền", tính lúc tạo bài từ output Demucs (tỉ lệ năng lượng phần non-vocal so với vocal); audio nhiều nhạc nền hiện cảnh báo nên chọn video khác. Ghi chú: Phase 5 bổ sung tỉ lệ câu `ref_unclear` để tinh chỉnh nhãn
-- [ ] **LES-07**: Job lỗi hiện trên card kèm nút thử lại
+- [x] **LES-04**: Pipeline tạo bài: yt-dlp (video 360–480p + audio, cache theo `videoId`), Demucs tách vocal, mlx-whisper word timestamps, tách câu 3–8 s (cắt câu > ~15 từ tại dấu phẩy/khoảng lặng, gộp mảnh < 1.5 s), tính sẵn F0, năng lượng, prominence theo từ và PPG cho từng câu
+- [x] **LES-05**: Video 5 phút sẵn sàng để tập trong ≤ 5 phút
+- [x] **LES-06**: Card bài sẵn sàng hiện số câu và nhãn chất lượng audio "Audio sạch" / "Có nhạc nền", tính lúc tạo bài từ output Demucs (tỉ lệ năng lượng phần non-vocal so với vocal); audio nhiều nhạc nền hiện cảnh báo nên chọn video khác. Ghi chú: Phase 5 bổ sung tỉ lệ câu `ref_unclear` để tinh chỉnh nhãn
+- [x] **LES-07**: Job lỗi hiện trên card kèm nút thử lại
 
 ### Trình phát (PLY) — M2, F2
 
-- [ ] **PLY-01**: S3 phát video tự host bằng thẻ `<video>` (bài chỉ mở khi đã sẵn sàng; không dùng YouTube IFrame, ADR 0004)
-- [ ] **PLY-02**: Trình phát chạy bằng state machine XState (`idle → playing → recording → scoring → reviewing` cùng nhánh lỗi, thử lại) ở file riêng, có test cho các transition chính trước khi gắn UI
-- [ ] **PLY-03**: Liam phát câu mẫu có đệm 100–200 ms, lặp ×1/×2/×3 và tốc độ theo cài đặt; điều khiển câu trước, phát lại, phát, câu sau
-- [ ] **PLY-04**: S3 mở ở câu đầu tiên chưa tập; danh sách câu bên phải highlight câu hiện tại, mỗi câu có chấm màu theo điểm tốt nhất; nút "Sửa" để chỉnh text câu
-- [ ] **PLY-05**: Nút "Mất chữ cuối?" nới `end` của câu thêm 300 ms và lưu vào bài
-- [ ] **PLY-06**: Liam xem IPA theo cách người nói gốc phát âm (nhận dạng từ audio mẫu), có ghi chú đây là nhận dạng tự động, bật/tắt được
+- [x] **PLY-01**: S3 phát video tự host bằng thẻ `<video>` (bài chỉ mở khi đã sẵn sàng; không dùng YouTube IFrame, ADR 0004)
+- [x] **PLY-02**: Trình phát chạy bằng state machine XState (`idle → playing → recording → scoring → reviewing` cùng nhánh lỗi, thử lại) ở file riêng, có test cho các transition chính trước khi gắn UI
+- [x] **PLY-03**: Liam phát câu mẫu có đệm 100–200 ms, lặp ×1/×2/×3 và tốc độ theo cài đặt; điều khiển câu trước, phát lại, phát, câu sau
+- [x] **PLY-04**: S3 mở ở câu đầu tiên chưa tập; danh sách câu bên phải highlight câu hiện tại, mỗi câu có chấm màu theo điểm tốt nhất; nút "Sửa" để chỉnh text câu
+- [x] **PLY-05**: Nút "Mất chữ cuối?" nới `end` của câu thêm 300 ms và lưu vào bài
+- [x] **PLY-06**: Liam xem IPA theo cách người nói gốc phát âm (nhận dạng từ audio mẫu), có ghi chú đây là nhận dạng tự động, bật/tắt được
 - [x] **PLY-07**: Mọi hành động có nút rõ ràng (có chữ, cao 44–48 px) với phím tắt phụ hiện dạng gợi ý (`Space`, `R`, `←/→`, `O`, `M`, `B`, `I`, `T`); Liam tập trọn 30 câu chỉ bằng chuột, và cũng làm được chỉ bằng bàn phím
 
 ### Ghi âm (REC) — M3, F2
 
-- [ ] **REC-01**: Câu mẫu phát xong tự chuyển "Lượt của bạn" với countdown = độ dài câu × 1.5 và thanh mức âm; `Space` hoặc im lặng 1 giây dừng sớm
-- [ ] **REC-02**: Backend chuẩn hoá bản ghi (webm từ Chrome, mp4 từ Safari) về WAV 16 kHz mono
-- [ ] **REC-03**: Không thu được tiếng → hiện trạng thái riêng và cho ghi lại; lỗi backend → toast kèm nút thử lại, không mất bản ghi vừa thu
-- [ ] **REC-04**: Bản ghi không được lưu lâu dài (chỉ giữ features), trừ khi Liam đánh dấu "lưu clip này cho eval"
+- [x] **REC-01**: Câu mẫu phát xong tự chuyển "Lượt của bạn" với countdown = độ dài câu × 1.5 và thanh mức âm; `Space` hoặc im lặng 1 giây dừng sớm
+- [x] **REC-02**: Backend chuẩn hoá bản ghi (webm từ Chrome, mp4 từ Safari) về WAV 16 kHz mono
+- [x] **REC-03**: Không thu được tiếng → hiện trạng thái riêng và cho ghi lại; lỗi backend → toast kèm nút thử lại, không mất bản ghi vừa thu
+- [x] **REC-04**: Bản ghi không được lưu lâu dài (chỉ giữ features), trừ khi Liam đánh dấu "lưu clip này cho eval"
 
 ### Ngữ điệu (PRO) — Lớp B
 
@@ -165,28 +165,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FND-05 | Phase 1 | Complete |
 | FND-06 | Phase 1 | Complete |
 | FND-07 | Phase 1 | Complete |
-| SET-01 | Phase 2 | Pending |
-| SET-02 | Phase 2 | Pending |
-| SET-03 | Phase 2 | Pending |
-| SET-04 | Phase 2 | Pending |
-| LES-01 | Phase 2 | Pending |
-| LES-02 | Phase 2 | Pending |
+| SET-01 | Phase 2 | Complete |
+| SET-02 | Phase 2 | Complete |
+| SET-03 | Phase 2 | Complete |
+| SET-04 | Phase 2 | Complete |
+| LES-01 | Phase 2 | Complete |
+| LES-02 | Phase 2 | Complete |
 | LES-03 | Phase 2 | Complete |
-| LES-04 | Phase 2 | Pending |
-| LES-05 | Phase 2 | Pending |
-| LES-06 | Phase 2 | Pending |
-| LES-07 | Phase 2 | Pending |
-| PLY-01 | Phase 2 | Pending |
-| PLY-02 | Phase 2 | Pending |
-| PLY-03 | Phase 2 | Pending |
-| PLY-04 | Phase 2 | Pending |
-| PLY-05 | Phase 2 | Pending |
-| PLY-06 | Phase 2 | Pending |
+| LES-04 | Phase 2 | Complete |
+| LES-05 | Phase 2 | Complete |
+| LES-06 | Phase 2 | Complete |
+| LES-07 | Phase 2 | Complete |
+| PLY-01 | Phase 2 | Complete |
+| PLY-02 | Phase 2 | Complete |
+| PLY-03 | Phase 2 | Complete |
+| PLY-04 | Phase 2 | Complete |
+| PLY-05 | Phase 2 | Complete |
+| PLY-06 | Phase 2 | Complete |
 | PLY-07 | Phase 2 | Complete |
-| REC-01 | Phase 2 | Pending |
-| REC-02 | Phase 2 | Pending |
-| REC-03 | Phase 2 | Pending |
-| REC-04 | Phase 2 | Pending |
+| REC-01 | Phase 2 | Complete |
+| REC-02 | Phase 2 | Complete |
+| REC-03 | Phase 2 | Complete |
+| REC-04 | Phase 2 | Complete |
 | PRO-01 | Phase 3 | Pending |
 | PRO-02 | Phase 3 | Pending |
 | PRO-03 | Phase 3 | Pending |

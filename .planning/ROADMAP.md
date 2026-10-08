@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Ánh xạ seed → GSD** (GSD dành riêng Phase 0): P0 → Phase 1, P1 → Phase 2, P2 → Phase 3, P3 → Phase 4, P4 → Phase 5, P5 → Phase 6, P6 → Phase 7, P7 → Phase 8. Nhãn "P0…P7" giữ trong tên phase để đối chiếu với seed.
 
 - [x] **Phase 1: P0 · Nền tảng** - Monorepo, contract, FastAPI skeleton, `make setup`, smoke script pipeline audio (completed 2026-10-06)
-- [ ] **Phase 2: P1 · Tạo bài và trình phát** - Cài đặt, tạo bài nền từ YouTube, trình phát theo câu XState, ghi âm (chưa chấm điểm)
+- [x] **Phase 2: P1 · Tạo bài và trình phát** - Cài đặt, tạo bài nền từ YouTube, trình phát theo câu XState, ghi âm (chưa chấm điểm) (completed 2026-10-08)
 - [ ] **Phase 3: P2 · Chấm ngữ điệu** - Lớp B (F0, semitone, 3 chỉ số, prominence), rule template Lớp C, UI kết quả ngữ điệu
 - [ ] **Phase 4: P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu** - ~100 clip lỗi cố ý, `make eval` → `report.md`, held-out 30%, precision ≥ 90%
 - [ ] **Phase 5: P4 · Chấm âm (PPG + DTW)** - Lớp A đầy đủ, `ref_unclear`, giải thích bằng chuỗi phone, UI `ScoredSentence` / `PhonemeDiff` (song song được với Phase 6)
@@ -81,7 +81,7 @@ Plans:
   4. Thiếu API key app vẫn chạy: banner vàng không chặn, vẫn tạo bài và tập được.
   5. UI khớp `docs/design/`.
 
-**Plans:** 19/19 plans executed
+**Plans:** 19/19 plans complete
 **UI hint**: yes
 
 Plans:
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
-| 2. P1 · Tạo bài và trình phát | 19/19 | In Progress | - |
+| 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
 | 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
