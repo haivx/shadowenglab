@@ -33,7 +33,7 @@ findings:
     title: "`DownloadError` is always reported as \"limited by region, private or downloads disabled\""
   - id: WR-08
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "Retrying a failed lesson bypasses the duplicate-lesson rule"
   - id: IN-01
     severity: info
@@ -71,9 +71,9 @@ findings:
     severity: info
     disposition: open
     title: "Timing-based assertions in tests"
-open: 17
+open: 16
 total: 17
-recorded: 2026-10-08T03:06:31.646Z
+recorded: 2026-10-08T15:18:48.849Z
 ---
 
 # Phase 02: Code Review Disposition
@@ -87,7 +87,7 @@ recorded: 2026-10-08T03:06:31.646Z
 | WR-05 | warning | open | - |
 | WR-06 | warning | open | - |
 | WR-07 | warning | open | - |
-| WR-08 | warning | open | - |
+| WR-08 | warning | fixed | 02-REVIEW-FIX.md |
 | IN-01 | info | open | - |
 | IN-02 | info | open | - |
 | IN-03 | info | open | - |
