@@ -38,3 +38,4 @@ eval/manifest.json
 .idea/
 .vscode/
 .claude/settings.local.json
+.mypy_cache/
