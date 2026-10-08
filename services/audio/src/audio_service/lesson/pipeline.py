@@ -308,8 +308,12 @@ def stage_download(
                 except DownloadError as exc:
                     raise StepError(DOWNLOAD_BLOCKED_MESSAGE) from exc
         with timer.step("extract_audio"):
-            if not audio_path.exists():
-                deps.extract_audio(video_path, audio_path)
+            # Hai bài cùng video thoát khoá tải gần như cùng lúc: nếu cả hai chạy ffmpeg thì ghi
+            # chung `audio.wav.part` và bài chậm hơn lỗi ở os.replace. Giữ khoá video quanh cả
+            # bước kiểm tra lẫn bước ghi để chỉ một bài trích audio, bài kia dùng lại kết quả.
+            with download.video_lock(video_id):
+                if not audio_path.exists():
+                    deps.extract_audio(video_path, audio_path)
         return _set_status(lesson_id, timer, on_status, status="queued")
     except BaseException as exc:
         mark_failed(lesson_id, exc, on_status=on_status)
