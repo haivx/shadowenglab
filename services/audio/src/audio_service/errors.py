@@ -12,12 +12,16 @@ from typing import get_args
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from audio_service.contract_io import dump_contract
 from audio_service.contracts_gen import ApiError
 
 # Danh sách mã lấy từ chính model sinh ra, không chép tay.
 API_ERROR_CODES: frozenset[str] = frozenset(get_args(ApiError.model_fields["code"].annotation))
+
+
+UNEXPECTED_MESSAGE = "Có lỗi không mong đợi trong backend (xem log của make dev)."
 
 
 class ApiErrorException(Exception):
@@ -57,3 +61,18 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_request: Request, _exc: RequestValidationError) -> JSONResponse:
         # Cố ý bỏ `exc.errors()`: chúng chứa input của người gửi (T-02-07).
         return error_response(422, "invalid_request", "Dữ liệu gửi lên không hợp lệ.")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        # Route lạ (404), method sai (405)... do Starlette/FastAPI raise: vẫn trả phong bì ApiError
+        # để web không phải rơi về "Backend trả lỗi không đọc được". Bỏ `exc.detail`.
+        if exc.status_code == 404:
+            return error_response(404, "not_found", "Không tìm thấy.")
+        if exc.status_code >= 500:
+            return error_response(exc.status_code, "internal_error", UNEXPECTED_MESSAGE)
+        return error_response(exc.status_code, "invalid_request", "Yêu cầu không hợp lệ.")
+
+    @app.exception_handler(Exception)
+    async def _unhandled_error(_request: Request, _exc: Exception) -> JSONResponse:
+        # Starlette gửi response này rồi raise lại, nên uvicorn vẫn log stack (không log ở đây).
+        return error_response(500, "internal_error", UNEXPECTED_MESSAGE)

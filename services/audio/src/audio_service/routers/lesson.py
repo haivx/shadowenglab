@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from pydantic import ValidationError
 
 from audio_service.config import InvalidIdError, lesson_json_path
@@ -125,11 +125,11 @@ def get_lesson(lesson_id: str) -> Lesson:
     try:
         path = lesson_json_path(lesson_id)
     except InvalidIdError:
-        raise HTTPException(status_code=404, detail="lesson not found") from None
+        raise ApiErrorException(404, "not_found", "Không tìm thấy bài.") from None
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="lesson not found")
+        raise ApiErrorException(404, "not_found", "Không tìm thấy bài.")
     try:
         return Lesson.model_validate_json(path.read_text(encoding="utf-8"))
     except (ValidationError, UnicodeDecodeError):
         # Không đưa đường dẫn hay chi tiết lỗi ra ngoài.
-        raise HTTPException(status_code=500, detail="stored lesson is invalid") from None
+        raise ApiErrorException(500, "internal_error", "File bài đã lưu không đọc được.") from None

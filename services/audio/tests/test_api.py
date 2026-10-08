@@ -85,12 +85,31 @@ def test_unknown_ulid_returns_404(client: TestClient) -> None:
     assert client.get(f"/lessons/{LESSON_ID}").status_code == 404
 
 
+@pytest.mark.parametrize("bad_id", ["abc", LESSON_ID])
+def test_missing_lesson_404_uses_the_api_error_envelope(client: TestClient, bad_id: str) -> None:
+    res = client.get(f"/lessons/{bad_id}")
+    assert res.status_code == 404
+    assert res.json() == {"code": "not_found", "message": "Không tìm thấy bài."}
+
+
+def test_unknown_route_and_wrong_method_use_the_api_error_envelope(client: TestClient) -> None:
+    missing = client.get("/no-such-route")
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "not_found"
+
+    wrong_method = client.post("/health")
+    assert wrong_method.status_code == 405
+    assert wrong_method.json()["code"] == "invalid_request"
+    assert "detail" not in wrong_method.json()
+
+
 def test_corrupt_file_returns_500_without_path(client: TestClient, data_dir: Path) -> None:
     path = lesson_json_path(LESSON_ID)
     path.parent.mkdir(parents=True)
     path.write_text('{"id": "x"}', encoding="utf-8")
     res = client.get(f"/lessons/{LESSON_ID}")
     assert res.status_code == 500
+    assert res.json()["code"] == "internal_error"
     assert str(data_dir) not in res.text
 
 
@@ -215,3 +234,17 @@ def test_validation_error_does_not_echo_the_input(client: TestClient) -> None:
     assert res.status_code == 422
     assert "hunter2" not in res.text and "12345" not in res.text
     assert res.json()["code"] == "invalid_request"
+
+
+def test_unhandled_exception_returns_the_api_error_envelope(data_dir: Path) -> None:
+    app = create_app()
+
+    @app.get("/boom")
+    def boom() -> None:
+        raise RuntimeError(f"secret {data_dir}")
+
+    with TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=False) as c:
+        res = c.get("/boom")
+    assert res.status_code == 500
+    assert res.json()["code"] == "internal_error"
+    assert "secret" not in res.text and str(data_dir) not in res.text
