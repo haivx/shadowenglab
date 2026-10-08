@@ -46,7 +46,9 @@ created: "2026-10-08"
 
 ## Component Inventory
 
-Enumerated by `npx shadcn info` (installed) and `npx shadcn@latest search @shadcn --limit 200 --offset 0|200|400` filtered to `(ui)` — 15 components installed, 62 in the `@shadcn` registry — shadcn CLI 4.21.4 (resolved by `npx`, not a local dependency) — 2026-10-08.
+Enumerated by `npx shadcn info` — 15 components — shadcn@4.21.4 — 2026-10-08.
+
+Note: `shadcn@4.21.4` is the CLI version resolved by `npx` (not a local dependency). The registry set below (62 `(ui)` components in `@shadcn`) was enumerated separately by `npx shadcn@latest search @shadcn --limit 200 --offset 0|200|400` filtered to `(ui)`, same CLI version, same date.
 
 Installed (15, in `apps/web/components/ui/`): alert, badge, button, card, dialog, input, kbd, label, progress, select, skeleton, slider, sonner, tabs, tooltip.
 
@@ -91,12 +93,16 @@ Unchanged from `02-UI-SPEC.md` (named scale, multiples of 4: xs 4, sm 8, md 16, 
 | lg | 24px | Top padding of each result block (below its `border-top: 1px solid var(--border)`); scoring panel padding 24; ScoreHero index group gap 24 (mock 22, snapped) |
 | xl | 32px | Gap between result blocks in the right column (`main` gap 32, unchanged) |
 
-Exceptions, all already allowed by `02-UI-SPEC.md` G22 or copied from `S3`, limited to these uses:
-- **14px**: vertical gap between tip rows (S3 `ol` gap 14); sentence-to-IPA gap (S3).
-- **12px**: skeleton metric block gap (S3s 4); attempt chip horizontal padding.
-- **6px**: gap under the big number to its caption (S3 margin-top 6); word row inner gap.
-- **28px**: gap between big number and index group (S3 `gap: 28`) — a multiple of 4, allowed.
-- Snapped: 22 → 24 (ScoreHero index group gap, same snap as P2); highlighted sentence word `padding 4/6, margin −4/−6` (S3) is layout-neutral compensation, kept verbatim.
+Multiples of 4 used as-is (not exceptions): **12** (skeleton metric block gap, S3s 4; attempt chip horizontal padding), **28** (gap between big number and index group, S3 `gap: 28`), **112** (plot height), **80** (word row height, see snap below).
+
+**Non-multiple-of-4 exceptions.** The values below are NOT multiples of 4. They are copied from the locked mocks (`S3`, `S3s`) and limited to the exact uses listed; they are declared in `## Deviations and Gaps` as **P3-G21** (inherits and extends `02-UI-SPEC.md` G22, which is **pending Liam acknowledgement**, not approved). Use nowhere else:
+- **2px**: marked-word underline thickness in `TipList`; each stroke of the `‖` pause marker (S3).
+- **3px**: gap between the two stress bars of one word; sentence-word highlight bottom border thickness; stress-bar minimum stub height; gap between the two `‖` strokes; `TipList` index `padding-top` (S3).
+- **6px**: caption margin-top under the big number (S3); sentence word row-gap and word-row inner gap (S3); legend swatch-to-label gap; stress bar width; the horizontal half of the highlighted-word `padding 4/6, margin −4/−6` compensation (S3).
+- **10px**: vertical gap inside the chart block (S3 flex column gap 10).
+- **14px**: vertical gap between tip rows (S3 `ol` gap 14); sentence-to-IPA gap and sentence word column-gap (S3); legend gap between the two items; praise/neutral line vertical padding (`14px 16px`, same as the P1 banner); gap between `TipList` and `Lưu clip cho eval`.
+- Snapped (mock value → spec value, so no new exception): 22 → 24 (ScoreHero index group gap, same snap as P2); chart word row 78 → 80 (so plot 112 + word row 80 = **192**, was 190).
+- The highlighted-word vertical `padding 4 / margin −4` is a multiple of 4 and is layout-neutral compensation, kept verbatim.
 
 Touch/hit targets: every labelled action is **44px** tall. New in this phase: `So sánh ngữ điệu` 44, attempt chips 44 (P2-G4 rule extended: chips are real actions, the mock's plain text is raised to a 44px hit area with no visual box until hover/focus), `Lưu clip cho eval` 44 (unchanged).
 
@@ -104,7 +110,7 @@ Touch/hit targets: every labelled action is **44px** tall. New in this phase: `S
 
 ## Typography
 
-Baseline table in `02-UI-SPEC.md` applies unchanged (sizes 11, 12, 13, 14, 15, 16, 18, 26, 34, 38; weights 400, 500, 600, 700, 800; owner-locked, acknowledged G21). Phase 3 uses two **big-number** roles that P1 left unused (`tokens.md` "Số lớn" 52–72/800 and "Số phụ" 22–24/700):
+Baseline table in `02-UI-SPEC.md` applies unchanged: **10 sizes** (11, 12, 13, 14, 15, 16, 18, 26, 34, 38) and **5 weights** (400, 500, 600, 700, 800), owner-locked in `docs/design/tokens.md`. That baseline excess is acknowledged by Liam (`02-UI-SPEC.md` G21, 2026-10-06) and restated in this spec as **P3-G20**. Phase 3 adds two **big-number** roles that P1 left unused (`tokens.md` "Số lớn" 52–72/800 and "Số phụ" 22–24/700), giving a Phase 3 total of **12 sizes** (adds 24 and 72) and the same 5 weights (no new weight); the two additions are declared as **P3-G17** and are **pending Liam acknowledgement** (G21 predates them and does not name them):
 
 | Role | Size | Weight | Line Height | Where (source) |
 |------|------|--------|-------------|----------------|
@@ -120,6 +126,8 @@ Baseline table in `02-UI-SPEC.md` applies unchanged (sizes 11, 12, 13, 14, 15, 1
 | List score number | 12px mono | 600 | 1 | `TranscriptList` right cell (S3 mono 12; weight raised 500→600 for contrast, see Color) |
 
 Rules: digits that change (scores, countdown) use `font-variant-numeric: tabular-nums`. Hero numbers are plain integers `Math.round(score01 * 100)`, no `%` sign (S3 shows `74`, no sign). Body line-height 1.5, heading 1.2 (baseline).
+
+> **Checker note (P3-G20 / P3-G17):** this spec exceeds "3–4 sizes / 2 weights": 12 sizes (11, 12, 13, 14, 15, 16, 18, 24, 26, 34, 38, 72) and 5 weights (400–800). Of these, 10 sizes and all 5 weights are the owner-locked baseline of `docs/design/tokens.md`, collapsing them would change the owner-approved design (`design/README.md`: change UI via the design canvas first), and Liam acknowledged that excess on 2026-10-06 (`02-UI-SPEC.md` G21). The 2 additional sizes (72/800 display score, 24/700 sub score) come from the same owner-locked file (`tokens.md` "Số lớn" / "Số phụ", mock `S3`) but have **no recorded acknowledgement yet**; they are not claimed as approved. Dimension 4 should be reviewed as a FLAG (declared, sourced, owner-locked baseline acknowledged, 2 additions pending Liam), not a BLOCK.
 
 ---
 
@@ -247,7 +255,7 @@ See composition above. Accessible: `section aria-label="Điểm lượt {k}"`; e
 
 ### `IntonationChart` (opens under `So sánh ngữ điệu`)
 
-Geometry (S3 SVG `760×150` adapted): the chart fills the column width (max ≈ 720 at 1440, min 480), total height **190px** = Recharts plot **112px** + HTML word row **78px** (stress bars 32 + label 20 + padding). Both share horizontal padding 8 so the x positions align.
+Geometry (S3 SVG `760×150` adapted): the chart fills the column width (max ≈ 720 at 1440, min 480), total height **192px** = Recharts plot **112px** + HTML word row **80px** (stress bars 32 + label 20 + padding 28; snapped from 78/190 to stay on the 4px grid). Both share horizontal padding 8 so the x positions align.
 
 - **Plot** — Recharts 3.10.1 `LineChart` inside `ResponsiveContainer width="100%" height={112}` (client component, `"use client"`), `margin {top 8, right 8, bottom 8, left 8}`, `accessibilityLayer={false}` (no tooltip/keyboard cursor, so no pointless tab stop). `XAxis type="number" dataKey="x" domain={[0, N − 1]} hide`; `YAxis hide`, domain `[−m, m]` with `m = max(6, ceil(max|value|))` rounded up to an even number (semitones; gap P3-G11). Data rows `{ x, ref, user }` from `buildChartRows(prosody.contour)`, ~20 ms per x step.
 - **Lines**: two `Line`, `dot={false}`, `strokeWidth={3}`, `strokeLinecap/Linejoin round`, `connectNulls={false}` (the line **breaks** at unvoiced frames), `isAnimationActive={false}`; ref first then user (user drawn on top); stroke via `style={{ stroke: "var(--original)" }}` / `"var(--you)"` (verify the CSS variable is honoured in the first build; fall back to a className, RES A4).
@@ -379,7 +387,7 @@ Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 
 
 ## Deviations and Gaps
 
-> Needs Liam = the item changes or extends the locked design (`docs/design/`), `02-UI-SPEC.md`, or CONTEXT. Items marked "no" are implementation choices inside Claude's Discretion or direct consequences of locked decisions. **None of the "yes" items are approved yet** (status draft).
+> Needs Liam = the item changes or extends the locked design (`docs/design/`), `02-UI-SPEC.md`, or CONTEXT. Items marked "no" are implementation choices inside Claude's Discretion or direct consequences of locked decisions. **None of the "yes" items are approved yet** (status draft). The only recorded owner acknowledgement referenced here is `02-UI-SPEC.md` G21 (2026-10-06), which covers the inherited baseline type scale (P3-G20) and nothing else; `02-UI-SPEC.md` G22 (spacing exceptions) has no acknowledgement on record.
 
 | ID | Item | Source / why | Resolution in this spec | Needs Liam |
 |----|------|--------------|-------------------------|------------|
@@ -393,15 +401,17 @@ Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 
 | P3-G8 | S3s 5 card chrome ("Kết quả · 91%" title, word chips, own `Câu tiếp`) is not reproduced; the no-issue case reuses the same unboxed layout as S3 with the praise block in place of the tips | Would duplicate ScoreHero / AttemptStrip / footer and show chips (D-06) | One layout for all results | no |
 | P3-G9 | Scoring skeleton: drop the six word-chip skeletons (P1), restore the three metric blocks and the "Đang so với bản gốc…" caption, add a 5-second slow caption | P2-G8 reversed now that scoring is real; D-03 lazy feature compute can exceed 3 s | As described in State 4 | yes (new slow-caption copy) |
 | P3-G10 | `TranscriptList` shows the colour-coded number (mock) instead of P1's gray dot for scored sentences; `SegmentedProgress` gains score colours | D-11 "chấm màu", `components.md` | Number + colour; gray dot only for unscored-practiced | no |
-| P3-G11 | Chart y-domain: symmetrical `[−m, m]`, `m = max(6, ceil(max\|v\|))` rounded to even, axis hidden; plot 112px + word row 78px | Mock is a hand-drawn SVG without scale | As described | no |
+| P3-G11 | Chart y-domain: symmetrical `[−m, m]`, `m = max(6, ceil(max\|v\|))` rounded to even, axis hidden; plot 112px + word row 80px | Mock is a hand-drawn SVG without scale | As described | no |
 | P3-G12 | `M` / `B` for a past attempt without in-session audio: `aria-disabled` + tooltip | D-11 says `M` only when the blob is still in session; no mock | Tooltip `Bản ghi của lượt này không còn trong phiên.` | no |
 | P3-G13 | New neutral/error copy with no mock: chart-not-drawable note, past-attempt load error | `flows.md` shared states | Copywriting Contract rows | yes (copy) |
 | P3-G14 | Accessibility additions not in the mock: focusable tip rows (hover parity), visually hidden result announcement, `role="img"` chart label | WCAG keyboard parity; PLY-07 keyboard-only goal | As described; adds tab stops only for tips | no |
 | P3-G15 | `AttemptStrip` shows scored attempts only, numbered by ordinal among scored attempts; cap 6 chips; chips are 44px ghost buttons (mock: plain spans) | RES Open Questions 3–4 (contract checkpoint: attempt list + `bestOverall`); P2-G4 hit-target rule | Spec assumes Liam accepts the RES recommendations at the contract PR; if he picks the raw `attempt` number instead, only the label source changes | yes (tied to the contract/DB checkpoint) |
 | P3-G16 | `TranscriptList` score numbers measure 4.38–4.49:1 (amber / green on slate-2) at 12px | Copied from locked mock; tokens.md contrast rule is ≥ 4.5 | Weight 600, number always shown; Dimension 3 FLAG | yes (acknowledge) |
-| P3-G17 | Type scale additions 72/800 and 24/700 | `tokens.md` big-number roles unused in P1 | Declared; covered by the standing G21 acknowledgement | no |
+| P3-G17 | Type scale additions 72/800 (display score) and 24/700 (sub score): sizes 10 → 12, no new weight | `tokens.md` "Số lớn" / "Số phụ" big-number roles (owner-locked), unused in P1; mock `S3` | Declared and sourced. `02-UI-SPEC.md` G21 (2026-10-06) predates and does not name these two sizes, so they are NOT covered by it | yes — pending Liam acknowledgement (not yet acknowledged) |
 | P3-G18 | Tip wording: templates are backend-owned proposals (RES Pattern 5); `{lastWord}` added to `FINAL_CONTOUR` | Contract binds tip to `issueRef` only | Liam reviews wording in the Phase 3 PR; UI rule (`*word*` markers) holds for any wording | yes (in PR) |
 | P3-G19 | Praise block text is `--foreground`, not green-11 (mock) | green-11 on green-3 is 4.21:1 | Contrast fix, same tint | no |
+| P3-G20 | Inherited baseline type scale: 10 sizes (11, 12, 13, 14, 15, 16, 18, 26, 34, 38) and 5 weights (400, 500, 600, 700, 800), more than the 3–4 sizes / 2 weights guideline | Owner-locked `docs/design/tokens.md` "Chữ"; restated from `02-UI-SPEC.md` G21 so it is verifiable in this file | Declared, not collapsed. Acknowledged by Liam 2026-10-06 (`02-UI-SPEC.md` G21: "yes — acknowledged 2026-10-06"). Covers the baseline only, NOT the P3-G17 additions | no — already acknowledged 2026-10-06 (baseline only) |
+| P3-G21 | Non-multiple-of-4 spacing values used in Phase 3: **2px** (tip underline thickness, each `‖` stroke), **3px** (stress-bar pair gap, highlight bottom border, stub height, `‖` stroke gap, tip index padding-top), **6px** (caption margin-top, sentence/word-row gaps, legend swatch gap, stress bar width, highlight `padding 4/6`), **10px** (chart block gap), **14px** (tip row gap, sentence-to-IPA gap, sentence word column-gap, legend item gap, praise/neutral line padding `14px 16px`, gap above `Lưu clip cho eval`) | Copied from locked mocks `S3` / `S3s`. Extends `02-UI-SPEC.md` G22 (exceptions 2/6/10/14 in P1 mocks); the value **3px** is new to Phase 3. 12px and 28px are multiples of 4 and are not exceptions. Two layout-only mock values were snapped instead of excepted: 22 → 24 and 78 → 80 | Declared and scoped to the exact uses in `## Spacing Scale` (use nowhere else). `02-UI-SPEC.md` G22 is recorded there as "no" and was **never acknowledged by Liam**; this spec does not claim it was approved | yes — pending Liam acknowledgement (not yet acknowledged; includes inherited G22) |
 
 ---
 
@@ -410,8 +420,8 @@ Applicable state considerations resolved: 36 covered, 2 backstop, 0 unresolved, 
 - [ ] Dimension 1 Copywriting: PASS
 - [ ] Dimension 2 Visuals: PASS
 - [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
+- [ ] Dimension 4 Typography: FLAG expected — 12 sizes / 5 weights; 10 sizes + 5 weights are the owner-locked `docs/design/tokens.md` baseline acknowledged by Liam 2026-10-06 (P3-G20 / `02-UI-SPEC.md` G21); the 2 additions (72/800, 24/700) are P3-G17, pending Liam
+- [ ] Dimension 5 Spacing: FLAG expected — exceptions 2/3/6/10/14 px from locked mocks, scoped per use in `## Spacing Scale` and declared in P3-G21; pending Liam acknowledgement (inherited `02-UI-SPEC.md` G22 was never acknowledged)
 - [ ] Dimension 6 Registry Safety: PASS
 - [ ] Dimension 7 Inventory Provenance: PASS
 
