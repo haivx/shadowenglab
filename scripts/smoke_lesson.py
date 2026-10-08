@@ -62,13 +62,9 @@ def format_sentence_length_stats(stats: dict[str, int | float]) -> str:
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Chạy pipeline tạo bài trên một video YouTube."
-    )
+    parser = argparse.ArgumentParser(description="Chạy pipeline tạo bài trên một video YouTube.")
     parser.add_argument("url", help="link video YouTube")
-    parser.add_argument(
-        "--start", type=float, default=None, help="giây bắt đầu (mặc định 0)"
-    )
+    parser.add_argument("--start", type=float, default=None, help="giây bắt đầu (mặc định 0)")
     parser.add_argument(
         "--end", type=float, default=None, help="giây kết thúc (mặc định hết video)"
     )
@@ -83,9 +79,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def _self_check(lesson_id: str) -> Lesson:
     """Đọc lại lesson.json bằng model sinh từ contract và kiểm từng segment có đủ feature."""
-    lesson = Lesson.model_validate_json(
-        lesson_json_path(lesson_id).read_text(encoding="utf-8")
-    )
+    lesson = Lesson.model_validate_json(lesson_json_path(lesson_id).read_text(encoding="utf-8"))
     assert lesson.status == "ready", f"status là {lesson.status}, cần ready"
     assert len(lesson.segments) >= 1, "không có segment nào"
     for seg in lesson.segments:
@@ -108,9 +102,7 @@ def main(argv: list[str] | None = None) -> int:
 
     t0 = time.perf_counter()
     try:
-        run = run_lesson(
-            args.url, start=args.start, end=args.end, timer=timer, on_status=on_status
-        )
+        run = run_lesson(args.url, start=args.start, end=args.end, timer=timer, on_status=on_status)
     except (InvalidYoutubeUrl, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -120,9 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         failed = last[-1] if last else None
         step = failed.error.step if failed and failed.error else "?"
         message = (
-            failed.error.message
-            if failed and failed.error
-            else f"{type(exc).__name__}: {exc}"
+            failed.error.message if failed and failed.error else f"{type(exc).__name__}: {exc}"
         )
         print(f"PIPELINE FAILED at step '{step}': {message}", file=sys.stderr)
         return 1
