@@ -95,8 +95,8 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 1]: Bộ 3–4 video eval chưa chọn; smoke script dùng tạm một video giọng Mỹ có audio sạch
-- [Phase 2]: 17 finding code review còn `open` (0 critical, 8 warning — `02-REVIEW-DISPOSITION.md`); nên xử lý trước/đầu Phase 3 (`/gsd-code-review 02 --fix`)
-- [Phase 2]: Chờ Liam chốt: `EXTEND_MAX_MS = 3000`; `POST /lessons` với link live (`live_video` thay `invalid_range`, WR-04); trần độ dài đoạn phía server (WR-05)
+- [Phase 2]: Code review fix (2026-10-08): 8/8 warning đã sửa (`02-REVIEW-FIX.md`); 9 info còn `open`. `test_db.py::test_concurrent_inserts_get_distinct_numbers` chập chờn (`database is locked`, có từ trước)
+- [Phase 2]: Chờ Liam chốt: `EXTEND_MAX_MS = 3000`. Đã chốt: WR-04 (`live_video`/`video_unavailable` ở POST /lessons), WR-05 (`MAX_RANGE_S = 360`; RangePicker chưa chặn > 6 phút ở UI)
 - [Phase 2]: `extract_audio` (Phase 1) gọi ffmpeg không timeout; chất lượng dịch `gpt-6-luna` chưa eval
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
