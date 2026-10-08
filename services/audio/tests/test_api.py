@@ -215,14 +215,3 @@ def test_validation_error_does_not_echo_the_input(client: TestClient) -> None:
     assert res.status_code == 422
     assert "hunter2" not in res.text and "12345" not in res.text
     assert res.json()["code"] == "invalid_request"
-
-
-@pytest.mark.parametrize("name", ["translate"])
-def test_p1_router_shells_exist_and_are_mounted_empty(client: TestClient, name: str) -> None:
-    import importlib
-
-    module = importlib.import_module(f"audio_service.routers.{name}")
-    assert module.router.routes == []
-    assert module.router.prefix == ""
-    assert module.router.tags == [name]
-    assert not [p for p in client.app.openapi()["paths"] if name in p.split("/")[1:2]]
