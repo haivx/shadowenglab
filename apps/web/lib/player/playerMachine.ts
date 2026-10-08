@@ -66,6 +66,8 @@ export type PlayerActorEvent =
   | { type: "REP"; n: number }
   | { type: "SAMPLE_DONE" }
   | { type: "SAMPLE_FAILED" }
+  /** MediaRecorder đã chạy (sau khi micro mở xong, kể cả lúc chờ người dùng cấp quyền). */
+  | { type: "RECORDING_STARTED" }
   | { type: "LEVEL"; bars: number; speech: boolean }
   | { type: "SILENCE" }
   | { type: "STOPPED"; blob: Blob; durationMs: number }
@@ -373,7 +375,13 @@ export const playerMachine = machineSetup.createMachine({
         src: "record",
         input: ({ context }) => ({ segmentIndex: context.segmentIndex }),
       },
-      after: { recordDelay: { actions: "stopRecorder" } },
+      // Hẹn giờ tự dừng chỉ chạy từ lúc MediaRecorder thật sự bắt đầu: lần đầu trình duyệt hỏi
+      // quyền micro có thể mất lâu hơn recordDelay, khi đó clip sẽ gần như rỗng.
+      initial: "opening",
+      states: {
+        opening: { on: { RECORDING_STARTED: "active" } },
+        active: { after: { recordDelay: { actions: "stopRecorder" } } },
+      },
       on: {
         STOP: { actions: "stopRecorder" },
         SILENCE: { actions: "stopRecorder" },

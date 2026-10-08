@@ -167,10 +167,11 @@ describe("playerMachine: luồng chính", () => {
     expect(h.actor.getSnapshot().matches("scoring")).toBe(true);
   });
 
-  it("tự dừng ghi sau độ dài câu x recordFactor; im lặng (SILENCE) cũng dừng", () => {
+  it("tự dừng ghi sau độ dài câu x recordFactor tính từ RECORDING_STARTED; SILENCE cũng dừng", () => {
     vi.useFakeTimers();
     const h = start(); // câu 0 = 2000 ms, recordFactor 1.5 => 3000 ms
     toRecording(h);
+    h.ctl.recorder?.({ type: "RECORDING_STARTED" });
     vi.advanceTimersByTime(2999);
     expect(h.calls.recorderStops).toBe(0);
     vi.advanceTimersByTime(1);
@@ -180,6 +181,22 @@ describe("playerMachine: luồng chính", () => {
     toRecording(h2);
     h2.actor.send({ type: "SILENCE" });
     expect(h2.calls.recorderStops).toBe(1);
+  });
+
+  it("chưa có RECORDING_STARTED (đang chờ cấp quyền micro) thì không tự dừng ghi", () => {
+    vi.useFakeTimers();
+    const h = start();
+    toRecording(h);
+    expect(h.actor.getSnapshot().matches({ recording: "opening" })).toBe(true);
+
+    vi.advanceTimersByTime(10_000); // lâu hơn recordDelay 3000 ms
+    expect(h.calls.recorderStops).toBe(0);
+    expect(h.actor.getSnapshot().matches("recording")).toBe(true);
+
+    h.ctl.recorder?.({ type: "RECORDING_STARTED" });
+    expect(h.actor.getSnapshot().matches({ recording: "active" })).toBe(true);
+    vi.advanceTimersByTime(3000);
+    expect(h.calls.recorderStops).toBe(1);
   });
 
   it("uploadAttempt trả voiced=false -> noVoice; RECORD từ noVoice -> recording", async () => {

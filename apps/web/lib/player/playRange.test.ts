@@ -414,9 +414,9 @@ describe("playerMachine with the real playSample actor (tracer)", () => {
     await flush();
     expect(actor.getSnapshot().context.rep).toBe(1);
 
-    await tickUntil(raf, () => actor.getSnapshot().value === "recording");
+    await tickUntil(raf, () => actor.getSnapshot().matches("recording"));
 
-    expect(actor.getSnapshot().value).toBe("recording");
+    expect(actor.getSnapshot().matches("recording")).toBe(true);
     expect(video.playbackRate).toBe(0.75);
     expect(video.seeks).toHaveLength(2);
     expect(video.seeks[0]).toBeCloseTo(9.85, 6);

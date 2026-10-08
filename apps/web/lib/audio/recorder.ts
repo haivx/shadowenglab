@@ -130,8 +130,8 @@ const browserDeps: RecordDeps = {
 };
 
 /**
- * Actor `record` của playerMachine (id `recorder`). Nhận `STOP` từ machine; gửi `LEVEL` mỗi khi
- * mức đổi, `SILENCE` đúng một lần khi im lặng sau tiếng nói, `STOPPED {blob, durationMs}` khi ghi
+ * Actor `record` của playerMachine (id `recorder`). Nhận `STOP` từ machine; gửi `RECORDING_STARTED`
+ * khi MediaRecorder bắt đầu chạy, `LEVEL` mỗi khi mức đổi, `SILENCE` đúng một lần khi im lặng sau tiếng nói, `STOPPED {blob, durationMs}` khi ghi
  * xong và `RECORD_FAILED` khi không mở được micro hoặc MediaRecorder lỗi.
  */
 export function makeRecordActor(overrides: Partial<RecordDeps> = {}) {
@@ -237,6 +237,8 @@ export function makeRecordActor(overrides: Partial<RecordDeps> = {}) {
         startedAt = deps.now();
         created.start();
         startLevelLoop(handle);
+        // Machine chỉ hẹn giờ tự dừng từ lúc này, không tính thời gian chờ cấp quyền micro.
+        sendBack({ type: "RECORDING_STARTED" });
         // STOP tới trước khi micro mở xong (Space bấm rất sớm): dừng ngay khi đã chạy.
         if (stopRequested) requestStop();
       } catch {

@@ -145,6 +145,7 @@ describe("makeRecordActor", () => {
     const h = setupHarness();
     await flush();
     expect(h.createRecorder).toHaveBeenCalled();
+    expect(h.events).toContainEqual({ type: "RECORDING_STARTED" });
     h.advance(1500);
     h.stop();
 
@@ -156,6 +157,14 @@ describe("makeRecordActor", () => {
     expect(stopped.durationMs).toBe(1500);
     expect(h.closeMic).toHaveBeenCalled();
     expect(h.frames.pending).toBe(0);
+    h.actor.stop();
+  });
+
+  it("chưa gửi RECORDING_STARTED khi micro còn chờ cấp quyền", async () => {
+    const h = setupHarness({ openMic: () => new Promise<never>(() => {}) });
+    await flush();
+    expect(h.events).toHaveLength(0);
+    expect(h.createRecorder).not.toHaveBeenCalled();
     h.actor.stop();
   });
 
