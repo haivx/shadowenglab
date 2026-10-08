@@ -5,31 +5,31 @@ titles: json
 findings:
   - id: WR-01
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "First-use mic permission prompt eats the recording window and yields a near-empty clip"
   - id: WR-02
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "Several backend error paths do not use the `ApiError` envelope, so the web shows \"Backend trả lỗi không đọc được\""
   - id: WR-03
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "A stale `dataDir` in settings.json makes every Practice-defaults save fail with 422"
   - id: WR-04
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "`POST /lessons` accepts live, upcoming and unavailable videos and gives the wrong error"
   - id: WR-05
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "No server-side cap on lesson range length (OOM risk on the 8 GB target)"
   - id: WR-06
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "`_real_separate` / `_warm_demucs` can raise `UnboundLocalError` that hides the real failure"
   - id: WR-07
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "`DownloadError` is always reported as \"limited by region, private or downloads disabled\""
   - id: WR-08
     severity: warning
@@ -71,22 +71,22 @@ findings:
     severity: info
     disposition: open
     title: "Timing-based assertions in tests"
-open: 16
+open: 9
 total: 17
-recorded: 2026-10-08T15:18:48.849Z
+recorded: 2026-10-08T15:19:00.570Z
 ---
 
 # Phase 02: Code Review Disposition
 
 | Finding | Severity | Disposition | Source |
 |---------|----------|-------------|--------|
-| WR-01 | warning | open | - |
-| WR-02 | warning | open | - |
-| WR-03 | warning | open | - |
-| WR-04 | warning | open | - |
-| WR-05 | warning | open | - |
-| WR-06 | warning | open | - |
-| WR-07 | warning | open | - |
+| WR-01 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-02 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-03 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-04 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-05 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-06 | warning | fixed | 02-REVIEW-FIX.md |
+| WR-07 | warning | fixed | 02-REVIEW-FIX.md |
 | WR-08 | warning | fixed | 02-REVIEW-FIX.md |
 | IN-01 | info | open | - |
 | IN-02 | info | open | - |
