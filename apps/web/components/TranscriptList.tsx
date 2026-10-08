@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Segment } from "@shadowenglab/contracts";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { translateSegment } from "@/lib/api";
 import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
+import { patchLessonSegment } from "@/lib/segmentCache";
 import { cn } from "@/lib/utils";
 
 /** `mm:ss` của thời điểm bắt đầu câu. */
@@ -16,6 +25,95 @@ function formatMmSs(seconds: number): string {
 const GROUP_LABEL_CLASS =
   "text-xs font-bold uppercase tracking-[0.06em] text-[color:var(--slate-9)]";
 
+const TRANSLATING_TEXT = "Đang dịch…";
+const TRANSLATE_FAILED_TEXT = "Không dịch được câu này. Bấm Dịch để thử lại.";
+const NEEDS_KEY_TEXT = "Cần OPENAI_API_KEY";
+
+export type TranslationRowStatus = "idle" | "loading" | "failed";
+
+/** Trạng thái bản dịch cho TranscriptList; `toggle` dùng chung cho nút `Dịch` và phím T. */
+export interface TranslationTool {
+  on: boolean;
+  /** Không có key và câu hiện tại chưa có bản dịch lưu sẵn: nút khoá (D-16). */
+  blocked: boolean;
+  toggle: () => void;
+  statusOf: (segmentIndex: number) => TranslationRowStatus;
+}
+
+interface UseTranslationToolOptions {
+  lessonId: string;
+  /** Câu đang tập. */
+  segment: Segment | undefined;
+  hasKey: boolean;
+}
+
+/**
+ * Bật tắt dòng dịch (D-16). Khi bật, câu hiện tại chưa có bản dịch sẽ được dịch đúng một lần
+ * (POST …/translate), kết quả ghi vào cache của bài; bản dịch đã lưu hiện được cả khi không có key.
+ * Một câu chỉ có một yêu cầu đang chạy; lỗi thì chờ người dùng bấm `Dịch` để thử lại.
+ */
+export function useTranslationTool({
+  lessonId,
+  segment,
+  hasKey,
+}: UseTranslationToolOptions): TranslationTool {
+  const queryClient = useQueryClient();
+  const [on, setOn] = useState(false);
+  const [failedIndex, setFailedIndex] = useState<number | null>(null);
+  const [pending, setPending] = useState<ReadonlySet<number>>(new Set());
+  const inFlight = useRef(new Set<number>());
+
+  const { mutate } = useMutation({
+    mutationFn: (segmentIndex: number) =>
+      translateSegment(lessonId, segmentIndex),
+    onSuccess: (updated) => patchLessonSegment(queryClient, lessonId, updated),
+    onError: (_error, segmentIndex) => setFailedIndex(segmentIndex),
+    onSettled: (_data, _error, segmentIndex) => {
+      inFlight.current.delete(segmentIndex);
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(segmentIndex);
+        return next;
+      });
+    },
+  });
+
+  const segmentIndex = segment?.index;
+  const hasTranslation = Boolean(segment?.translation);
+  const blocked = !hasKey && !hasTranslation;
+
+  useEffect(() => {
+    if (!on || segmentIndex === undefined || hasTranslation || !hasKey) return;
+    if (failedIndex === segmentIndex || inFlight.current.has(segmentIndex)) {
+      return;
+    }
+    inFlight.current.add(segmentIndex);
+    setPending((prev) => new Set(prev).add(segmentIndex));
+    mutate(segmentIndex);
+  }, [on, segmentIndex, hasTranslation, hasKey, failedIndex, mutate]);
+
+  const toggle = useCallback(() => {
+    if (on && segmentIndex !== undefined && failedIndex === segmentIndex) {
+      setFailedIndex(null); // thử lại
+      return;
+    }
+    if (!on && blocked) return;
+    if (!on) setFailedIndex(null);
+    setOn((prev) => !prev);
+  }, [on, blocked, segmentIndex, failedIndex]);
+
+  const statusOf = useCallback(
+    (index: number): TranslationRowStatus => {
+      if (pending.has(index)) return "loading";
+      if (failedIndex === index) return "failed";
+      return "idle";
+    },
+    [pending, failedIndex],
+  );
+
+  return { on, blocked: blocked && !on, toggle, statusOf };
+}
+
 interface TranscriptListProps {
   segments: readonly Segment[];
   /** Chỉ số (từ 0) của câu đang tập. */
@@ -24,8 +122,8 @@ interface TranscriptListProps {
   practiced: ReadonlySet<number>;
   /** Chọn câu: dừng phát và đưa câu đó thành câu hiện tại. */
   onSelect: (index: number) => void;
-  /** Chỗ cho nút `Dịch` / `Sửa câu` (02-18 điền vào). */
-  toolbar?: ReactNode;
+  /** Bản dịch theo câu (nút `Dịch`, phím T). */
+  translation: TranslationTool;
 }
 
 /** Danh sách câu của S3, cuộn bên trong aside; hàng hiện tại tự cuộn vào khung nhìn. */
@@ -34,9 +132,10 @@ export function TranscriptList({
   currentIndex,
   practiced,
   onSelect,
-  toolbar,
+  translation,
 }: TranscriptListProps) {
   const currentRef = useRef<HTMLButtonElement>(null);
+  const current = segments[currentIndex];
 
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
@@ -51,8 +150,40 @@ export function TranscriptList({
         <span className={GROUP_LABEL_CLASS}>
           Transcript · {segments.length} câu
         </span>
-        {toolbar ? <span className="flex gap-1">{toolbar}</span> : null}
+        <span className="flex gap-1">
+          <Tooltip>
+            {/* Button không forwardRef (React 18): span làm trigger, focus của nút nổi lên span. */}
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  kbd="T"
+                  aria-pressed={translation.on}
+                  aria-disabled={translation.blocked ? "true" : undefined}
+                  onPointerUp={
+                    translation.blocked ? undefined : releaseFocusOnPointerUp
+                  }
+                  onClick={translation.toggle}
+                  className={cn(
+                    "px-3 text-[13px] aria-pressed:bg-[color:var(--slate-4)]",
+                    translation.blocked && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  Dịch
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {translation.blocked ? (
+              <TooltipContent>{NEEDS_KEY_TEXT}</TooltipContent>
+            ) : null}
+          </Tooltip>
+        </span>
       </div>
+      <span role="status" className="sr-only">
+        {translation.on && current
+          ? currentStatusText(current, translation.statusOf(current.index))
+          : ""}
+      </span>
       <ol className="m-0 flex min-h-0 flex-1 list-none flex-col overflow-y-auto p-0 py-2">
         {segments.map((segment, index) => {
           const isCurrent = index === currentIndex;
@@ -87,7 +218,16 @@ export function TranscriptList({
                 >
                   {formatMmSs(segment.start)}
                 </span>
-                <span>{segment.text}</span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span>{segment.text}</span>
+                  {translation.on ? (
+                    <TranslationLine
+                      segment={segment}
+                      isCurrent={isCurrent}
+                      status={translation.statusOf(segment.index)}
+                    />
+                  ) : null}
+                </span>
                 <span className="flex justify-end pt-1.5">
                   {isPracticed ? (
                     <>
@@ -105,6 +245,39 @@ export function TranscriptList({
         })}
       </ol>
     </section>
+  );
+}
+
+function currentStatusText(
+  segment: Segment,
+  status: TranslationRowStatus,
+): string {
+  if (segment.translation) return "";
+  if (status === "loading") return TRANSLATING_TEXT;
+  if (status === "failed") return TRANSLATE_FAILED_TEXT;
+  return "";
+}
+
+/** Dòng dịch 13px dưới chữ của hàng (UI-SPEC E8 partial, E12). Chỉ hàng hiện tại hiện đang dịch / lỗi. */
+function TranslationLine({
+  segment,
+  isCurrent,
+  status,
+}: {
+  segment: Segment;
+  isCurrent: boolean;
+  status: TranslationRowStatus;
+}) {
+  const text = segment.translation
+    ? segment.translation
+    : isCurrent
+      ? currentStatusText(segment, status)
+      : "";
+  if (!text) return null;
+  return (
+    <span className="break-words text-[13px] font-normal leading-[1.4] text-muted-foreground">
+      {text}
+    </span>
   );
 }
 

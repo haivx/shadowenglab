@@ -21,6 +21,7 @@ import { SpokenIpa } from "@/components/SpokenIpa";
 import {
   TranscriptList,
   TranscriptListSkeleton,
+  useTranslationTool,
 } from "@/components/TranscriptList";
 import { VideoPane } from "@/components/VideoPane";
 import {
@@ -55,6 +56,7 @@ import {
   useLesson,
   useLessonProgress,
   useSettings,
+  useSystemStatus,
 } from "@/lib/queries";
 
 type SessionDefaults = Pick<
@@ -283,21 +285,28 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     [progress],
   );
 
-  // IPA bật tắt bằng nút hoặc phím I; chỉ là state UI, không đi vào machine.
-  const [ipaOn, setIpaOn] = useState(false);
-  const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
-  const onToggle = useCallback(
-    (toggle: ShortcutToggle) => {
-      if (toggle.type === "TOGGLE_IPA") toggleIpa();
-    },
-    [toggleIpa],
-  );
-
-  useShortcuts(actorRef, { videoReady, onToggle });
-
   const { context } = snapshot;
   const index = context.segmentIndex;
   const top = topLevelState(snapshot.value);
+
+  // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine.
+  const [ipaOn, setIpaOn] = useState(false);
+  const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
+  const systemStatus = useSystemStatus();
+  const translation = useTranslationTool({
+    lessonId: lesson.id,
+    segment: lesson.segments[index],
+    hasKey: systemStatus.data?.hasKey ?? false,
+  });
+  const toggleTranslation = translation.toggle;
+  const onToggle = useCallback(
+    (toggle: ShortcutToggle) => {
+      if (toggle.type === "TOGGLE_IPA") toggleIpa();
+      else toggleTranslation();
+    },
+    [toggleIpa, toggleTranslation],
+  );
+  useShortcuts(actorRef, { videoReady, onToggle });
 
   // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
   // Tải lên thất bại (scoring -> error): toast bền với `Thử lại`; rời error thì tắt toast (REC-03).
@@ -396,6 +405,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             currentIndex={index}
             practiced={practiced}
             onSelect={(next) => actorRef.send({ type: "GOTO", index: next })}
+            translation={translation}
           />
         </aside>
         <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-8 px-12 pb-10 pt-9 min-[1160px]:overflow-y-auto">
