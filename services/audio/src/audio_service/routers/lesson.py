@@ -25,6 +25,28 @@ router = APIRouter(prefix="/lessons", tags=["lesson"])
 _create_lock = threading.Lock()
 
 
+def _find_duplicate(
+    video_id: str, start: float, end: float, *, exclude_id: str | None = None
+) -> str | None:
+    """Id bài không-lỗi cùng video và cùng khoảng (trừ `exclude_id`). Gọi khi đang giữ khoá."""
+    for existing in store.iter_lessons():
+        if (
+            existing.id != exclude_id
+            and existing.video_id == video_id
+            and existing.status != "failed"
+            and existing.range.start == start
+            and existing.range.end == end
+        ):
+            return existing.id
+    return None
+
+
+def _duplicate_error(lesson_id: str) -> ApiErrorException:
+    return ApiErrorException(
+        409, "duplicate_lesson", "Bạn đã có bài cho đoạn này của video.", lesson_id=lesson_id
+    )
+
+
 def _runner(request: Request) -> JobRunner:
     runner: JobRunner = request.app.state.runner
     return runner
@@ -64,19 +86,9 @@ def create_lesson(body: CreateLessonRequest, request: Request) -> Lesson:
         raise ApiErrorException(422, "invalid_range", "Khoảng thời gian không hợp lệ.") from None
 
     with _create_lock:
-        for existing in store.iter_lessons():
-            if (
-                existing.video_id == video_id
-                and existing.status != "failed"
-                and existing.range.start == start
-                and existing.range.end == end
-            ):
-                raise ApiErrorException(
-                    409,
-                    "duplicate_lesson",
-                    "Bạn đã có bài cho đoạn này của video.",
-                    lesson_id=existing.id,
-                )
+        duplicate_id = _find_duplicate(video_id, start, end)
+        if duplicate_id is not None:
+            raise _duplicate_error(duplicate_id)
         lesson = pipeline.create_lesson(body.url, start=start, end=end, deps=deps, info=info)
     runner = _runner(request)
     runner.submit(lesson.id)
@@ -88,7 +100,20 @@ def create_lesson(body: CreateLessonRequest, request: Request) -> Lesson:
 )
 def retry(lesson_id: str, request: Request) -> Lesson:
     try:
-        return retry_lesson(lesson_id, _runner(request))
+        # Cùng khoá với POST /lessons: thử lại một bài lỗi không được tạo ra bản trùng với bài
+        # không-lỗi đã có (hoặc vừa được tạo) cho cùng video + khoảng.
+        with _create_lock:
+            current = store.load_lesson(lesson_id)
+            if current.status == "failed":
+                duplicate_id = _find_duplicate(
+                    current.video_id,
+                    current.range.start,
+                    current.range.end,
+                    exclude_id=current.id,
+                )
+                if duplicate_id is not None:
+                    raise _duplicate_error(duplicate_id)
+            return retry_lesson(lesson_id, _runner(request))
     except (InvalidIdError, FileNotFoundError):
         raise ApiErrorException(404, "not_found", "Không tìm thấy bài này.") from None
     except InvalidState:

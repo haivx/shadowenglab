@@ -328,6 +328,30 @@ def test_post_retry_reruns_a_failed_lesson_to_ready_with_the_same_id(data_dir: P
     assert "error" not in final and len(final["segments"]) == 2
 
 
+def test_post_retry_is_409_duplicate_when_a_non_failed_lesson_has_the_same_video_and_range(
+    data_dir: Path,
+) -> None:
+    fakes = Fakes()
+    fakes.download_error = ConnectionError("offline")
+    with TestClient(create_app(deps=fakes.deps()), base_url="http://127.0.0.1") as client:
+        old = client.post("/lessons", json={"url": URL}).json()
+        wait_for_status(client, old["id"], {"failed"})
+
+        # Bài lỗi không tính là trùng nên tạo lại cùng link + khoảng được.
+        fakes.download_error = None
+        new = client.post("/lessons", json={"url": URL})
+        assert new.status_code == 201
+        wait_for_status(client, new.json()["id"], {"ready", "failed"})
+
+        res = client.post(f"/lessons/{old['id']}/retry")
+        still_failed = client.get(f"/lessons/{old['id']}").json()
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "duplicate_lesson"
+    assert res.json()["lessonId"] == new.json()["id"]
+    assert still_failed["status"] == "failed"
+
+
 # --- gián đoạn khi khởi động (D-03) ---------------------------------------------------------
 
 
