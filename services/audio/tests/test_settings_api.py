@@ -124,6 +124,23 @@ def test_put_saves_and_get_returns_it(client: TestClient, data_dir: Path) -> Non
     assert client.get("/settings").json() == body
 
 
+def test_stale_saved_data_dir_is_reported_as_the_active_one_so_put_back_succeeds(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    gone = tmp_path / "unplugged-drive"
+    gone.mkdir()
+    assert client.put("/settings", json=valid_body(gone)).status_code == 200
+    gone.rmdir()  # ổ ngoài bị rút ra
+
+    current = client.get("/settings").json()
+    assert current["dataDir"] == str(data_dir)
+
+    # UI gửi lại nguyên object khi đổi một giá trị luyện tập: không được 422 vì dataDir cũ.
+    res = client.put("/settings", json={**current, "repeat": 3})
+    assert res.status_code == 200
+    assert res.json()["repeat"] == 3
+
+
 def test_put_writes_atomically_without_leftovers(client: TestClient, data_dir: Path) -> None:
     client.put("/settings", json=valid_body(data_dir))
     client.put("/settings", json=valid_body(data_dir, repeat=3))

@@ -39,7 +39,10 @@ def default_settings() -> AppSettings:
 
 
 def read_settings() -> AppSettings:
-    """Cài đặt đã lưu; thiếu/hỏng/sai contract -> mặc định (có log, không log nội dung file)."""
+    """Cài đặt đã lưu; thiếu/hỏng/sai contract -> mặc định (có log, không log nội dung file).
+
+    `dataDir` đã lưu mà không còn là thư mục -> thay bằng thư mục đang dùng.
+    """
     path = settings_file_path()
     try:
         raw = path.read_text(encoding="utf-8")
@@ -49,10 +52,17 @@ def read_settings() -> AppSettings:
         logger.warning("không đọc được settings.json, dùng mặc định")
         return default_settings()
     try:
-        return AppSettings.model_validate(json.loads(raw))
+        parsed = AppSettings.model_validate(json.loads(raw))
     except (ValueError, ValidationError):
         logger.warning("settings.json hỏng hoặc sai contract, dùng mặc định")
         return default_settings()
+    if not Path(parsed.data_dir).is_dir():
+        # Cùng quy tắc với config._saved_data_dir lúc khởi động: thư mục đã lưu không còn (ổ
+        # ngoài rút ra...) thì báo thư mục đang dùng. Nếu không, UI PUT lại đúng đường dẫn cũ
+        # và mọi lần lưu cài đặt luyện tập đều 422.
+        logger.warning("dataDir đã lưu không còn là thư mục, báo thư mục đang dùng")
+        parsed = parsed.model_copy(update={"data_dir": str(data_root())})
+    return parsed
 
 
 def validate_data_dir(value: str) -> Path:
