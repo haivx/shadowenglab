@@ -217,7 +217,7 @@ def test_validation_error_does_not_echo_the_input(client: TestClient) -> None:
     assert res.json()["code"] == "invalid_request"
 
 
-@pytest.mark.parametrize("name", ["segments", "translate"])
+@pytest.mark.parametrize("name", ["segments"])
 def test_p1_router_shells_exist_and_are_mounted_empty(client: TestClient, name: str) -> None:
     import importlib
 

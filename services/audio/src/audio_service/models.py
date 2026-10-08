@@ -23,3 +23,8 @@ PPG_ALLOW_PATTERNS = (
 # D-23: tách giọng. demucs 4.1.0 lấy trọng số từ repo HF `adefossez/HTDemucs`.
 DEMUCS_MODEL = "htdemucs"
 DEMUCS_HF_REPO = "adefossez/HTDemucs"
+
+# D-23: dịch câu sang tiếng Việt (OpenAI Responses API qua httpx, chỉ gửi text, plan 02-16).
+# Liam chọn ngày 2026-10-08 ("recommended"): gpt-6-luna, gửi với `reasoning.effort: "none"`.
+# Đổi id này cần Liam duyệt (CLAUDE.md); không module nào khác được hard-code id model.
+TRANSLATE_MODEL = "gpt-6-luna"
