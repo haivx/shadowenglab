@@ -136,6 +136,9 @@ def _video_lock(video_id: str) -> threading.RLock:
         return lock
 
 
+video_lock = _video_lock  # tên công khai cho pipeline.stage_download (khoá bước tách audio)
+
+
 def probe_video_codec(path: Path) -> str:
     """Tên codec của luồng video đầu tiên (`h264`, `av1`, `vp9`, ...). argv list, không shell."""
     cmd = [

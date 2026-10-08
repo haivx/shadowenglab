@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import math
+import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -412,6 +414,44 @@ def test_partial_cache_without_stems_still_separates(data_dir: Path) -> None:
     assert "separate" in second.calls
     assert "download_video" not in second.calls
     assert "extract_audio" not in second.calls
+
+
+class _SlowExtractFakes(Fakes):
+    """extract_audio chậm để hai bài cùng video chắc chắn chồng lên nhau nếu không có khoá."""
+
+    def extract_audio(self, video_path: Path, wav_path: Path) -> None:
+        time.sleep(0.2)
+        super().extract_audio(video_path, wav_path)
+
+
+def test_two_lessons_of_one_video_extract_the_audio_once(data_dir: Path) -> None:
+    # Phát hiện ở `make smoke-jobs` (02-19): hai bài cùng video tải song song; bài thứ hai thoát
+    # khoá tải ngay khi bài đầu tải xong, rồi cả hai cùng chạy ffmpeg ghi chung `audio.wav.part`
+    # và bài chậm hơn lỗi FileNotFoundError ở os.replace.
+    fakes = _SlowExtractFakes()
+    deps = fakes.deps()
+    lesson_ids = [create_lesson(URL, start=0, end=6, deps=deps).id for _ in range(2)]
+    start = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def run(lesson_id: str) -> None:
+        start.wait()
+        try:
+            stage_download(lesson_id, deps=deps)
+        except BaseException as exc:  # noqa: BLE001 - thu mọi lỗi để assert ở thread chính
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=(lesson_id,)) for lesson_id in lesson_ids]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == []
+    assert fakes.calls.count("extract_audio") == 1
+    for lesson_id in lesson_ids:
+        raw = json.loads(lesson_json_path(lesson_id).read_text(encoding="utf-8"))
+        assert raw["status"] == "queued"
 
 
 # --- tách giọng theo đoạn đã chọn (D-19, LES-02) ---------------------------------------------

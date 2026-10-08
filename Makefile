@@ -7,7 +7,7 @@ START ?=
 END ?=
 BUDGET ?=
 
-.PHONY: setup dev dev-api dev-web dev-eval test lint eval smoke contracts contracts-check
+.PHONY: setup dev dev-api dev-web dev-eval test lint eval smoke smoke-jobs contracts contracts-check
 
 # Kiểm tra system dependency (chỉ hướng dẫn, D-25), cài từ lockfile đã duyệt, tải/kiểm tra model.
 setup:
@@ -50,6 +50,10 @@ eval:
 # Chạy pipeline tạo bài trên video smoke (hoặc URL=...). START/END/BUDGET là tuỳ chọn.
 smoke:
 	uv run --project services/audio --frozen python scripts/smoke_lesson.py "$(URL)" $(if $(START),--start $(START)) $(if $(END),--end $(END)) $(if $(BUDGET),--budget-s $(BUDGET))
+
+# Hai bài tạo liên tiếp qua API thật trên DATA_DIR tạm, không OPENAI_API_KEY (Phase 2, tiêu chí 2 và 4).
+smoke-jobs:
+	uv run --project services/audio --frozen python scripts/smoke_jobs.py "$(URL)"
 
 contracts:
 	sh scripts/contracts_gen.sh
