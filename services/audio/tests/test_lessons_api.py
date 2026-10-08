@@ -59,10 +59,17 @@ class Fakes:
     """Stage giả tối thiểu; `duration` là độ dài video báo cho API, audio thật luôn 12 s."""
 
     def __init__(
-        self, *, duration: float = AUDIO_SECONDS, fetch_error: Exception | None = None
+        self,
+        *,
+        duration: float = AUDIO_SECONDS,
+        fetch_error: Exception | None = None,
+        live_status: str | None = None,
+        availability: str | None = None,
     ) -> None:
         self.duration = duration
         self.fetch_error = fetch_error
+        self.live_status = live_status
+        self.availability = availability
         self.download_error: Exception | None = None
 
     def deps(self) -> PipelineDeps:
@@ -82,7 +89,14 @@ class Fakes:
     def fetch_info(self, video_id: str) -> VideoInfo:
         if self.fetch_error is not None:
             raise self.fetch_error
-        return VideoInfo(video_id, "Fake title", self.duration, None)
+        return VideoInfo(
+            video_id,
+            "Fake title",
+            self.duration,
+            None,
+            live_status=self.live_status,
+            availability=self.availability,
+        )
 
     def download_video(self, video_id: str) -> Path:
         if self.download_error is not None:
@@ -174,6 +188,30 @@ def test_invalid_url_is_400_api_error_and_creates_nothing(data_dir: Path) -> Non
     error = ApiError.model_validate(res.json())
     assert error.code == "invalid_url"
     assert "lessonId" not in res.json()
+    assert not (data_dir / "lessons").exists()
+
+
+@pytest.mark.parametrize("live_status", ["is_live", "is_upcoming"])
+def test_post_lessons_live_video_is_422_live_video_and_creates_nothing(
+    data_dir: Path, live_status: str
+) -> None:
+    with make_client(Fakes(duration=0.0, live_status=live_status)) as client:
+        res = client.post("/lessons", json={"url": URL})
+
+    assert res.status_code == 422
+    assert ApiError.model_validate(res.json()).code == "live_video"
+    assert not (data_dir / "lessons").exists()
+
+
+@pytest.mark.parametrize("availability", ["private", "needs_auth", "subscriber_only"])
+def test_post_lessons_restricted_video_is_404_video_unavailable_and_creates_nothing(
+    data_dir: Path, availability: str
+) -> None:
+    with make_client(Fakes(availability=availability)) as client:
+        res = client.post("/lessons", json={"url": URL})
+
+    assert res.status_code == 404
+    assert ApiError.model_validate(res.json()).code == "video_unavailable"
     assert not (data_dir / "lessons").exists()
 
 

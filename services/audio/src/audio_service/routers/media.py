@@ -48,6 +48,14 @@ UPSTREAM_MESSAGE = "Không lấy được thông tin video lúc này. Hãy thử
 _OPEN_AVAILABILITY = frozenset({None, "public", "unlisted"})
 
 
+def ensure_video_usable(info: VideoInfo) -> None:
+    """Từ chối livestream/sắp phát và video không xem được. Dùng chung cho preview và tạo bài."""
+    if info.live_status in LIVE_STATUSES:
+        raise ApiErrorException(422, "live_video", VIDEO_UNAVAILABLE_MESSAGE)
+    if info.availability not in _OPEN_AVAILABILITY:
+        raise ApiErrorException(404, "video_unavailable", VIDEO_UNAVAILABLE_MESSAGE)
+
+
 def _existing_lesson_id(info: VideoInfo) -> str | None:
     """Bài không-lỗi cùng videoId và cùng khoảng mặc định (02-01 mục F, Open Q10)."""
     start, end = pipeline.default_range(info.duration_sec)
@@ -80,10 +88,7 @@ def preview_video(request: Request, url: str = Query(max_length=MAX_URL_LEN)) ->
         logger.exception("fetch_info lỗi cho video %s", video_id)
         raise ApiErrorException(502, "upstream_error", UPSTREAM_MESSAGE) from None
 
-    if info.live_status in LIVE_STATUSES:
-        raise ApiErrorException(422, "live_video", VIDEO_UNAVAILABLE_MESSAGE)
-    if info.availability not in _OPEN_AVAILABILITY:
-        raise ApiErrorException(404, "video_unavailable", VIDEO_UNAVAILABLE_MESSAGE)
+    ensure_video_usable(info)
 
     payload: dict[str, object] = {
         "videoId": info.video_id,

@@ -15,6 +15,7 @@ from audio_service.errors import ApiErrorException
 from audio_service.lesson import pipeline, store
 from audio_service.lesson.jobs import InvalidState, JobRunner, retry_lesson
 from audio_service.lesson.urls import InvalidYoutubeUrl, parse_youtube_url
+from audio_service.routers.media import ensure_video_usable
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ def create_lesson(body: CreateLessonRequest, request: Request) -> Lesson:
         raise ApiErrorException(
             502, "upstream_error", "Không lấy được thông tin video lúc này. Hãy thử lại."
         ) from None
+
+    # Livestream có duration 0 (sẽ ra invalid_range sai nghĩa); video riêng tư sẽ hỏng ở bước tải.
+    ensure_video_usable(info)
 
     try:
         start, end = pipeline.resolve_range(
