@@ -286,6 +286,8 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const [videoReady, setVideoReady] = useState(false);
   // Lượt đã lưu clip cho eval trong phiên này, khoá `câu:lượt` (REC-04).
   const [savedClips, setSavedClips] = useState<ReadonlySet<string>>(new Set());
+  // `So sánh ngữ điệu` mở/đóng: giữ khi chuyển câu trong phiên, không lưu (P3-G2).
+  const [chartOpen, setChartOpen] = useState(false);
 
   const practiced = useMemo(
     () =>
@@ -500,6 +502,8 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
               ipaOn={ipaOn}
               blob={scored.blob}
+              chartOpen={chartOpen}
+              onChartOpenChange={setChartOpen}
               saved={savedClips.has(`${index}:${scored.attempt}`)}
               onSaved={() => {
                 const key = `${index}:${scored.attempt}`;
