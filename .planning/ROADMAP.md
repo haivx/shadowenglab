@@ -133,7 +133,7 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans:** 9/11 plans executed
+**Plans:** 10/11 plans executed
 **UI hint**: yes
 
 Plans:
@@ -155,7 +155,7 @@ Plans:
 - [x] 03-09-PLAN.md — Chấm màu danh sách câu và thanh tiến độ theo lượt tốt nhất (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 03-10-PLAN.md — AttemptStrip: chip lượt, lượt tốt nhất, xem lượt cũ, M/B theo lượt đang xem (wave 5)
+- [x] 03-10-PLAN.md — AttemptStrip: chip lượt, lượt tốt nhất, xem lượt cũ, M/B theo lượt đang xem (wave 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 - [ ] 03-11-PLAN.md — make smoke-score trên bài thật, ADR 0006, CLAUDE.md, cổng cuối phase + UAT (wave 6)
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
-| 3. P2 · Chấm ngữ điệu | 9/11 | In Progress | - |
+| 3. P2 · Chấm ngữ điệu | 10/11 | In Progress | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
