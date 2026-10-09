@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ChartLine, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import type { ScoreResult, Segment } from "@shadowenglab/contracts";
 import { IntonationChart } from "@/components/IntonationChart";
 import { ScoreHero } from "@/components/ScoreHero";
 import { SpokenIpa } from "@/components/SpokenIpa";
+import { TipList } from "@/components/TipList";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -59,6 +61,9 @@ export function ResultPanel({
   chartOpen,
   onChartOpenChange,
 }: ResultPanelProps) {
+  // Gợi ý đang hover / focus: state cục bộ của panel, không nằm trong machine (key theo lượt sẽ reset).
+  const [, setHoveredTip] = useState<number | null>(null);
+
   const save = useMutation({
     mutationFn: () => {
       if (!blob) throw new Error("Không có bản ghi để lưu");
@@ -153,6 +158,15 @@ export function ResultPanel({
       </Collapsible>
 
       <div className="flex flex-col gap-[14px]">
+        {result.tips.length >= 1 ? (
+          <div className="border-t border-border pt-6">
+            <TipList
+              tips={result.tips}
+              issues={result.issues}
+              onHoverTip={setHoveredTip}
+            />
+          </div>
+        ) : null}
         {note ? (
           <div className="border-t border-border pt-6">
             {note.kind === "praise" ? (
