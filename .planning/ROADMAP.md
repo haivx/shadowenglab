@@ -133,7 +133,7 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans:** 4/11 plans executed
+**Plans:** 7/11 plans executed
 **UI hint**: yes
 
 Plans:
@@ -146,9 +146,9 @@ Plans:
 - [x] 03-04-PLAN.md — Web tracer: lượt ghi → ScoreResult, no_speech, ScoreHero + scoreLevel, trạng thái đang chấm, khen/trung tính (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 03-05-PLAN.md — API + SQLite v2: POST trả ScoreResult, cache sidecar ngữ điệu, danh sách/chi tiết lượt, điểm tốt nhất (wave 3)
-- [ ] 03-06-PLAN.md — Prominence/ngắt + rule engine Lớp C (5 mã, cổng chắc chắn) + tip template (wave 3)
-- [ ] 03-07-PLAN.md — IntonationChart (Recharts) sau nút "So sánh ngữ điệu" (wave 3)
+- [x] 03-05-PLAN.md — API + SQLite v2: POST trả ScoreResult, cache sidecar ngữ điệu, danh sách/chi tiết lượt, điểm tốt nhất (wave 3)
+- [x] 03-06-PLAN.md — Prominence/ngắt + rule engine Lớp C (5 mã, cổng chắc chắn) + tip template (wave 3)
+- [x] 03-07-PLAN.md — IntonationChart (Recharts) sau nút "So sánh ngữ điệu" (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 03-08-PLAN.md — TipList + hover/focus highlight từ trong câu và biểu đồ (wave 4)
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
-| 3. P2 · Chấm ngữ điệu | 4/11 | In Progress | - |
+| 3. P2 · Chấm ngữ điệu | 7/11 | In Progress | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
