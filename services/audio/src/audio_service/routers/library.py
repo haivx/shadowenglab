@@ -26,6 +26,19 @@ def _summary(lesson: Lesson) -> LessonSummary:
     return LessonSummary.model_validate(payload)
 
 
+def _segment_progress(row: db.SegmentProgressRow) -> dict[str, object]:
+    """SegmentProgress; `bestOverall`/`bestAttempt` chỉ có khi câu có >= 1 lượt đã chấm (D-11)."""
+    item: dict[str, object] = {
+        "segmentIndex": row.segment_index,
+        "attempts": row.attempts,
+        "voicedAttempts": row.voiced_attempts,
+    }
+    if row.best_overall is not None and row.best_attempt is not None:
+        item["bestOverall"] = row.best_overall
+        item["bestAttempt"] = row.best_attempt
+    return item
+
+
 @router.get("/lessons", response_model=list[LessonListItem], response_model_exclude_unset=True)
 def list_lessons() -> list[LessonListItem]:
     lessons = sorted(store.iter_lessons(), key=lambda lesson: (lesson.created_at, lesson.id))
@@ -65,14 +78,7 @@ def lesson_progress(lesson_id: str) -> LessonProgress:
     return LessonProgress.model_validate(
         {
             "lessonId": lesson_id,
-            "segments": [
-                {
-                    "segmentIndex": row.segment_index,
-                    "attempts": row.attempts,
-                    "voicedAttempts": row.voiced_attempts,
-                }
-                for row in rows
-            ],
+            "segments": [_segment_progress(row) for row in rows],
             "firstUnpracticedIndex": db.first_unpracticed_index(len(lesson.segments), practiced),
         }
     )

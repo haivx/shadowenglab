@@ -67,6 +67,15 @@ class SegmentProgressRow:
     segment_index: int
     attempts: int
     voiced_attempts: int
+    best_overall: float | None = None
+    best_attempt: int | None = None
+
+
+@dataclass(frozen=True)
+class AttemptSummaryRow:
+    attempt: int
+    overall: float
+    created_at: str
 
 
 def _now_iso() -> str:
@@ -226,7 +235,7 @@ def insert_scored_attempt(
                     scores.overall,
                     scores.intonation,
                     scores.rhythm,
-                    scores.sound,
+                    None if scores.sound is None else scores.sound.root,
                     result.model_dump_json(by_alias=True, exclude_unset=True),
                 ),
             )
@@ -271,20 +280,67 @@ def get_attempt(lesson_id: str, segment_index: int, attempt: int) -> AttemptRow 
     )
 
 
-def segment_progress(lesson_id: str) -> list[SegmentProgressRow]:
-    """Chỉ các câu đã có >= 1 lượt: số lượt (mọi upload) và số lượt voiced, theo segment_index."""
+def list_scored_attempts(lesson_id: str, segment_index: int) -> list[AttemptSummaryRow]:
+    """Các lượt đã chấm (có `overall`) của một câu, `attempt` tăng dần (03-01 mục A4)."""
     _check_lesson_id(lesson_id)
     with connection() as conn:
         rows = conn.execute(
-            "SELECT segment_index, COUNT(*) AS attempts, SUM(voiced) AS voiced_attempts "
-            "FROM attempts WHERE lesson_id = ? GROUP BY segment_index ORDER BY segment_index",
-            (lesson_id,),
+            "SELECT attempt, overall, created_at FROM attempts "
+            "WHERE lesson_id = ? AND segment_index = ? AND overall IS NOT NULL "
+            "ORDER BY attempt",
+            (lesson_id, segment_index),
         ).fetchall()
+    return [
+        AttemptSummaryRow(
+            attempt=row["attempt"], overall=row["overall"], created_at=row["created_at"]
+        )
+        for row in rows
+    ]
+
+
+def get_attempt_result_json(lesson_id: str, segment_index: int, attempt: int) -> str | None:
+    """`result_json` đã lưu; None khi lượt không tồn tại hoặc chưa chấm (NULL)."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT result_json FROM attempts "
+            "WHERE lesson_id = ? AND segment_index = ? AND attempt = ?",
+            (lesson_id, segment_index, attempt),
+        ).fetchone()
+    return None if row is None else row["result_json"]
+
+
+# Điểm tốt nhất mỗi câu (D-11): overall cao nhất, hoà thì lượt sau. Câu chỉ có lượt P1/no_speech
+# (overall NULL) không có dòng ở `best`, nên LEFT JOIN trả NULL.
+_PROGRESS_SQL = """
+WITH counts AS (
+    SELECT segment_index, COUNT(*) AS attempts, SUM(voiced) AS voiced_attempts
+    FROM attempts WHERE lesson_id = ? GROUP BY segment_index
+), ranked AS (
+    SELECT segment_index, attempt, overall,
+        ROW_NUMBER() OVER (PARTITION BY segment_index ORDER BY overall DESC, attempt DESC) AS rn
+    FROM attempts WHERE lesson_id = ? AND overall IS NOT NULL
+)
+SELECT c.segment_index, c.attempts, c.voiced_attempts,
+    r.overall AS best_overall, r.attempt AS best_attempt
+FROM counts AS c
+LEFT JOIN ranked AS r ON r.segment_index = c.segment_index AND r.rn = 1
+ORDER BY c.segment_index
+"""
+
+
+def segment_progress(lesson_id: str) -> list[SegmentProgressRow]:
+    """Chỉ các câu đã có >= 1 lượt: số lượt, số lượt voiced và lượt chấm tốt nhất, theo câu."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        rows = conn.execute(_PROGRESS_SQL, (lesson_id, lesson_id)).fetchall()
     return [
         SegmentProgressRow(
             segment_index=row["segment_index"],
             attempts=row["attempts"],
             voiced_attempts=row["voiced_attempts"],
+            best_overall=row["best_overall"],
+            best_attempt=row["best_attempt"],
         )
         for row in rows
     ]

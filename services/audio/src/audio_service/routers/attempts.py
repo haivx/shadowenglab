@@ -30,7 +30,7 @@ from starlette.types import Message
 from audio_service import db
 from audio_service.config import InvalidIdError, eval_clips_dir, tmp_dir
 from audio_service.contract_io import write_json_atomic
-from audio_service.contracts_gen import AttemptAck, Lesson, ScoreResult
+from audio_service.contracts_gen import AttemptAck, AttemptSummary, Lesson, ScoreResult
 from audio_service.errors import ApiErrorException
 from audio_service.lesson import audio_io, normalize, pipeline, store, vad
 from audio_service.scoring.features import prepare_features
@@ -44,6 +44,9 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_BODY_BYTES = MAX_UPLOAD_BYTES + CHUNK_BYTES  # chừa phần khung multipart quanh file
 MAX_RECORDING_MS = 60_000
 NO_SPEECH_MESSAGE = "Không nghe thấy tiếng nói trong lượt vừa rồi."  # 03-01 mục A1
+ATTEMPT_NOT_FOUND_MESSAGE = "Không tìm thấy kết quả của lượt này."  # 03-01 mục A5
+ATTEMPT_CORRUPT_MESSAGE = "Kết quả của lượt này bị hỏng."  # 03-01 mục A5
+MAX_ATTEMPT_NUMBER = 9_007_199_254_740_991  # Number.MAX_SAFE_INTEGER, như contract
 
 
 def _too_large() -> ApiErrorException:
@@ -216,6 +219,8 @@ def create_attempt(
         wav, duration_ms, voiced, mono = _normalize(audio, workdir)
         timing: dict[str, float] = {"normalize": _ms_since(started)}
         if not voiced:
+            # C1: lượt không có tiếng vẫn nhận một số lượt (voiced = 0, điểm NULL), như P1.
+            db.insert_attempt(lesson.id, index, duration_ms=duration_ms, voiced=False)
             raise ApiErrorException(422, "no_speech", NO_SPEECH_MESSAGE)
 
         started = time.perf_counter()
@@ -265,6 +270,46 @@ def create_attempt(
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
     return result
+
+
+@router.get(
+    "/lessons/{lesson_id}/segments/{index}/attempts",
+    response_model=list[AttemptSummary],
+)
+def list_attempts(lesson_id: str, index: int) -> list[AttemptSummary]:
+    """Các lượt đã chấm của một câu, `attempt` tăng dần (không gồm lượt no_speech hay lượt P1)."""
+    lesson = _ready_lesson(lesson_id, index)
+    return [
+        AttemptSummary.model_validate(
+            {"attempt": row.attempt, "overall": row.overall, "createdAt": row.created_at}
+        )
+        for row in db.list_scored_attempts(lesson.id, index)
+    ]
+
+
+@router.get(
+    "/lessons/{lesson_id}/segments/{index}/attempts/{attempt}",
+    response_model=ScoreResult,
+    response_model_exclude_unset=True,
+)
+def get_attempt(lesson_id: str, index: int, attempt: int) -> ScoreResult:
+    """Đọc lại ScoreResult đã lưu của một lượt; JSON hỏng -> 500 với thông báo cố định."""
+    lesson = _ready_lesson(lesson_id, index)
+    raw = (
+        db.get_attempt_result_json(lesson.id, index, attempt)
+        if 1 <= attempt <= MAX_ATTEMPT_NUMBER
+        else None
+    )
+    if raw is None:
+        raise ApiErrorException(404, "not_found", ATTEMPT_NOT_FOUND_MESSAGE)
+    try:
+        return ScoreResult.model_validate_json(raw)
+    except ValueError:
+        # Chỉ ghi định danh lượt; không bao giờ ghi hay trả lại JSON đã lưu (T-03-10).
+        logger.error(
+            "kết quả đã lưu của bài %s câu %d lượt %d không hợp lệ", lesson.id, index, attempt
+        )
+        raise ApiErrorException(500, "internal_error", ATTEMPT_CORRUPT_MESSAGE) from None
 
 
 @router.put(

@@ -236,7 +236,7 @@ def test_insert_scored_attempt_stores_scores_and_validated_json(data_dir: Path) 
         0.74,
         result.scores.intonation,
         result.scores.rhythm,
-        result.scores.sound,
+        0.82,  # sound của fixture contract
     )
     assert ScoreResult.model_validate_json(row["result_json"]) == result
     assert db.get_attempt_result_json(LESSON, 0, 1) == row["result_json"]
