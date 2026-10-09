@@ -526,30 +526,32 @@ Mẫu thành phần theo Context7 (`ReferenceLine`, `connectNulls`, tick tuỳ b
 | A9 | Chuẩn hoá `similarity` theo từ (đề xuất: `1 − min(1, RMS(st diff)/6)`; từ < 5 frame chung → dùng `melodyMatch` câu) | Open Q 8 | Chỉ ảnh hưởng eval Phase 4; Liam duyệt |
 | A10 | Recall `FINAL_CONTOUR` 5/20 và `STRESS_MISMATCH` 1/20 là đặc trưng của cổng chứ không phải lỗi cài đặt | Pitfall 4, 8 | Nếu là lỗi, rule vô dụng; test đơn vị rule bằng dữ liệu tổng hợp để loại trừ |
 
-## Open Questions
+## Open Questions (GATED — pending Liam at named decisions)
 
-1. **Công thức D-04 và tiêu chí "câu đọc sai hẳn điểm thấp" (BLOCKING cho kế hoạch kiểm thử PRO-03).**
+> Mỗi câu dưới đây được gắn vào một quyết định có tên mà Liam trả lời: các mục của checkpoint chặn `03-01` Task 1 (`checkpoint:decision`, `gate="blocking-human"`, chạy trước mọi plan khác của Phase 3) hoặc UAT cuối phase ở `03-11` Task 3. Giá trị cuối cùng được ghi trong bảng "Quyết định đã chốt" của `03-01-SUMMARY.md` (hoặc kết quả UAT trong `03-11-SUMMARY.md`). Trạng thái: **pending Liam**, planner không tự chốt câu nào.
+
+1. **Công thức D-04 và tiêu chí "câu đọc sai hẳn điểm thấp" (BLOCKING cho kế hoạch kiểm thử PRO-03).** — **GATED → 03-01 Task 1 item D (D-a / D-b / D-c); pending Liam.**
    - Biết: 20 câu sai cho `overall` 0.40–0.78 (trung vị 0.58), 6/20 ≥ 0.65, trong khi `ok=false` đúng cả 20 (cost 1.11–1.32). Nhiễu trắng 0.17–0.29.
    - Chưa rõ: Liam chấp nhận "thấp" nghĩa là gì (ví dụ < 0.65 ở ≥ 80% câu sai?) hay muốn chặn trên.
    - Khuyến nghị: giữ D-04; thêm vào PR contract một lựa chọn để Liam chọn: (A) giữ nguyên và dùng tiêu chí verify "median(overall câu sai) < 0.6 và `align_ok = false`"; (B) khi `align_ok = false`, `speed` và `pitchRange` không được tính (đặt = melodyMatch) — đổi D-04/D-02, cần Liam; (C) chỉ hiện nhãn "chưa khớp bản gốc" ở client khi `align_ok=false` không cần field mới (client không biết `align_ok`; phải suy từ `issues`/`words` ⇒ không khả thi). Planner **không tự chọn**.
 
-2. **Sidecar thay vì ghi đè `.npz` (D-03)** — xem Pitfall 5. Cần Liam đồng ý lệch chữ D-03 (ghi trong ADR 0006).
+2. **Sidecar thay vì ghi đè `.npz` (D-03)** — xem Pitfall 5. Cần Liam đồng ý lệch chữ D-03 (ghi trong ADR 0006). — **GATED → 03-01 Task 1 item F; pending Liam.**
 
-3. **Contract bổ sung để vẽ `AttemptStrip` và chấm màu (Claude's Discretion nhưng đổi shape ⇒ checkpoint).**
+3. **Contract bổ sung để vẽ `AttemptStrip` và chấm màu (Claude's Discretion nhưng đổi shape ⇒ checkpoint).** — **GATED → 03-01 Task 1 items A3, A4, A5; pending Liam.**
    - Đề xuất tối thiểu: (a) `SegmentProgress.bestOverall: Score01.nullable()` + `bestAttempt: int>=1 .nullable()` (vẽ `SegmentedProgress`/`TranscriptList` bằng 1 truy vấn); (b) `AttemptSummary { attempt: int>=1, overall: Score01.nullable(), createdAt: string }` + `GET /lessons/{id}/segments/{index}/attempts` → `AttemptSummary[]`; (c) `GET …/attempts/{n}` → `ScoreResult` (không đổi shape, đọc `result_json`, validate lại bằng pydantic trước khi trả).
    - Chưa rõ: Liam muốn gộp (a)+(b) vào `LessonProgress` hay giữ tách.
 
-4. **Thứ tự ghi dòng `attempts` và nhãn "Lượt N" (Pitfall 10).** Khuyến nghị: ghi sau khi chấm thành công trong một giao dịch; `no_speech` ghi `voiced = 0` như P1; "Lượt N" = thứ tự trong lượt có điểm. Cần Liam duyệt cùng migration.
+4. **Thứ tự ghi dòng `attempts` và nhãn "Lượt N" (Pitfall 10).** Khuyến nghị: ghi sau khi chấm thành công trong một giao dịch; `no_speech` ghi `voiced = 0` như P1; "Lượt N" = thứ tự trong lượt có điểm. Cần Liam duyệt cùng migration. — **GATED → 03-01 Task 1 item C (C1 / C2); pending Liam.**
 
-5. **HTTP status của `no_speech`:** đề xuất 422 (cùng `recording_too_long`). 
+5. **HTTP status của `no_speech`:** đề xuất 422 (cùng `recording_too_long`). — **GATED → 03-01 Task 1 item A1; pending Liam.**
 
-6. **Lưu `align_ok` / chất lượng căn:** không có chỗ trong `ScoreResult` (không đổi shape). Đề xuất đưa vào `timingMs` **không** (sai ngữ nghĩa); thay vào đó chỉ lưu trong log. Eval Phase 4 cần biết căn kém → có thể suy từ việc thiếu mọi issue theo từ + `versions`. Nếu Liam muốn field riêng thì là thay đổi contract (ngoài D-02).
+6. **Lưu `align_ok` / chất lượng căn:** không có chỗ trong `ScoreResult` (không đổi shape). Đề xuất đưa vào `timingMs` **không** (sai ngữ nghĩa); thay vào đó chỉ lưu trong log. Eval Phase 4 cần biết căn kém → có thể suy từ việc thiếu mọi issue theo từ + `versions`. Nếu Liam muốn field riêng thì là thay đổi contract (ngoài D-02). — **GATED → 03-01 Task 1 item H; pending Liam.**
 
-7. **Vị trí `scoreLevel()`:** khuyến nghị `apps/web/lib/scoreLevel.ts` (chỉ web cần màu; tránh biến `packages/contracts` thành nơi chứa logic ngoài schema). App eval không hiện điểm hệ thống cho người chấm.
+7. **Vị trí `scoreLevel()`:** khuyến nghị `apps/web/lib/scoreLevel.ts` (chỉ web cần màu; tránh biến `packages/contracts` thành nơi chứa logic ngoài schema). App eval không hiện điểm hệ thống cho người chấm. — **GATED → 03-01 Task 1 item I; pending Liam.**
 
-8. **Định nghĩa `WordScore.similarity` ở P2** (D-06) — đề xuất ở A9; Liam duyệt.
+8. **Định nghĩa `WordScore.similarity` ở P2** (D-06) — đề xuất ở A9; Liam duyệt. — **GATED → 03-01 Task 1 item G; pending Liam.**
 
-9. **Xác thực bằng bản ghi thật (UAT cuối phase):** Liam ghi ~5 câu thật (đọc đúng, đọc phẳng, ngắt thừa, đọc sai câu) và xem `cost`/issue để chốt ngưỡng sơ bộ trước khi Phase 4.
+9. **Xác thực bằng bản ghi thật (UAT cuối phase):** Liam ghi ~5 câu thật (đọc đúng, đọc phẳng, ngắt thừa, đọc sai câu) và xem `cost`/issue để chốt ngưỡng sơ bộ trước khi Phase 4. — **GATED → 03-11 Task 3 human-check UAT item 1 (giọng thật); pending Liam.**
 
 ## Environment Availability
 
