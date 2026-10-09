@@ -366,6 +366,18 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   if (!segment) return null;
 
   const recording = context.recordings[index];
+  // Kết quả chấm đang hiển thị ở reviewing (null = chưa có / đã rời reviewing).
+  const scored =
+    top === "reviewing" &&
+    recording?.status === "scored" &&
+    recording.result !== undefined &&
+    recording.attempt !== undefined
+      ? {
+          result: recording.result,
+          attempt: recording.attempt,
+          blob: recording.blob,
+        }
+      : null;
   const voicedAttempts =
     progress?.segments.find((item) => item.segmentIndex === index)
       ?.voicedAttempts ?? 0;
@@ -452,7 +464,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               bars={context.level.bars}
             />
           ) : top === "scoring" ? (
-            <SentenceStatePanel variant="processing" sentence={segment.text} />
+            <SentenceStatePanel variant="scoring" sentence={segment.text} />
           ) : top === "noVoice" ? (
             <SentenceStatePanel
               variant="noVoice"
@@ -472,28 +484,25 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               onRetry={() => actorRef.send({ type: "RETRY_UPLOAD" })}
               onRecord={() => actorRef.send({ type: "RECORD" })}
             />
-          ) : (
+          ) : scored ? null : (
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>
           )}
-          {ipaOn && (top === "idle" || top === "reviewing") ? (
-            <SpokenIpa words={segment.words} />
-          ) : null}
-          {top === "reviewing" &&
-          recording?.status === "scored" &&
-          recording.result !== undefined &&
-          recording.attempt !== undefined ? (
+          {ipaOn && top === "idle" ? <SpokenIpa words={segment.words} /> : null}
+          {scored ? (
             <ResultPanel
-              key={`${index}:${recording.attempt}`}
+              key={`${index}:${scored.attempt}`}
               lessonId={lesson.id}
               segmentIndex={index}
-              result={recording.result}
+              segment={segment}
+              result={scored.result}
               attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
-              blob={recording.blob}
-              saved={savedClips.has(`${index}:${recording.attempt}`)}
+              ipaOn={ipaOn}
+              blob={scored.blob}
+              saved={savedClips.has(`${index}:${scored.attempt}`)}
               onSaved={() => {
-                const key = `${index}:${recording.attempt}`;
+                const key = `${index}:${scored.attempt}`;
                 setSavedClips((prev) => new Set(prev).add(key));
               }}
             />

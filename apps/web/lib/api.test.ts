@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, listLessons } from "./api";
+import { ApiRequestError, listLessons, uploadAttempt } from "./api";
 
 const FIXTURE_DIR = join(
   import.meta.dirname,
@@ -118,5 +118,57 @@ describe("listLessons", () => {
     );
 
     await expect(listLessons()).rejects.toThrow();
+  });
+});
+
+describe("uploadAttempt", () => {
+  const blob = new Blob(["audio"], { type: "audio/webm" });
+
+  it("parses the 201 body as a ScoreResult and posts multipart audio", async () => {
+    const body = fixtureData("ScoreResult.json", "full");
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await uploadAttempt("01JABC", 2, blob, {
+      saveForEval: false,
+    });
+
+    expect(result.attempt).toBe(3);
+    expect(result.scores.overall).toBe(0.74);
+    expect(result.prosody.melodyMatch).toBe(0.63);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/lessons\/01JABC\/segments\/2\/attempts$/,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
+  });
+
+  it("rejects with ApiRequestError carrying code no_speech on a 422", async () => {
+    const body = {
+      code: "no_speech",
+      message: "Không nghe thấy tiếng nói trong lượt vừa rồi.",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(body, 422)));
+
+    const error = await catchError(
+      uploadAttempt("01JABC", 0, blob, { saveForEval: false }),
+    );
+
+    expect(error).toBeInstanceOf(ApiRequestError);
+    const failure = error as ApiRequestError;
+    expect(failure.status).toBe(422);
+    expect(failure.error.code).toBe("no_speech");
+  });
+
+  it("rejects when a 201 body fails ScoreResult validation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ attempt: 1, voiced: true }, 201)),
+    );
+
+    await expect(
+      uploadAttempt("01JABC", 0, blob, { saveForEval: false }),
+    ).rejects.toThrow();
   });
 });

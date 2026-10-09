@@ -3,17 +3,24 @@
 import { useMutation } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
-import type { ScoreResult } from "@shadowenglab/contracts";
+import type { ScoreResult, Segment } from "@shadowenglab/contracts";
 import { ScoreHero } from "@/components/ScoreHero";
+import { SpokenIpa } from "@/components/SpokenIpa";
 import { Button } from "@/components/ui/button";
 import { saveEvalClip } from "@/lib/api";
+import { resultNote, wordsMatchSegment } from "@/lib/resultView";
+import { scorePercent } from "@/lib/scoreLevel";
 
 interface ResultPanelProps {
   lessonId: string;
   segmentIndex: number;
+  /** Câu đang tập: nguồn của đoạn văn dự phòng (E4) và của dòng IPA. */
+  segment: Segment;
   result: ScoreResult;
   /** Số "Lượt k" hiển thị cho kết quả này. */
   attemptLabel: number;
+  /** IPA đang bật (nút `IPA` / phím I). */
+  ipaOn: boolean;
   /** Bản ghi trong phiên của lượt này; null khi không còn trong bộ nhớ. */
   blob: Blob | null;
   /** Clip của lượt này đã được lưu cho eval ở đây (phiên hiện tại). */
@@ -21,16 +28,22 @@ interface ResultPanelProps {
   onSaved: () => void;
 }
 
+const SENTENCE_CLASS =
+  "m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]";
+
 /**
- * Vùng kết quả S3 ở `reviewing` (UI-SPEC "S3 — reviewing"): `ScoreHero` và `Lưu clip cho eval`.
+ * Vùng kết quả S3 ở `reviewing` (UI-SPEC "S3 — reviewing", cột phải mục 2–6): câu theo `words` +
+ * IPA, `ScoreHero`, khối gợi ý (dòng khen / trung tính khi không có gợi ý) và `Lưu clip cho eval`.
  * Thay khối reviewing của P1. Người gọi đặt `key` theo (câu, lượt) để trạng thái mutation
- * không rò sang lượt khác.
+ * không rò sang lượt khác. Khoảng cách 32 giữa các khối khớp `main` của cột phải.
  */
 export function ResultPanel({
   lessonId,
   segmentIndex,
+  segment,
   result,
   attemptLabel,
+  ipaOn,
   blob,
   saved,
   onSaved,
@@ -46,25 +59,78 @@ export function ResultPanel({
     },
   });
 
+  // Mọi quyết định hiển thị đi qua hàm thuần đã có test, không có điều kiện inline (D-15, E4).
+  const note = resultNote(result.scores.overall, result.tips.length);
+  const wordsOk = wordsMatchSegment(result.words, segment.text);
+
   return (
     <section
       aria-label={`Kết quả lượt ${attemptLabel}`}
       className="flex flex-col gap-8"
     >
+      {/* Thông báo một lần khi kết quả xuất hiện; không dời focus (P3-G14). */}
+      <span role="status" className="sr-only">
+        {`Lượt ${attemptLabel}: ${scorePercent(result.scores.overall)} phần trăm giống bản gốc.`}
+      </span>
+
+      <div className="flex flex-col gap-[14px]">
+        {wordsOk ? (
+          // Từ chỉ là chữ: không gạch chân, số, màu hay click (D-06); cột dọc để Phase 5 thêm hàng điểm.
+          <p
+            className={`${SENTENCE_CLASS} flex flex-wrap gap-x-[14px] gap-y-[6px]`}
+          >
+            {result.words.map((word, index) => (
+              <span key={index} className="inline-flex flex-col">
+                {word.text}
+              </span>
+            ))}
+          </p>
+        ) : (
+          <p className={SENTENCE_CLASS}>{segment.text}</p>
+        )}
+        {ipaOn ? <SpokenIpa words={segment.words} /> : null}
+      </div>
+
       <ScoreHero
         scores={result.scores}
         prosody={result.prosody}
         attemptLabel={attemptLabel}
       />
-      <div>
-        <Button
-          variant="ghost"
-          disabled={saved || save.isPending || blob === null}
-          onClick={() => save.mutate()}
-        >
-          {saved ? <Check aria-hidden="true" /> : null}
-          {saved ? "Đã lưu clip" : "Lưu clip cho eval"}
-        </Button>
+
+      <div className="flex flex-col gap-[14px]">
+        {note ? (
+          <div className="border-t border-border pt-6">
+            {note.kind === "praise" ? (
+              <p
+                role="status"
+                className="m-0 flex items-center gap-2 rounded-lg bg-score-good-soft px-4 py-[14px] text-[15px] font-semibold leading-[1.5] text-foreground"
+              >
+                <Check
+                  aria-hidden="true"
+                  className="size-[18px] shrink-0 text-score-good-text"
+                />
+                {note.text}
+              </p>
+            ) : (
+              <p
+                role="status"
+                className="m-0 rounded-lg bg-muted px-4 py-[14px] text-sm leading-[1.5] text-muted-foreground"
+              >
+                {note.text}
+              </p>
+            )}
+          </div>
+        ) : null}
+        <div>
+          <Button
+            variant="ghost"
+            disabled={saved || save.isPending || blob === null}
+            onClick={() => save.mutate()}
+          >
+            {saved ? <Check aria-hidden="true" /> : null}
+            {saved ? "Đã lưu clip" : "Lưu clip cho eval"}
+          </Button>
+        </div>
       </div>
     </section>
   );
