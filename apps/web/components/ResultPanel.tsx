@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ChartLine, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import type { ScoreResult, Segment } from "@shadowenglab/contracts";
 import { IntonationChart } from "@/components/IntonationChart";
 import { ScoreHero } from "@/components/ScoreHero";
 import { SpokenIpa } from "@/components/SpokenIpa";
+import { TipList } from "@/components/TipList";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -16,6 +18,11 @@ import {
 import { saveEvalClip } from "@/lib/api";
 import { resultNote, wordsMatchSegment } from "@/lib/resultView";
 import { scorePercent } from "@/lib/scoreLevel";
+import {
+  EMPTY_HIGHLIGHT,
+  tipHighlight,
+  type TipHighlight,
+} from "@/lib/tipHighlight";
 
 interface ResultPanelProps {
   lessonId: string;
@@ -35,6 +42,22 @@ interface ResultPanelProps {
   /** `So sánh ngữ điệu` đang mở; state nằm ở PracticeRoom nên giữ nguyên khi chuyển câu. */
   chartOpen: boolean;
   onChartOpenChange: (open: boolean) => void;
+}
+
+/** Lớp tô từ khi gợi ý đang hover / focus (UI-SPEC); padding và margin âm triệt tiêu nên bố cục không dịch. */
+const HIGHLIGHT_BASE = "-mx-1.5 -my-1 rounded-lg border-b-[3px] px-1.5 py-1";
+
+function wordHighlightClass(index: number, highlight: TipHighlight): string {
+  if (highlight.ref.includes(index)) {
+    return `${HIGHLIGHT_BASE} border-original bg-original-soft`;
+  }
+  if (highlight.you.includes(index)) {
+    return `${HIGHLIGHT_BASE} border-you bg-you-soft`;
+  }
+  if (highlight.neutral.includes(index)) {
+    return `${HIGHLIGHT_BASE} border-[color:var(--slate-9)] bg-[color:var(--slate-4)]`;
+  }
+  return "";
 }
 
 const SENTENCE_CLASS =
@@ -59,6 +82,9 @@ export function ResultPanel({
   chartOpen,
   onChartOpenChange,
 }: ResultPanelProps) {
+  // Gợi ý đang hover / focus: state cục bộ của panel, không nằm trong machine (key theo lượt sẽ reset).
+  const [hoveredTip, setHoveredTip] = useState<number | null>(null);
+
   const save = useMutation({
     mutationFn: () => {
       if (!blob) throw new Error("Không có bản ghi để lưu");
@@ -73,6 +99,14 @@ export function ResultPanel({
   // Mọi quyết định hiển thị đi qua hàm thuần đã có test, không có điều kiện inline (D-15, E4).
   const note = resultNote(result.scores.overall, result.tips.length);
   const wordsOk = wordsMatchSegment(result.words, segment.text);
+  // Gợi ý đang hover -> các từ của chính issue nó trỏ tới (FBK-03); issueRef lạc phạm vi thì không tô.
+  const hoveredIssue =
+    hoveredTip === null
+      ? undefined
+      : result.issues[result.tips[hoveredTip]?.issueRef ?? -1];
+  const highlight = hoveredIssue
+    ? tipHighlight(hoveredIssue, result.words)
+    : EMPTY_HIGHLIGHT;
 
   return (
     <section
@@ -91,7 +125,10 @@ export function ResultPanel({
             className={`${SENTENCE_CLASS} flex flex-wrap gap-x-[14px] gap-y-[6px]`}
           >
             {result.words.map((word, index) => (
-              <span key={index} className="inline-flex flex-col">
+              <span
+                key={index}
+                className={`inline-flex flex-col ${wordHighlightClass(index, highlight)}`}
+              >
                 {word.text}
               </span>
             ))}
@@ -147,12 +184,22 @@ export function ResultPanel({
             prosody={result.prosody}
             words={result.words}
             issues={result.issues}
+            highlight={highlight}
             tipsText={result.tips.map((tip) => tip.text).join(" ")}
           />
         </CollapsibleContent>
       </Collapsible>
 
       <div className="flex flex-col gap-[14px]">
+        {result.tips.length >= 1 ? (
+          <div className="border-t border-border pt-6">
+            <TipList
+              tips={result.tips}
+              issues={result.issues}
+              onHoverTip={setHoveredTip}
+            />
+          </div>
+        ) : null}
         {note ? (
           <div className="border-t border-border pt-6">
             {note.kind === "praise" ? (

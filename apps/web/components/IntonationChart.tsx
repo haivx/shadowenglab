@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   XAxis,
@@ -21,11 +22,14 @@ import {
   wordCells,
   yDomain,
 } from "@/lib/chartData";
+import type { TipHighlight } from "@/lib/tipHighlight";
 
 export interface IntonationChartProps {
   prosody: Prosody;
   words: WordScore[];
   issues: Issue[];
+  /** Từ của gợi ý đang hover / focus: vẽ dải `--slate-4` phía sau hai đường; mặc định không có. */
+  highlight?: TipHighlight;
   /** Văn bản các gợi ý, đã nối bằng khoảng trắng (dùng cho nhãn truy cập). */
   tipsText: string;
 }
@@ -77,6 +81,7 @@ export function IntonationChart({
   prosody,
   words,
   issues,
+  highlight,
   tipsText,
 }: IntonationChartProps) {
   const [plotWidth, setPlotWidth] = useState(0);
@@ -92,6 +97,20 @@ export function IntonationChart({
   const pauseXs = useMemo(
     () => pauseMarkerXs(issues, contour.wordBounds),
     [issues, contour.wordBounds],
+  );
+
+  const highlighted = useMemo(
+    () =>
+      highlight
+        ? [
+            ...new Set([
+              ...highlight.ref,
+              ...highlight.you,
+              ...highlight.neutral,
+            ]),
+          ]
+        : [],
+    [highlight],
   );
 
   if (!chartDrawable(contour)) {
@@ -122,6 +141,22 @@ export function IntonationChart({
         <LineChart data={rows} margin={PLOT_MARGIN} accessibilityLayer={false}>
           <XAxis type="number" dataKey="x" domain={[0, lastX]} hide />
           <YAxis hide domain={domain} />
+          {/* Dải từ đang được gợi ý nhắc tới: vẽ trước các đường để nằm phía sau. */}
+          {highlighted.flatMap((i) => {
+            const x1 = contour.wordBounds[i];
+            if (x1 === undefined) return [];
+            return [
+              <ReferenceArea
+                key={`hl-${i}`}
+                x1={x1}
+                x2={contour.wordBounds[i + 1] ?? rows.length - 1}
+                fill="var(--slate-4)"
+                fillOpacity={1}
+                stroke="none"
+                ifOverflow="hidden"
+              />,
+            ];
+          })}
           <ReferenceLine
             y={0}
             stroke="var(--slate-5)"
@@ -203,7 +238,7 @@ export function IntonationChart({
                 <span
                   title={label}
                   className={`mt-0 h-5 w-full truncate text-center text-xs leading-5 ${
-                    i === topWord
+                    i === topWord || highlighted.includes(i)
                       ? "font-bold text-foreground"
                       : "text-muted-foreground"
                   }`}
