@@ -13,9 +13,11 @@ import numpy as np
 import pytest
 import soundfile as sf
 from fastapi.testclient import TestClient
+from test_scoring_api import sentence, write_stem
 
 from audio_service import db
 from audio_service.config import get_settings, lesson_json_path
+from audio_service.contracts_gen import ScoreResult
 from audio_service.main import create_app
 
 LESSON_ID = "01HZX3Y7Q8K2M4N6P8R0S2T4V6"
@@ -54,6 +56,7 @@ def webm(audio: np.ndarray, tmp: Path, name: str = "rec.webm") -> bytes:
 
 
 def make_lesson(lesson_id: str, status: str = "ready", segments: int = 1) -> dict[str, Any]:
+    marks = sentence()[1]  # mốc từ của câu tổng hợp trong stem (stem bắt đầu ở giây tuyệt đối 0)
     return {
         "id": lesson_id,
         "videoId": "dUDi-F6eAvk",
@@ -66,17 +69,12 @@ def make_lesson(lesson_id: str, status: str = "ready", segments: int = 1) -> dic
             {
                 "index": i,
                 "text": f"Sentence {i}",
-                "start": float(i),
-                "end": float(i) + 0.9,
+                "start": marks[0][1],
+                "end": marks[-1][2],
                 "endExtraMs": 0,
                 "words": [
-                    {
-                        "i": 0,
-                        "text": "Sentence",
-                        "start": float(i),
-                        "end": float(i) + 0.9,
-                        "asrProb": 0.95,
-                    }
+                    {"i": w, "text": text, "start": start, "end": end, "asrProb": 0.95}
+                    for w, (text, start, end) in enumerate(marks)
                 ],
             }
             for i in range(segments)
@@ -105,7 +103,8 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 def client(data_dir: Path) -> TestClient:
     store(make_lesson(LESSON_ID))
     store(make_lesson(QUEUED_ID, status="queued", segments=0))
-    return TestClient(create_app(), base_url="http://127.0.0.1")
+    write_stem(sentence()[0])  # bản gốc để chấm: vocals.wav tổng hợp của khoảng bài
+    return TestClient(create_app(), base_url="http://127.0.0.1", raise_server_exceptions=False)
 
 
 def post(
@@ -137,19 +136,27 @@ def test_spoken_then_silent_recording_are_recorded(
 
     assert spoken.status_code == 201
     body = spoken.json()
-    assert body["lessonId"] == LESSON_ID
-    assert body["segmentIndex"] == 0
-    assert body["attempt"] == 1
-    assert body["voiced"] is True
-    assert body["savedForEval"] is False
-    assert abs(body["durationMs"] - 2000) <= 60
+    result = ScoreResult.model_validate(body)  # D-09: 201 mang ScoreResult
+    assert (result.lesson_id, result.segment_index, result.attempt) == (LESSON_ID, 0, 1)
+    row = db.get_attempt(LESSON_ID, 0, 1)
+    assert row is not None and row.voiced is True and row.saved_for_eval is False
+    assert abs(row.duration_ms - 2000) <= 60
 
     quiet = post(client, webm(silence(), tmp_path, "quiet.webm"))
 
-    assert quiet.status_code == 201
-    assert quiet.json()["voiced"] is False
-    assert quiet.json()["attempt"] == 2  # lượt im lặng vẫn ghi một dòng (02-01 mục C)
+    assert_no_speech(quiet, data_dir)
+    silent_row = db.get_attempt(LESSON_ID, 0, 2)  # C1: no_speech vẫn nhận một số lượt
+    assert silent_row is not None and silent_row.voiced is False
     assert tmp_files(data_dir) == []
+
+
+def assert_no_speech(res: Any, data_dir: Path) -> None:
+    assert res.status_code == 422
+    assert res.json() == {
+        "code": "no_speech",
+        "message": "Không nghe thấy tiếng nói trong lượt vừa rồi.",
+    }
+    assert str(data_dir) not in res.text
 
 
 def test_safari_mp4_and_fragmented_mp4_are_accepted(client: TestClient, tmp_path: Path) -> None:
@@ -166,7 +173,7 @@ def test_safari_mp4_and_fragmented_mp4_are_accepted(client: TestClient, tmp_path
     for body in (plain, fragmented):
         res = post(client, body, filename="rec.mp4")
         assert res.status_code == 201
-        assert res.json()["voiced"] is True
+        assert ScoreResult.model_validate(res.json()).scores.overall >= 0.0
 
 
 def test_queued_lesson_is_409_invalid_state(client: TestClient, tmp_path: Path) -> None:
@@ -297,9 +304,10 @@ def test_very_short_recording_normalizes_and_is_not_voiced(
 ) -> None:
     res = post(client, webm(voice_like(0.2), tmp_path, "short.webm"))
 
-    assert res.status_code == 201
-    assert res.json()["voiced"] is False
-    assert res.json()["durationMs"] <= 260
+    assert_no_speech(res, data_dir)
+    row = db.get_attempt(LESSON_ID, 0, 1)
+    assert row is not None and row.voiced is False
+    assert row.duration_ms <= 260
     assert tmp_files(data_dir) == []
 
 
@@ -337,7 +345,7 @@ def test_save_for_eval_on_upload_stores_clip_and_sidecar(
     res = post(client, webm(voice_like(), tmp_path), save=True)
 
     assert res.status_code == 201
-    assert res.json()["savedForEval"] is True
+    assert res.json()["attempt"] == 1
     wav = data_dir / "eval_clips" / f"{LESSON_ID}_0000_01.wav"
     sidecar = wav.with_suffix(".json")
     assert [p.name for p in clip_files(data_dir)] == [sidecar.name, wav.name]
@@ -358,7 +366,7 @@ def test_upload_without_save_for_eval_leaves_no_clip(
 ) -> None:
     for save in (None, False):
         res = post(client, webm(voice_like(), tmp_path), save=save)
-        assert res.json()["savedForEval"] is False
+        assert res.status_code == 201
 
     assert clip_files(data_dir) == []
     assert saved_flag(LESSON_ID, 0, 1) is False
@@ -369,8 +377,11 @@ def test_put_eval_clip_stores_the_blob_without_a_new_attempt(
 ) -> None:
     blob = webm(voice_like(), tmp_path)
     first = post(client, blob)
-    assert first.json()["savedForEval"] is False
+    assert first.status_code == 201
+    assert saved_flag(LESSON_ID, 0, 1) is False
     assert clip_files(data_dir) == []
+    first_row = db.get_attempt(LESSON_ID, 0, 1)
+    assert first_row is not None
 
     res = put_eval_clip(client, blob)
 
@@ -380,8 +391,8 @@ def test_put_eval_clip_stores_the_blob_without_a_new_attempt(
     assert body["attempt"] == 1
     assert body["lessonId"] == LESSON_ID
     assert body["segmentIndex"] == 0
-    assert body["voiced"] == first.json()["voiced"]
-    assert body["durationMs"] == first.json()["durationMs"]
+    assert body["voiced"] is True
+    assert body["durationMs"] == first_row.duration_ms
     assert (data_dir / "eval_clips" / f"{LESSON_ID}_0000_01.wav").is_file()
     assert saved_flag(LESSON_ID, 0, 1) is True
     assert db.get_attempt(LESSON_ID, 0, 2) is None  # PUT không tạo lượt mới

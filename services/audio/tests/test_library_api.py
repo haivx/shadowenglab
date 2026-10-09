@@ -180,7 +180,7 @@ def test_corrupt_lesson_json_is_skipped_not_500(client: TestClient) -> None:
 def test_attempts_db_has_only_the_approved_schema(client: TestClient) -> None:
     db.insert_attempt(READY_ID, 0, duration_ms=900, voiced=True)
     with db.connection() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         objects = conn.execute(
             "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
@@ -195,6 +195,11 @@ def test_attempts_db_has_only_the_approved_schema(client: TestClient) -> None:
         "duration_ms",
         "voiced",
         "saved_for_eval",
+        "overall",
+        "intonation",
+        "rhythm",
+        "sound",
+        "result_json",
     ]
     assert app_db_path().is_file()
 
@@ -275,3 +280,40 @@ def test_progress_of_unreadable_lesson_json_is_404(client: TestClient) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{not json", encoding="utf-8")
     assert client.get(f"/lessons/{EMPTY_ID}/progress").status_code == 404
+
+
+# --- best attempt in progress (03-05 Task 2, D-11) -------------------------------------------
+
+
+def scored(index: int, overall: float) -> None:
+    from test_db import result_for  # fixture ScoreResult hợp lệ của contract
+
+    db.insert_scored_attempt(
+        READY_ID, index, duration_ms=1500, build=lambda n: result_for(n, overall)
+    )
+
+
+def test_progress_carries_best_overall_and_attempt_only_for_scored_sentences(
+    client: TestClient,
+) -> None:
+    store(make_lesson(READY_ID, created_at="2026-10-06T08:00:00.000Z"))
+    scored(0, 0.70)
+    scored(0, 0.82)
+    scored(0, 0.64)  # lượt sau thấp hơn: best giữ nguyên lượt 2
+    db.insert_attempt(READY_ID, 1, duration_ms=900, voiced=True)  # lượt P1: không có điểm
+    db.insert_attempt(READY_ID, 2, duration_ms=100, voiced=False)  # no_speech
+
+    body = client.get(f"/lessons/{READY_ID}/progress").json()
+
+    assert body["segments"] == [
+        {
+            "segmentIndex": 0,
+            "attempts": 3,
+            "voicedAttempts": 3,
+            "bestOverall": 0.82,
+            "bestAttempt": 2,
+        },
+        {"segmentIndex": 1, "attempts": 1, "voicedAttempts": 1},
+        {"segmentIndex": 2, "attempts": 1, "voicedAttempts": 0},
+    ]
+    assert not contains_null(body["segments"])

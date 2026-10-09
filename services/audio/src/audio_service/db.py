@@ -1,6 +1,7 @@
 """SQLite `DATA_DIR/app.db`: bảng `attempts` (D-02, 02-01 mục B/C).
 
-Chỉ có một bảng, đúng DDL Liam đã duyệt; Phase 3 sẽ thêm cột điểm bằng migration riêng.
+Chỉ có một bảng `attempts`. user_version 1 là DDL của Phase 2; user_version 2 (Phase 3, D-10)
+thêm các cột điểm và `result_json` bằng ALTER, giữ nguyên các dòng cũ (điểm NULL).
 Mỗi lời gọi mở một connection riêng rồi đóng (Pitfall 13: không chia sẻ connection giữa thread).
 Mọi câu SQL dùng tham số `?`, id bài được kiểm bằng ULID_RE trước khi chạm DB (T-02-14).
 """
@@ -9,15 +10,16 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from audio_service.config import ULID_RE, InvalidIdError, _check_id, app_db_path
+from audio_service.contracts_gen import ScoreResult
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS attempts (
@@ -31,6 +33,16 @@ CREATE TABLE IF NOT EXISTS attempts (
     PRIMARY KEY (lesson_id, segment_index, attempt)
 )
 """
+
+# user_version 1 -> 2 (D-10, 03-01 mục B). Điểm trong [0, 1]; `result_json` là ScoreResult đầy đủ.
+_SCORE_CHECK = "CHECK ({col} IS NULL OR ({col} >= 0 AND {col} <= 1))"
+_V2_ALTERS = (
+    *(
+        f"ALTER TABLE attempts ADD COLUMN {col} REAL {_SCORE_CHECK.format(col=col)}"
+        for col in ("overall", "intonation", "rhythm", "sound")
+    ),
+    "ALTER TABLE attempts ADD COLUMN result_json TEXT",
+)
 
 # SQLite cũ giới hạn 999 tham số mỗi câu lệnh.
 _IN_CHUNK = 500
@@ -55,6 +67,15 @@ class SegmentProgressRow:
     segment_index: int
     attempts: int
     voiced_attempts: int
+    best_overall: float | None = None
+    best_attempt: int | None = None
+
+
+@dataclass(frozen=True)
+class AttemptSummaryRow:
+    attempt: int
+    overall: float
+    created_at: str
 
 
 def _now_iso() -> str:
@@ -63,14 +84,19 @@ def _now_iso() -> str:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    """Idempotent: user_version 0 -> tạo bảng `attempts` rồi đặt user_version = 1."""
+    """Idempotent: user_version 0 -> DDL v1 + ALTER v2; 1 -> chỉ ALTER v2; kết quả là v2."""
     if conn.execute("PRAGMA user_version").fetchone()[0] >= SCHEMA_VERSION:
         return
     conn.execute("BEGIN IMMEDIATE")
     try:
-        # Kiểm lại sau khi giữ khoá ghi: tiến trình khác có thể vừa tạo xong.
-        if conn.execute("PRAGMA user_version").fetchone()[0] < SCHEMA_VERSION:
+        # Kiểm lại sau khi giữ khoá ghi: tiến trình khác có thể vừa migrate xong.
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if version < 1:
             conn.execute(_DDL)
+        if version < 2:
+            for statement in _V2_ALTERS:
+                conn.execute(statement)
+        if version < SCHEMA_VERSION:
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.execute("COMMIT")
     except BaseException:
@@ -169,6 +195,57 @@ def insert_attempt(
     return int(attempt)
 
 
+def insert_scored_attempt(
+    lesson_id: str,
+    segment_index: int,
+    *,
+    duration_ms: int,
+    build: Callable[[int], ScoreResult],
+) -> ScoreResult:
+    """Đánh số lượt rồi ghi điểm + ScoreResult trong MỘT transaction (C1, D-09/D-10).
+
+    `build(attempt)` dựng ScoreResult với đúng số lượt vừa cấp; nó (hoặc INSERT) lỗi thì ROLLBACK,
+    không dòng nào được ghi. `result_json` ở dạng camelCase của contract, bỏ field chưa đặt.
+    """
+    _check_lesson_id(lesson_id)
+    if segment_index < 0:
+        raise InvalidIdError("invalid segment index")
+    with connection() as conn:
+        conn.execute("BEGIN IMMEDIATE")  # khoá ghi trước khi đọc MAX: hai thread không trùng số
+        try:
+            attempt = int(
+                conn.execute(
+                    "SELECT COALESCE(MAX(attempt), 0) + 1 FROM attempts "
+                    "WHERE lesson_id = ? AND segment_index = ?",
+                    (lesson_id, segment_index),
+                ).fetchone()[0]
+            )
+            result = build(attempt)
+            scores = result.scores
+            conn.execute(
+                "INSERT INTO attempts (lesson_id, segment_index, attempt, created_at, "
+                "duration_ms, voiced, saved_for_eval, overall, intonation, rhythm, sound, "
+                "result_json) VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)",
+                (
+                    lesson_id,
+                    segment_index,
+                    attempt,
+                    _now_iso(),
+                    duration_ms,
+                    scores.overall,
+                    scores.intonation,
+                    scores.rhythm,
+                    None if scores.sound is None else scores.sound.root,
+                    result.model_dump_json(by_alias=True, exclude_unset=True),
+                ),
+            )
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    return result
+
+
 def mark_saved_for_eval(lesson_id: str, segment_index: int, attempt: int) -> bool:
     """Đặt `saved_for_eval = 1`; False khi không có lượt đó (không tạo lượt mới, mục D)."""
     _check_lesson_id(lesson_id)
@@ -203,20 +280,67 @@ def get_attempt(lesson_id: str, segment_index: int, attempt: int) -> AttemptRow 
     )
 
 
-def segment_progress(lesson_id: str) -> list[SegmentProgressRow]:
-    """Chỉ các câu đã có >= 1 lượt: số lượt (mọi upload) và số lượt voiced, theo segment_index."""
+def list_scored_attempts(lesson_id: str, segment_index: int) -> list[AttemptSummaryRow]:
+    """Các lượt đã chấm (có `overall`) của một câu, `attempt` tăng dần (03-01 mục A4)."""
     _check_lesson_id(lesson_id)
     with connection() as conn:
         rows = conn.execute(
-            "SELECT segment_index, COUNT(*) AS attempts, SUM(voiced) AS voiced_attempts "
-            "FROM attempts WHERE lesson_id = ? GROUP BY segment_index ORDER BY segment_index",
-            (lesson_id,),
+            "SELECT attempt, overall, created_at FROM attempts "
+            "WHERE lesson_id = ? AND segment_index = ? AND overall IS NOT NULL "
+            "ORDER BY attempt",
+            (lesson_id, segment_index),
         ).fetchall()
+    return [
+        AttemptSummaryRow(
+            attempt=row["attempt"], overall=row["overall"], created_at=row["created_at"]
+        )
+        for row in rows
+    ]
+
+
+def get_attempt_result_json(lesson_id: str, segment_index: int, attempt: int) -> str | None:
+    """`result_json` đã lưu; None khi lượt không tồn tại hoặc chưa chấm (NULL)."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT result_json FROM attempts "
+            "WHERE lesson_id = ? AND segment_index = ? AND attempt = ?",
+            (lesson_id, segment_index, attempt),
+        ).fetchone()
+    return None if row is None else row["result_json"]
+
+
+# Điểm tốt nhất mỗi câu (D-11): overall cao nhất, hoà thì lượt sau. Câu chỉ có lượt P1/no_speech
+# (overall NULL) không có dòng ở `best`, nên LEFT JOIN trả NULL.
+_PROGRESS_SQL = """
+WITH counts AS (
+    SELECT segment_index, COUNT(*) AS attempts, SUM(voiced) AS voiced_attempts
+    FROM attempts WHERE lesson_id = ? GROUP BY segment_index
+), ranked AS (
+    SELECT segment_index, attempt, overall,
+        ROW_NUMBER() OVER (PARTITION BY segment_index ORDER BY overall DESC, attempt DESC) AS rn
+    FROM attempts WHERE lesson_id = ? AND overall IS NOT NULL
+)
+SELECT c.segment_index, c.attempts, c.voiced_attempts,
+    r.overall AS best_overall, r.attempt AS best_attempt
+FROM counts AS c
+LEFT JOIN ranked AS r ON r.segment_index = c.segment_index AND r.rn = 1
+ORDER BY c.segment_index
+"""
+
+
+def segment_progress(lesson_id: str) -> list[SegmentProgressRow]:
+    """Chỉ các câu đã có >= 1 lượt: số lượt, số lượt voiced và lượt chấm tốt nhất, theo câu."""
+    _check_lesson_id(lesson_id)
+    with connection() as conn:
+        rows = conn.execute(_PROGRESS_SQL, (lesson_id, lesson_id)).fetchall()
     return [
         SegmentProgressRow(
             segment_index=row["segment_index"],
             attempts=row["attempts"],
             voiced_attempts=row["voiced_attempts"],
+            best_overall=row["best_overall"],
+            best_attempt=row["best_attempt"],
         )
         for row in rows
     ]

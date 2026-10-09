@@ -141,6 +141,13 @@ def segment_features_path(lesson_id: str, index: int) -> Path:
     return _contained(lesson_dir(lesson_id) / "seg" / f"{index:04d}.npz")
 
 
+def ref_prosody_path(lesson_id: str, index: int) -> Path:
+    """Sidecar feature ngữ điệu của bản gốc: `seg/NNNN.prosody.npz` (03-01 mục F)."""
+    if index < 0:
+        raise InvalidIdError("invalid segment index")
+    return _contained(lesson_dir(lesson_id) / "seg" / f"{index:04d}.prosody.npz")
+
+
 def video_dir(video_id: str) -> Path:
     _check_id(video_id, VIDEO_ID_RE, "video id")
     return _contained(data_root() / "videos" / video_id)
