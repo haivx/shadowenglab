@@ -1,7 +1,7 @@
 """Ghép điểm ngữ điệu Lớp B thành `ScoreResult` (PRO-02, D-04, D-05, D-06).
 
 Hàm thuần: hai `ProsodyFeatures` + mốc từ của bản gốc vào, `ProsodyScore` ra; không model, không
-file. Stress, pauses, issues, tips để trống ở 03-03 và do 03-06 điền (qua `dataclasses.replace`).
+file. Stress và pauses (prominence), issues (rule Lớp C), tips (template, D-14) do 03-06 điền.
 """
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from audio_service.contracts_gen import ScoreResult
-from audio_service.scoring import metrics
+from audio_service.rules.engine import RuleInput, run_rules
+from audio_service.rules.tips import select_tips
+from audio_service.scoring import metrics, prominence
 from audio_service.scoring.align import Aligner, Alignment, align
 from audio_service.scoring.features import HOP_S, ProsodyFeatures
 from audio_service.scoring.thresholds import SCORER_VERSION, THRESHOLDS_VERSION
@@ -112,7 +114,30 @@ def score_prosody(
     metrics_ms = _ms(started)
 
     started = time.perf_counter()
-    rules_ms = _ms(started)  # 03-06 điền rule Lớp C; ở đây chưa có việc nào
+    texts = [word.text for word in ref_words]
+    user_frames = prominence.user_word_frames(frames, alignment.path, int(user.f0_st.shape[0]))
+    ref_prom = prominence.word_prominence(ref.f0_st, ref.energy_db, frames)
+    user_prom = prominence.word_prominence(user.f0_st, user.energy_db, user_frames)
+    stress = prominence.stress_entries(texts, ref_prom, user_prom)
+    pauses = prominence.pause_entries(ref.energy_db, user.energy_db, frames, alignment.path)
+    rule_issues = run_rules(
+        RuleInput(
+            ref=ref,
+            user=user,
+            alignment=alignment,
+            words=texts,
+            ref_word_frames=frames,
+            user_word_frames=user_frames,
+            user_st_on_ref=user_on_ref,
+            pitch_range=pitch_range,
+            ref_prominence=ref_prom,
+            user_prominence=user_prom,
+            word_issues_allowed=alignment.ok,
+        )
+    )
+    issues = [rule_issue.issue for rule_issue in rule_issues]
+    tips = select_tips(rule_issues, texts)
+    rules_ms = _ms(started)
 
     return ProsodyScore(
         speed=speed,
@@ -123,10 +148,10 @@ def score_prosody(
         overall=overall,
         words=words,
         contour=contour,
-        stress=[],
-        pauses=[],
-        issues=[],
-        tips=[],
+        stress=stress,
+        pauses=pauses,
+        issues=issues,
+        tips=tips,
         alignment=alignment,
         word_issues_allowed=alignment.ok,
         ref_word_frames=frames,
