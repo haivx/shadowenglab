@@ -1,12 +1,18 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { ChartLine, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { ScoreResult, Segment } from "@shadowenglab/contracts";
+import { IntonationChart } from "@/components/IntonationChart";
 import { ScoreHero } from "@/components/ScoreHero";
 import { SpokenIpa } from "@/components/SpokenIpa";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { saveEvalClip } from "@/lib/api";
 import { resultNote, wordsMatchSegment } from "@/lib/resultView";
 import { scorePercent } from "@/lib/scoreLevel";
@@ -26,6 +32,9 @@ interface ResultPanelProps {
   /** Clip của lượt này đã được lưu cho eval ở đây (phiên hiện tại). */
   saved: boolean;
   onSaved: () => void;
+  /** `So sánh ngữ điệu` đang mở; state nằm ở PracticeRoom nên giữ nguyên khi chuyển câu. */
+  chartOpen: boolean;
+  onChartOpenChange: (open: boolean) => void;
 }
 
 const SENTENCE_CLASS =
@@ -47,6 +56,8 @@ export function ResultPanel({
   blob,
   saved,
   onSaved,
+  chartOpen,
+  onChartOpenChange,
 }: ResultPanelProps) {
   const save = useMutation({
     mutationFn: () => {
@@ -96,6 +107,32 @@ export function ResultPanel({
         prosody={result.prosody}
         attemptLabel={attemptLabel}
       />
+
+      <Collapsible
+        open={chartOpen}
+        onOpenChange={onChartOpenChange}
+        className="flex flex-col gap-[10px] border-t border-border pt-6"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline">
+              <ChartLine aria-hidden="true" />
+              So sánh ngữ điệu
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent className="flex flex-col gap-[10px]">
+          <h3 className="m-0 text-[13px] font-semibold leading-[1.2] text-muted-foreground">
+            Ngữ điệu
+          </h3>
+          <IntonationChart
+            prosody={result.prosody}
+            words={result.words}
+            issues={result.issues}
+            tipsText={result.tips.map((tip) => tip.text).join(" ")}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="flex flex-col gap-[14px]">
         {note ? (

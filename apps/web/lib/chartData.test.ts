@@ -4,7 +4,11 @@ import { buildChartRows, chartDrawable, yDomain } from "./chartData";
 describe("buildChartRows", () => {
   it("lấy độ dài nhỏ hơn của hai contour và giữ null", () => {
     expect(
-      buildChartRows({ ref: [0, null, 1.5], user: [0.2, 0.4], wordBounds: [0] }),
+      buildChartRows({
+        ref: [0, null, 1.5],
+        user: [0.2, 0.4],
+        wordBounds: [0],
+      }),
     ).toEqual([
       { x: 0, ref: 0, user: 0.2 },
       { x: 1, ref: null, user: 0.4 },
