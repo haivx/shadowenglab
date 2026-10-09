@@ -1,8 +1,9 @@
 """Router attempts: lượt ghi âm của người học (REC-02, REC-03, REC-04).
 
 POST nhận bản ghi của trình duyệt, chuẩn hoá thành WAV 16 kHz mono, quyết định có tiếng hay không
-(VAD), ghi một dòng `attempts` rồi xoá mọi file của bản ghi. Không prefix: mỗi endpoint tự khai báo
-đường dẫn đầy đủ.
+(VAD), chấm ngữ điệu so với bản gốc (feature bản gốc lấy từ cache hoặc tính lười từ lát stem), ghi
+một dòng `attempts` kèm điểm + `ScoreResult` trong một transaction rồi xoá mọi file của bản ghi.
+Không prefix: mỗi endpoint tự khai báo đường dẫn đầy đủ.
 
 Bản ghi là dữ liệu không tin cậy (T-02-25/26/27): kích thước chặn ở 10 MB (header và khi đọc luồng),
 container chỉ nhận webm/mp4 theo magic bytes, ffmpeg chạy với `-f` tường minh, thời lượng tối đa
@@ -11,13 +12,16 @@ container chỉ nhận webm/mp4 theo magic bytes, ffmpeg chạy với `-f` tư�
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 from fastapi import APIRouter, Form, Request, Response, UploadFile
 from fastapi.routing import APIRoute
@@ -26,15 +30,20 @@ from starlette.types import Message
 from audio_service import db
 from audio_service.config import InvalidIdError, eval_clips_dir, tmp_dir
 from audio_service.contract_io import write_json_atomic
-from audio_service.contracts_gen import AttemptAck, Lesson
+from audio_service.contracts_gen import AttemptAck, Lesson, ScoreResult
 from audio_service.errors import ApiErrorException
-from audio_service.lesson import audio_io, normalize, store, vad
+from audio_service.lesson import audio_io, normalize, pipeline, store, vad
+from audio_service.scoring.features import prepare_features
+from audio_service.scoring.scorer import score_prosody, to_score_result
+
+logger = logging.getLogger(__name__)
 
 CHUNK_BYTES = 64 * 1024
 SNIFF_BYTES = 16
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_BODY_BYTES = MAX_UPLOAD_BYTES + CHUNK_BYTES  # chừa phần khung multipart quanh file
 MAX_RECORDING_MS = 60_000
+NO_SPEECH_MESSAGE = "Không nghe thấy tiếng nói trong lượt vừa rồi."  # 03-01 mục A1
 
 
 def _too_large() -> ApiErrorException:
@@ -123,8 +132,11 @@ def _receive(upload: UploadFile, workdir: Path) -> tuple[Path, str]:
     return src, demuxer
 
 
-def _normalize(upload: UploadFile, workdir: Path) -> tuple[Path, int, bool]:
-    """Upload -> WAV 16 kHz mono; trả (wav, durationMs, voiced). ffmpeg lỗi -> 415 cố định."""
+def _normalize(upload: UploadFile, workdir: Path) -> tuple[Path, int, bool, np.ndarray]:
+    """Upload -> WAV 16 kHz mono; trả (wav, durationMs, voiced, mảng mono 16 kHz).
+
+    ffmpeg lỗi -> 415 cố định.
+    """
     src, demuxer = _receive(upload, workdir)
     wav = workdir / "normalized.wav"
     try:
@@ -136,7 +148,7 @@ def _normalize(upload: UploadFile, workdir: Path) -> tuple[Path, int, bool]:
     duration_ms = round(mono.shape[-1] * 1000 / audio_io.TARGET_SR)
     if duration_ms > MAX_RECORDING_MS:
         raise ApiErrorException(422, "recording_too_long", "Bản ghi dài quá 60 giây.")
-    return wav, duration_ms, vad.is_voiced(mono)
+    return wav, duration_ms, vad.is_voiced(mono), mono
 
 
 def _ack(
@@ -181,10 +193,14 @@ def _store_eval_clip(lesson: Lesson, index: int, attempt: int, wav_path: Path) -
         part.unlink(missing_ok=True)
 
 
+def _ms_since(started: float) -> float:
+    return (time.perf_counter() - started) * 1000.0
+
+
 @router.post(
     "/lessons/{lesson_id}/segments/{index}/attempts",
     status_code=201,
-    response_model=AttemptAck,
+    response_model=ScoreResult,
     response_model_exclude_unset=True,
 )
 def create_attempt(
@@ -192,19 +208,63 @@ def create_attempt(
     index: int,
     audio: UploadFile,
     saveForEval: bool = Form(False),  # noqa: N803 - tên field multipart theo contract
-) -> AttemptAck:
+) -> ScoreResult:
     lesson = _ready_lesson(lesson_id, index)
     workdir = Path(tempfile.mkdtemp(dir=tmp_dir()))
     try:
-        wav, duration_ms, voiced = _normalize(audio, workdir)
-        attempt = db.insert_attempt(lesson.id, index, duration_ms=duration_ms, voiced=voiced)
+        started = time.perf_counter()
+        wav, duration_ms, voiced, mono = _normalize(audio, workdir)
+        timing: dict[str, float] = {"normalize": _ms_since(started)}
+        if not voiced:
+            raise ApiErrorException(422, "no_speech", NO_SPEECH_MESSAGE)
+
+        started = time.perf_counter()
+        try:
+            ref = pipeline.ref_prosody_for_segment(lesson, index)
+        except pipeline.RefAudioMissing as exc:
+            raise ApiErrorException(409, "invalid_state", exc.message) from None
+        timing["ref_features"] = _ms_since(started)
+        if ref.backfill_ms is not None:
+            timing["ref_backfill"] = ref.backfill_ms  # đã nằm trong ref_features (D-03)
+
+        started = time.perf_counter()
+        user = prepare_features(mono)
+        timing["user_features"] = _ms_since(started)
+
+        score = score_prosody(ref.features, user, ref.words)
+        timing.update(score.timing_ms)
+        timing["total"] = sum(timing[key] for key in timing if key != "ref_backfill")
+
+        result = db.insert_scored_attempt(
+            lesson.id,
+            index,
+            duration_ms=duration_ms,
+            build=lambda attempt: to_score_result(
+                score,
+                lesson_id=lesson.id,
+                segment_index=index,
+                attempt=attempt,
+                timing_ms=timing,
+            ),
+        )
+        logger.info(
+            "chấm bài %s câu %d lượt %d: căn cost=%.3f ratio=%.2f ok=%s overall=%.3f total=%.0f ms",
+            lesson.id,
+            index,
+            result.attempt,
+            score.alignment.cost,
+            score.alignment.ratio,
+            score.alignment.ok,
+            result.scores.overall,
+            timing["total"],
+        )
         if saveForEval:
             # Chỉ đánh dấu sau khi clip đã nằm trên đĩa: dòng DB không bao giờ nói dối.
-            _store_eval_clip(lesson, index, attempt, wav)
-            db.mark_saved_for_eval(lesson.id, index, attempt)
+            _store_eval_clip(lesson, index, result.attempt, wav)
+            db.mark_saved_for_eval(lesson.id, index, result.attempt)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
-    return _ack(lesson.id, index, attempt, duration_ms, voiced, saveForEval)
+    return result
 
 
 @router.put(
@@ -220,7 +280,7 @@ def save_eval_clip(lesson_id: str, index: int, attempt: int, audio: UploadFile) 
         raise ApiErrorException(404, "not_found", "Không tìm thấy lượt này.")
     workdir = Path(tempfile.mkdtemp(dir=tmp_dir()))
     try:
-        wav, _duration_ms, _voiced = _normalize(audio, workdir)
+        wav, _duration_ms, _voiced, _mono = _normalize(audio, workdir)
         _store_eval_clip(lesson, index, attempt, wav)
         db.mark_saved_for_eval(lesson.id, index, attempt)
     finally:

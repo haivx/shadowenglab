@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import soundfile as sf
 from ulid import ULID
 from yt_dlp.utils import DownloadError
 
@@ -39,6 +41,9 @@ from audio_service.lesson.quality import audio_quality_label, non_vocal_ratio
 from audio_service.lesson.segment import AsrWord, split_sentences
 from audio_service.lesson.timing import StepTimer
 from audio_service.lesson.urls import parse_youtube_url
+from audio_service.scoring import ref_cache
+from audio_service.scoring.features import ProsodyFeatures, prepare_features
+from audio_service.scoring.scorer import RefWord
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +79,7 @@ _DOWNLOAD_RESTRICTION_MARKERS = (
 NO_SPEECH_MESSAGE = "không tìm thấy câu nói nào trong đoạn này. Hãy chọn đoạn khác hoặc video khác"
 STEMS_MISSING_MESSAGE = "không tìm thấy giọng đã tách của đoạn này. Hãy tạo lại bài"
 UNEXPECTED_ERROR_MESSAGE = "lỗi không mong đợi (xem log của make dev)"
+REF_AUDIO_MISSING_MESSAGE = "Thiếu audio bản gốc của câu này. Hãy tạo lại bài."  # 03-01 mục A6
 
 
 @dataclass(frozen=True)
@@ -405,6 +411,73 @@ def load_range_vocals16(lesson: Lesson) -> tuple[np.ndarray, float]:
         raise StepError(STEMS_MISSING_MESSAGE)
     vocals, sr = audio_io.read_audio(vocals_path)
     return audio_io.to_mono_16k(vocals, sr), _stem_span(lesson)[2]
+
+
+class RefAudioMissing(StepError):
+    """Không có cache ngữ điệu lẫn stem giọng của bản gốc: không có gì để chấm so (03-01 mục A6)."""
+
+    def __init__(self) -> None:
+        super().__init__(REF_AUDIO_MISSING_MESSAGE)
+
+
+@dataclass(frozen=True)
+class RefProsody:
+    """Feature bản gốc của một câu và mốc từ tính từ đầu cửa sổ (đúng gốc thời gian của clip)."""
+
+    features: ProsodyFeatures
+    window_start: float
+    words: list[RefWord]
+    backfill_ms: float | None
+
+
+def _read_stem_slice16(path: Path, start_s: float, stop_s: float, base: float) -> np.ndarray:
+    """Chỉ đọc đoạn [start_s, stop_s) giây tuyệt đối của stem (mảng bắt đầu ở giây `base`).
+
+    Đọc theo mẫu với `start`/`stop` ở tần số của file thay vì cả stem (RESEARCH Pitfall 5: vài ms
+    thay vì hơn 200 ms); chuyển về 16 kHz mono giống mọi nơi khác.
+    """
+    sr = int(sf.info(path).samplerate)
+    first = max(0, round((start_s - base) * sr))
+    last = max(first, round((stop_s - base) * sr))
+    data, _ = sf.read(path, start=first, stop=last, dtype="float32", always_2d=True)
+    return audio_io.to_mono_16k(np.ascontiguousarray(data.T), sr)
+
+
+def ref_prosody_for_segment(lesson: Lesson, index: int, *, write_cache: bool = True) -> RefProsody:
+    """Feature ngữ điệu của bản gốc: từ sidecar nếu hợp lệ, không thì tính từ lát stem (D-03).
+
+    Cửa sổ lấy từ `seg/NNNN.npz` (cùng cửa sổ analyze_segment đã dùng, nên "Mất chữ cuối?" làm
+    sidecar cũ tự mất hiệu lực); bài cũ chưa có file thì dựng lại bằng `segment_window`. Không nạp
+    model nào. `write_cache=False` tính trong bộ nhớ, không chạm đĩa (smoke chỉ đọc ở 03-11).
+    """
+    seg = lesson.segments[index]
+    _, _, base, stop = _stem_span(lesson)
+    window = ref_cache.read_feature_window(lesson.id, index)
+    if window is None:
+        window = features.segment_window(
+            seg.start, seg.end, lesson.pad_ms, seg.end_extra_ms, lo=base, hi=stop
+        )
+    words = [
+        RefWord(w.text, w.start - window[0], w.end - window[0])
+        for w in seg.words  # mốc từ trong lesson.json đã là giây tuyệt đối của video
+    ]
+
+    cached = ref_cache.read_ref_prosody(lesson.id, index, window)
+    if cached is not None:
+        return RefProsody(cached, window[0], words, None)
+
+    vocals_path, _ = _stem_paths(lesson)
+    started = time.perf_counter()
+    try:
+        clip = _read_stem_slice16(vocals_path, window[0], window[1], base)
+    except (OSError, sf.LibsndfileError):
+        raise RefAudioMissing from None
+    if clip.size == 0:
+        raise RefAudioMissing
+    feats = prepare_features(clip)
+    if write_cache:
+        ref_cache.write_ref_prosody(lesson.id, index, window, feats)
+    return RefProsody(feats, window[0], words, (time.perf_counter() - started) * 1000.0)
 
 
 def _run_model_stage(
