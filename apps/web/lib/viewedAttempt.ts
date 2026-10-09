@@ -59,3 +59,10 @@ export function resolveViewedResult(
   if (result) return { kind: "session", result, ordinal: chip.ordinal };
   return { kind: "stored", attempt: viewedAttempt, ordinal: chip.ordinal };
 }
+
+export function yoursAvailable(
+  _viewedAttempt: number | null,
+  _recordingAttempt: number | undefined,
+): boolean {
+  return true;
+}

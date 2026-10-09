@@ -104,6 +104,15 @@ const TABLE: Record<StateGroup, Partial<Record<Key, PlayerEvent>>> = {
   },
 };
 
+export type ShortcutGate = { videoReady: boolean; yoursEnabled: boolean };
+
+export function allowShortcutAction(
+  _action: PlayerEvent,
+  _gate: ShortcutGate,
+): boolean {
+  return true;
+}
+
 function topLevelState(stateValue: ShortcutStateValue): string {
   if (typeof stateValue === "string") return stateValue;
   return Object.keys(stateValue)[0] ?? "";

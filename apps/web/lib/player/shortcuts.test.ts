@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowShortcutAction,
   shortcutToAction,
   shouldHandleShortcut,
   type ShortcutKeyEvent,
@@ -182,5 +183,49 @@ describe("shortcutToAction", () => {
   it("phím không có trong bảng trả null", () => {
     expect(shortcutToAction("x", "idle")).toBeNull();
     expect(shortcutToAction("Enter", "reviewing")).toBeNull();
+  });
+});
+
+describe("allowShortcutAction", () => {
+  const withoutYours = { videoReady: true, yoursEnabled: false };
+  const withYours = { videoReady: true, yoursEnabled: true };
+  const noVideo = { videoReady: false, yoursEnabled: true };
+
+  it("blocks M and B while the viewed attempt has no recording in this session", () => {
+    expect(allowShortcutAction({ type: "LISTEN_YOURS" }, withoutYours)).toBe(
+      false,
+    );
+    expect(allowShortcutAction({ type: "LISTEN_BOTH" }, withoutYours)).toBe(
+      false,
+    );
+  });
+
+  it("keeps O, R and → working for a past attempt", () => {
+    expect(allowShortcutAction({ type: "LISTEN_ORIGINAL" }, withoutYours)).toBe(
+      true,
+    );
+    expect(allowShortcutAction({ type: "RECORD" }, withoutYours)).toBe(true);
+    expect(allowShortcutAction({ type: "NEXT" }, withoutYours)).toBe(true);
+  });
+
+  it("allows M and B when the recording is available", () => {
+    expect(allowShortcutAction({ type: "LISTEN_YOURS" }, withYours)).toBe(true);
+    expect(allowShortcutAction({ type: "LISTEN_BOTH" }, withYours)).toBe(true);
+  });
+
+  it("blocks actions that play the video until the video is ready", () => {
+    for (const type of [
+      "PLAY",
+      "PREVIEW",
+      "LISTEN_ORIGINAL",
+      "LISTEN_BOTH",
+    ] as const) {
+      expect(allowShortcutAction({ type }, noVideo)).toBe(false);
+    }
+  });
+
+  it("does not gate M or R on the video", () => {
+    expect(allowShortcutAction({ type: "LISTEN_YOURS" }, noVideo)).toBe(true);
+    expect(allowShortcutAction({ type: "RECORD" }, noVideo)).toBe(true);
   });
 });

@@ -3,7 +3,11 @@ import { join } from "node:path";
 import type { ScoreResult } from "@shadowenglab/contracts";
 import { describe, expect, it } from "vitest";
 import type { AttemptChip } from "./attemptChips";
-import { nextViewedAttempt, resolveViewedResult } from "./viewedAttempt";
+import {
+  nextViewedAttempt,
+  resolveViewedResult,
+  yoursAvailable,
+} from "./viewedAttempt";
 
 const FIXTURE = join(
   import.meta.dirname,
@@ -123,5 +127,21 @@ describe("resolveViewedResult", () => {
     expect(resolveViewedResult(9, [resultOf(9)], chips)).toEqual({
       kind: "none",
     });
+  });
+});
+
+describe("yoursAvailable", () => {
+  it("defers to the P1 hasRecording rule when no attempt is viewed", () => {
+    expect(yoursAvailable(null, undefined)).toBe(true);
+    expect(yoursAvailable(null, 3)).toBe(true);
+  });
+
+  it("is available when the viewed attempt is the one recorded in this session", () => {
+    expect(yoursAvailable(3, 3)).toBe(true);
+  });
+
+  it("is unavailable for a past attempt, never playing another recording", () => {
+    expect(yoursAvailable(2, 3)).toBe(false);
+    expect(yoursAvailable(2, undefined)).toBe(false);
   });
 });
