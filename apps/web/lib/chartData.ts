@@ -1,4 +1,4 @@
-import type { Contour } from "@shadowenglab/contracts";
+import type { Contour, Issue } from "@shadowenglab/contracts";
 
 /** Một mẫu của biểu đồ: x là chỉ số frame (~20 ms), null = frame không hữu thanh. */
 export interface ChartRow {
@@ -48,4 +48,40 @@ export function yDomain(rows: readonly ChartRow[]): [number, number] {
   const ceiled = Math.max(MIN_HALF_RANGE, Math.ceil(peak));
   const half = ceiled % 2 === 0 ? ceiled : ceiled + 1;
   return [-half, half];
+}
+
+// Khung rỗng cho pha RED của Task 2: chữ ký đúng, chưa có hành vi.
+export function wordCells(
+  _wordBounds: readonly number[],
+  _pointCount: number,
+): number[] {
+  return [];
+}
+
+export interface StressBarHeights {
+  ref: number;
+  user: number;
+}
+
+export function stressBarHeights(
+  _stress: readonly { ref: number; user: number }[],
+): StressBarHeights[] {
+  return [];
+}
+
+export function topStressWord(
+  _stress: readonly { ref: number }[],
+): number | null {
+  return -1;
+}
+
+export function pauseMarkerXs(
+  _issues: readonly Issue[],
+  _wordBounds: readonly number[],
+): number[] {
+  return [-1];
+}
+
+export function chartAriaLabel(_tipTexts: readonly string[]): string {
+  return "";
 }
