@@ -25,6 +25,7 @@ from audio_service.scoring.thresholds import (
 logger = logging.getLogger(__name__)
 
 _INF = 1e18
+_CANCELLATION_TOL = 1e-12  # sai số tương đối của ||a||^2 + ||b||^2 - 2a.b khi a ~ b
 
 
 @dataclass(frozen=True)
@@ -61,8 +62,12 @@ def pairwise_dist(ref: np.ndarray, user: np.ndarray) -> np.ndarray:
     """Euclid / sqrt(d) giữa mọi cặp khung, bằng khai triển ||a||^2 + ||b||^2 - 2a.b (BLAS)."""
     a = np.asarray(ref, dtype=np.float64)
     b = np.asarray(user, dtype=np.float64)
-    d2 = (a * a).sum(axis=1)[:, None] + (b * b).sum(axis=1)[None, :] - 2.0 * (a @ b.T)
-    return np.sqrt(np.maximum(d2, 0.0)) / np.sqrt(a.shape[1])
+    norms = (a * a).sum(axis=1)[:, None] + (b * b).sum(axis=1)[None, :]
+    d2 = norms - 2.0 * (a @ b.T)
+    # Khai triển triệt tiêu: hai khung giống hệt vẫn ra ~1e-14 thay vì 0. Gọt nhiễu số học đó
+    # (ngưỡng tương đối rất nhỏ, thua mọi khoảng cách thật cỡ 0.1 trở lên).
+    d2 = np.where(d2 <= _CANCELLATION_TOL * norms, 0.0, d2)
+    return np.sqrt(d2) / np.sqrt(a.shape[1])
 
 
 def dtw_slack(cost_matrix: np.ndarray, slack: int = ALIGN_SLACK_FRAMES) -> tuple[np.ndarray, float]:
