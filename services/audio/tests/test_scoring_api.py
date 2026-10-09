@@ -223,3 +223,164 @@ def test_stereo_44k_stem_is_read_by_slice_and_scores_high(data_dir: Path, tmp_pa
 
     assert res.status_code == 201, res.text
     assert res.json()["scores"]["overall"] >= 0.9
+
+
+# --- Task 2: no_speech, lỗi chấm, thiếu bản gốc, lịch sử và đọc lại lượt cũ -----------------------
+
+NO_SPEECH = {"code": "no_speech", "message": "Không nghe thấy tiếng nói trong lượt vừa rồi."}
+MISSING_REF = {
+    "code": "invalid_state",
+    "message": "Thiếu audio bản gốc của câu này. Hãy tạo lại bài.",
+}
+
+
+def tmp_files(data_dir: Path) -> list[Path]:
+    root = data_dir / "tmp"
+    return sorted(root.rglob("*")) if root.exists() else []
+
+
+def attempt_rows() -> list[dict[str, Any]]:
+    with db.connection() as conn:
+        rows = conn.execute(
+            "SELECT attempt, voiced, overall, result_json FROM attempts ORDER BY attempt"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def silent_webm(tmp: Path) -> bytes:
+    return encode_webm(np.zeros(2 * SR, dtype=np.float32), tmp, "quiet.webm")
+
+
+def test_silent_recording_is_422_no_speech_and_keeps_an_unvoiced_row(
+    client: TestClient, data_dir: Path, tmp_path: Path
+) -> None:
+    res = upload(client, silent_webm(tmp_path))
+
+    assert res.status_code == 422
+    assert res.json() == NO_SPEECH
+    assert attempt_rows() == [{"attempt": 1, "voiced": 0, "overall": None, "result_json": None}]
+    assert tmp_files(data_dir) == []
+    assert str(data_dir) not in res.text
+
+
+def test_scoring_failure_is_500_with_no_row_no_temp_file_and_no_leak(
+    client: TestClient,
+    recording: bytes,
+    data_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from audio_service.routers import attempts as attempts_router
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError(f"secret {data_dir}")
+
+    monkeypatch.setattr(attempts_router, "score_prosody", boom)
+
+    res = upload(client, recording)
+
+    assert res.status_code == 500
+    assert res.json()["code"] == "internal_error"
+    assert "secret" not in res.text and str(data_dir) not in res.text
+    assert attempt_rows() == []
+    assert tmp_files(data_dir) == []
+
+
+def test_missing_reference_audio_is_409_invalid_state_without_a_row(
+    data_dir: Path, recording: bytes
+) -> None:
+    store_lesson(scoring_lesson())  # có bài, không có stem, không có cache
+    client = TestClient(create_app(), base_url="http://127.0.0.1", raise_server_exceptions=False)
+
+    res = upload(client, recording)
+
+    assert res.status_code == 409
+    assert res.json() == MISSING_REF
+    assert attempt_rows() == []
+    assert tmp_files(data_dir) == []
+    assert str(data_dir) not in res.text
+
+
+def test_cached_reference_scores_even_after_the_stem_is_gone(
+    client: TestClient, recording: bytes
+) -> None:
+    assert upload(client, recording).status_code == 201  # ghi sidecar
+    (stems_dir(VIDEO_ID, 0, 12500) / "vocals.wav").unlink()
+
+    res = upload(client, recording)
+
+    assert res.status_code == 201
+    assert "ref_backfill" not in res.json()["timingMs"]
+
+
+def test_history_lists_scored_attempts_only_and_detail_rereads_the_stored_result(
+    client: TestClient, recording: bytes, data_dir: Path, tmp_path: Path
+) -> None:
+    first = upload(client, recording)
+    assert upload(client, silent_webm(tmp_path)).status_code == 422  # lượt 2 không điểm
+    third = upload(client, recording)
+    assert (first.json()["attempt"], third.json()["attempt"]) == (1, 3)
+
+    listing = client.get(f"/lessons/{LESSON_ID}/segments/0/attempts")
+
+    assert listing.status_code == 200
+    body = listing.json()
+    assert [item["attempt"] for item in body] == [1, 3]
+    assert body[0]["overall"] == pytest.approx(first.json()["scores"]["overall"])
+    assert all(item["createdAt"].endswith("Z") for item in body)
+    assert set(body[0]) == {"attempt", "overall", "createdAt"}
+
+    detail = client.get(f"/lessons/{LESSON_ID}/segments/0/attempts/1")
+    assert detail.status_code == 200
+    assert detail.json() == first.json()
+    assert detail.json()["scores"]["sound"] is None
+
+    for attempt in (99, 2, 0):  # không tồn tại / chưa chấm / không hợp lệ
+        res = client.get(f"/lessons/{LESSON_ID}/segments/0/attempts/{attempt}")
+        assert res.status_code == 404
+        assert res.json() == {
+            "code": "not_found",
+            "message": "Không tìm thấy kết quả của lượt này.",
+        }
+        assert str(data_dir) not in res.text
+
+
+def test_history_of_a_sentence_without_attempts_is_empty_and_guards_apply(
+    client: TestClient,
+) -> None:
+    assert client.get(f"/lessons/{LESSON_ID}/segments/0/attempts").json() == []
+    assert client.get(f"/lessons/{LESSON_ID}/segments/5/attempts").status_code == 404
+    assert client.get(f"/lessons/{LESSON_ID}/segments/5/attempts/1").status_code == 404
+    unknown = client.get("/lessons/01HZX3Y7Q8K2M4N6P8R0S2T4V9/segments/0/attempts")
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == "not_found"
+
+
+def test_corrupted_stored_result_is_500_internal_error_without_echoing_it(
+    client: TestClient, recording: bytes, data_dir: Path
+) -> None:
+    assert upload(client, recording).status_code == 201
+    with db.connection() as conn:
+        conn.execute("UPDATE attempts SET result_json = ?", ('{"leak-me": "/etc/passwd"}',))
+
+    res = client.get(f"/lessons/{LESSON_ID}/segments/0/attempts/1")
+
+    assert res.status_code == 500
+    assert res.json() == {"code": "internal_error", "message": "Kết quả của lượt này bị hỏng."}
+    assert "leak-me" not in res.text and "passwd" not in res.text and str(data_dir) not in res.text
+
+
+def test_progress_keeps_the_best_attempt_when_a_later_one_scores_lower(
+    client: TestClient, recording: bytes, tmp_path: Path
+) -> None:
+    assert upload(client, recording).status_code == 201
+    worse = encode_webm(sentence()[0][: int(1.2 * SR)], tmp_path, "cut.webm")
+    second = upload(client, worse)
+    assert second.status_code == 201
+    assert second.json()["scores"]["overall"] < 0.9999
+
+    segments = client.get(f"/lessons/{LESSON_ID}/progress").json()["segments"]
+
+    assert [row["segmentIndex"] for row in segments] == [0]
+    assert segments[0]["attempts"] == 2
+    assert segments[0]["bestAttempt"] == 1
+    assert segments[0]["bestOverall"] >= 0.95
