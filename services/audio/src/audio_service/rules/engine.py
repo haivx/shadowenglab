@@ -76,6 +76,22 @@ def flat_pitch(inp: RuleInput) -> RuleIssue | None:
     )
 
 
+def final_contour(inp: RuleInput) -> RuleIssue | None:
+    return None
+
+
+def pitch_deviation(inp: RuleInput) -> list[RuleIssue]:
+    return []
+
+
+def extra_pause(inp: RuleInput) -> list[RuleIssue]:
+    return []
+
+
+def stress_mismatch(inp: RuleInput) -> RuleIssue | None:
+    return None
+
+
 def run_rules(inp: RuleInput) -> list[RuleIssue]:
     """Chạy các rule theo thứ tự cố định STRESS_MISMATCH, FINAL_CONTOUR, EXTRA_PAUSE,
     PITCH_DEVIATION, FLAT_PITCH; trong một mã theo chỉ số từ. Thứ tự này là thứ tự `issues`
