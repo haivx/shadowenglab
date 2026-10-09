@@ -133,8 +133,32 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans**: TBD
+**Plans:** 11 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+- [ ] 03-01-PLAN.md — Cổng quyết định: Liam duyệt A–K (no_speech, endpoint lượt, SQLite v2, ngưỡng, tiêu chí "câu sai hẳn", sidecar, gap UI); hiện thực contract (wave 1)
+- [ ] 03-02-PLAN.md — Cổng dependency: recharts 3.10.1 + react-is 18.3.1 (duyệt lockfile), shadcn collapsible (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 03-03-PLAN.md — Lõi chấm Lớp B: prepare_features, align MFCC-DTW, 3 chỉ số, ScoreResult; tự so = 1.0 (wave 2)
+- [ ] 03-04-PLAN.md — Web tracer: lượt ghi → ScoreResult, no_speech, ScoreHero + scoreLevel, trạng thái đang chấm, khen/trung tính (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 03-05-PLAN.md — API + SQLite v2: POST trả ScoreResult, cache sidecar ngữ điệu, danh sách/chi tiết lượt, điểm tốt nhất (wave 3)
+- [ ] 03-06-PLAN.md — Prominence/ngắt + rule engine Lớp C (5 mã, cổng chắc chắn) + tip template (wave 3)
+- [ ] 03-07-PLAN.md — IntonationChart (Recharts) sau nút "So sánh ngữ điệu" (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 03-08-PLAN.md — TipList + hover/focus highlight từ trong câu và biểu đồ (wave 4)
+- [ ] 03-09-PLAN.md — Chấm màu danh sách câu và thanh tiến độ theo lượt tốt nhất (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 03-10-PLAN.md — AttemptStrip: chip lượt, lượt tốt nhất, xem lượt cũ, M/B theo lượt đang xem (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 03-11-PLAN.md — make smoke-score trên bài thật, ADR 0006, CLAUDE.md, cổng cuối phase + UAT (wave 6)
 
 **Notes**:
 - Phạm vi (seed): Lớp B (F0, semitone, căn theo từ, 3 chỉ số Tốc độ / Độ lên xuống / Khớp giai điệu, prominence), rule engine Lớp C dạng template (`STRESS_MISMATCH`, `EXTRA_PAUSE`, `FINAL_CONTOUR`, `FLAT_PITCH`, `PITCH_DEVIATION`), UI `ScoreHero` (phần ngữ điệu), `IntonationChart`, `TipList`, 6 trạng thái vùng câu (S3).
