@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { uploadAttempt } from "@/lib/api";
+import { attemptChips } from "@/lib/attemptChips";
 import { makeRecordActor } from "@/lib/audio/recorder";
 import {
   makePlayBlob,
@@ -54,6 +55,7 @@ import { useShortcuts } from "@/lib/player/useShortcuts";
 import { bestBySegment } from "@/lib/progressView";
 import {
   queryKeys,
+  useAttempts,
   useLesson,
   useLessonProgress,
   useSettings,
@@ -306,6 +308,18 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const index = context.segmentIndex;
   const top = topLevelState(snapshot.value);
 
+  // Kết quả chấm nhận trong phiên theo câu: machine chỉ giữ lượt mới nhất của mỗi câu, còn chip
+  // phải giữ mọi lượt đã chấm (FBK-06). Danh sách server bổ sung khi tải lại trang.
+  const [sessionResults, setSessionResults] = useState<
+    Readonly<Record<number, readonly ScoreResult[]>>
+  >({});
+  const attempts = useAttempts(lesson.id, index);
+  const sentenceSession = sessionResults[index];
+  const chips = useMemo(
+    () => attemptChips(attempts.data, [...(sentenceSession ?? [])]),
+    [attempts.data, sentenceSession],
+  );
+
   // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine.
   const [ipaOn, setIpaOn] = useState(false);
   const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
@@ -336,6 +350,31 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.lessonProgress(lesson.id),
       });
+    }
+    if (was === "scoring" && top === "reviewing") {
+      // Lượt vừa chấm: giữ trong phiên, nạp sẵn cache chi tiết (bấm lại chip không cần tải) và
+      // làm mới danh sách để chip khớp server.
+      const machine = actorRef.getSnapshot().context;
+      const result = machine.recordings[machine.segmentIndex]?.result;
+      if (result) {
+        const sentence = machine.segmentIndex;
+        setSessionResults((prev) => ({
+          ...prev,
+          [sentence]: [
+            ...(prev[sentence] ?? []).filter(
+              (item) => item.attempt !== result.attempt,
+            ),
+            result,
+          ],
+        }));
+        queryClient.setQueryData(
+          queryKeys.attemptResult(lesson.id, sentence, result.attempt),
+          result,
+        );
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.attempts(lesson.id, sentence),
+        });
+      }
     }
     if (was === "scoring" && top === "error") {
       toast.error(UPLOAD_ERROR_TEXT, {
@@ -450,7 +489,9 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             lessonId={lesson.id}
             segmentIndex={segment.index}
             sentenceNumber={index + 1}
-            voicedAttempts={voicedAttempts}
+            chips={chips}
+            viewedAttempt={scored?.attempt ?? null}
+            onSelectAttempt={() => undefined}
             ipaOn={ipaOn}
             onToggleIpa={toggleIpa}
           />

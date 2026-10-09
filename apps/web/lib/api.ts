@@ -226,19 +226,29 @@ export function uploadAttempt(
   );
 }
 
+/** Các lượt đã chấm của một câu, `attempt` tăng dần (D-11). */
 export function listAttempts(
-  _lessonId: string,
-  _index: number,
+  lessonId: string,
+  index: number,
 ): Promise<AttemptSummary[]> {
-  return Promise.resolve([]);
+  return request(
+    `${segmentPath(lessonId, index)}/attempts`,
+    { method: "GET" },
+    AttemptSummary.array(),
+  );
 }
 
+/** ScoreResult đã lưu của một lượt; body sai schema thành lỗi (E9 error). */
 export function getAttemptResult(
-  _lessonId: string,
-  _index: number,
-  _attempt: number,
+  lessonId: string,
+  index: number,
+  attempt: number,
 ): Promise<ScoreResult> {
-  return Promise.reject(new Error("not implemented"));
+  return request(
+    `${segmentPath(lessonId, index)}/attempts/${enc(attempt)}`,
+    { method: "GET" },
+    ScoreResult,
+  );
 }
 
 /** Gửi lại blob của một lượt đã có để lưu cho eval; không tạo lượt mới. */

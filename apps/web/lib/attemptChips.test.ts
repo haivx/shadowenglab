@@ -15,12 +15,17 @@ const FIXTURE = join(
   "ScoreResult.json",
 );
 
-const BASE_RESULT = (
-  JSON.parse(readFileSync(FIXTURE, "utf8")) as {
+function loadBaseResult(): ScoreResult {
+  const cases = JSON.parse(readFileSync(FIXTURE, "utf8")) as {
     name: string;
     data: ScoreResult;
-  }[]
-).find((c) => c.name === "full")!.data;
+  }[];
+  const found = cases.find((c) => c.name === "full");
+  if (!found) throw new Error("ScoreResult fixture 'full' not found");
+  return found.data;
+}
+
+const BASE_RESULT = loadBaseResult();
 
 function summary(attempt: number, overall: number): AttemptSummary {
   return { attempt, overall, createdAt: "2026-10-08T09:00:00.000Z" };
