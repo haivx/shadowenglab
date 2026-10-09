@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { Seconds } from "./common";
+import { Score01, Seconds } from "./common";
 import { Lesson } from "./lesson";
 
 /** Mã lỗi API (D-22). Không có meta id: inline thành Literal. */
@@ -17,6 +17,7 @@ export const ApiErrorCode = z.enum([
   "unsupported_media",
   "payload_too_large",
   "recording_too_long",
+  "no_speech",
   "busy",
   "no_openai_key",
   "upstream_error",
@@ -80,6 +81,14 @@ export const SegmentProgress = z
     attempts: z.number().int().min(0),
     /** "Đã tập" = voicedAttempts >= 1 (D-08). */
     voicedAttempts: z.number().int().min(0),
+    /**
+     * Điểm tốt nhất của câu. Có mặt cùng `bestAttempt` khi câu có ≥ 1 lượt đã
+     * chấm; tốt nhất = overall cao nhất, hoà lấy lượt sau (D-11). Optional,
+     * không bao giờ null.
+     */
+    bestOverall: Score01.optional(),
+    /** Số thứ tự lượt đạt `bestOverall` (cùng điều kiện có mặt). */
+    bestAttempt: z.number().int().min(1).optional(),
   })
   .meta({ id: "SegmentProgress" });
 

@@ -10,5 +10,12 @@
       "message": "Bài này đã có sẵn.",
       "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ0"
     }
+  },
+  {
+    "name": "no-speech",
+    "data": {
+      "code": "no_speech",
+      "message": "Không nghe thấy tiếng nói trong lượt vừa rồi."
+    }
   }
 ]

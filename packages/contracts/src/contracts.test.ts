@@ -398,8 +398,8 @@ describe("phase 3 contract edges", () => {
   });
 
   it("AttemptSummary rejects a missing createdAt", () => {
-    const { createdAt: _createdAt, ...rest } = summary;
-    expect(AttemptSummary.safeParse(rest).success).toBe(false);
+    const withoutCreatedAt = { attempt: summary.attempt, overall: 0.8 };
+    expect(AttemptSummary.safeParse(withoutCreatedAt).success).toBe(false);
   });
 });
 
