@@ -60,9 +60,14 @@ export function resolveViewedResult(
   return { kind: "stored", attempt: viewedAttempt, ordinal: chip.ordinal };
 }
 
+/**
+ * `Của bạn (M)` và `Lần lượt cả hai (B)` chỉ dùng được khi bản ghi trong bộ nhớ chính là lượt đang xem;
+ * chưa xem lượt nào thì giữ quy tắc P1 (`hasRecording`). Trình duyệt chỉ giữ bản ghi mới nhất của mỗi
+ * câu (D-07) nên lượt cũ hơn không bao giờ phát bản ghi khác (D-11, FBK-04).
+ */
 export function yoursAvailable(
-  _viewedAttempt: number | null,
-  _recordingAttempt: number | undefined,
+  viewedAttempt: number | null,
+  recordingAttempt: number | undefined,
 ): boolean {
-  return true;
+  return viewedAttempt === null || recordingAttempt === viewedAttempt;
 }

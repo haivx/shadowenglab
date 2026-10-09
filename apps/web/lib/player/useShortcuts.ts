@@ -2,8 +2,9 @@
 
 import { useEffect, type PointerEvent } from "react";
 import type { ActorRefFrom } from "xstate";
-import type { PlayerEvent, playerMachine } from "./playerMachine";
+import type { playerMachine } from "./playerMachine";
 import {
+  allowShortcutAction,
   shortcutToAction,
   shouldHandleShortcut,
   type ShortcutToggle,
@@ -28,19 +29,16 @@ export function releaseFocusOnPointerUp(
 /** Space/Enter kích hoạt phần tử tương tác đang focus bằng Tab thì để trình duyệt xử lý. */
 const NATIVE_ACTIVATION = 'button, a[href], summary, [role="button"]';
 
-/** Các sự kiện làm video phát: chưa dùng được khi video chưa sẵn sàng. */
-const NEEDS_VIDEO = new Set<PlayerEvent["type"]>([
-  "PLAY",
-  "PREVIEW",
-  "LISTEN_ORIGINAL",
-  "LISTEN_BOTH",
-]);
-
 export interface UseShortcutsOptions {
   /** I / T: bật tắt IPA và bản dịch (02-18 xử lý). Không truyền thì hai phím này bị bỏ qua. */
   onToggle?: (toggle: ShortcutToggle) => void;
   /** false khi video chưa `canplay` hoặc lỗi: bỏ qua phím làm video phát. */
   videoReady?: boolean;
+  /**
+   * false khi lượt đang xem không còn bản ghi trong phiên: M/B không làm gì (D-11, FBK-04).
+   * Mặc định true.
+   */
+  yoursEnabled?: boolean;
 }
 
 /**
@@ -50,7 +48,11 @@ export interface UseShortcutsOptions {
  */
 export function useShortcuts(
   actor: PlayerActor,
-  { onToggle, videoReady = true }: UseShortcutsOptions = {},
+  {
+    onToggle,
+    videoReady = true,
+    yoursEnabled = true,
+  }: UseShortcutsOptions = {},
 ): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -81,7 +83,7 @@ export function useShortcuts(
         onToggle(action);
         return;
       }
-      if (!videoReady && NEEDS_VIDEO.has(action.type)) return;
+      if (!allowShortcutAction(action, { videoReady, yoursEnabled })) return;
 
       event.preventDefault();
       actor.send(action);
@@ -89,5 +91,5 @@ export function useShortcuts(
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [actor, onToggle, videoReady]);
+  }, [actor, onToggle, videoReady, yoursEnabled]);
 }

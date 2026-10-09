@@ -1,7 +1,13 @@
 "use client";
 
 import { ArrowRight, Mic, Play, Square } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { PlayerEvent } from "@/lib/player/playerMachine";
 import {
   shortcutToAction,
@@ -40,6 +46,32 @@ function asPlayerEvent(action: ShortcutAction | null): PlayerEvent | null {
   return action;
 }
 
+/** Lý do M/B bị khoá khi đang xem một lượt cũ (P3-G12, D-11). */
+const NO_SESSION_RECORDING_TEXT = "Bản ghi của lượt này không còn trong phiên.";
+
+/**
+ * Hiện lý do khoá khi `reason` bật. Button không forwardRef (React 18) nên span làm trigger,
+ * focus của nút nổi lên span; nút vẫn `aria-disabled` nên còn nằm trong thứ tự Tab.
+ */
+function DisabledReason({
+  reason,
+  children,
+}: {
+  reason: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{children}</span>
+      </TooltipTrigger>
+      {reason ? (
+        <TooltipContent>{NO_SESSION_RECORDING_TEXT}</TooltipContent>
+      ) : null}
+    </Tooltip>
+  );
+}
+
 const PRESSED_ORIGINAL =
   "aria-pressed:shadow-[inset_0_0_0_2px_var(--original-text)]";
 const PRESSED_YOU = "aria-pressed:shadow-[inset_0_0_0_2px_var(--you-text)]";
@@ -53,6 +85,11 @@ interface ResultActionBarProps {
   segmentCount: number;
   /** Câu hiện tại đã có bản ghi trong phiên này (D-07). */
   hasRecording: boolean;
+  /**
+   * Lượt đang xem còn bản ghi trong phiên (`yoursAvailable`); false thì `Của bạn` / `Lần lượt cả hai`
+   * bị khoá kèm tooltip, `Bản gốc` không đổi (D-11, FBK-04). Mặc định true.
+   */
+  yoursAvailable?: boolean;
   /** false cho tới khi video `canplay`: khoá các nút cần phát video. */
   videoReady: boolean;
   send: (event: PlayerEvent) => void;
@@ -61,13 +98,15 @@ interface ResultActionBarProps {
 /**
  * Footer dính đáy của S3 (UI-SPEC "Footer", G10), hiện ở mọi trạng thái.
  * Nút và phím dùng chung bảng `shortcutToAction`: nút bị khoá đúng chỗ phím bị bỏ qua.
- * `Của bạn` / `Lần lượt cả hai` dùng `aria-disabled` (không `disabled`) cho tới khi có bản ghi.
+ * `Của bạn` / `Lần lượt cả hai` dùng `aria-disabled` (không `disabled`) cho tới khi có bản ghi,
+ * và khi lượt đang xem không còn bản ghi trong phiên (kèm tooltip lý do).
  */
 export function ResultActionBar({
   stateValue,
   segmentIndex,
   segmentCount,
   hasRecording,
+  yoursAvailable = true,
   videoReady,
   send,
 }: ResultActionBarProps) {
@@ -83,8 +122,9 @@ export function ResultActionBar({
   const nextEvent = asPlayerEvent(shortcutToAction("ArrowRight", stateValue));
 
   const originalDisabled = !videoReady || originalEvent === null;
-  const yoursDisabled = !hasRecording || yoursEvent === null;
-  const bothDisabled = !videoReady || !hasRecording || bothEvent === null;
+  const yoursDisabled = !hasRecording || !yoursAvailable || yoursEvent === null;
+  const bothDisabled =
+    !videoReady || !hasRecording || !yoursAvailable || bothEvent === null;
   const isLast = segmentIndex >= segmentCount - 1;
   const nextDisabled = isLast || nextEvent === null;
 
@@ -118,35 +158,39 @@ export function ResultActionBar({
         )}
         Bản gốc
       </Button>
-      <Button
-        variant="soft-you"
-        kbd="M"
-        title="Nghe lại bản của bạn (M)"
-        aria-pressed={active === "yours"}
-        aria-disabled={yoursDisabled}
-        onPointerUp={releaseFocusOnPointerUp}
-        onClick={fire(yoursEvent, yoursDisabled)}
-        className={`px-3.5 aria-disabled:opacity-50 ${PRESSED_YOU}`}
-      >
-        {active === "yours" ? (
-          <Square aria-hidden="true" fill="currentColor" />
-        ) : (
-          <Play aria-hidden="true" fill="currentColor" />
-        )}
-        Của bạn
-      </Button>
-      <Button
-        variant="outline"
-        kbd="B"
-        title="Nghe lần lượt bản gốc rồi bản của bạn (B)"
-        aria-pressed={active === "both"}
-        aria-disabled={bothDisabled}
-        onPointerUp={releaseFocusOnPointerUp}
-        onClick={fire(bothEvent, bothDisabled)}
-        className={`px-3.5 aria-disabled:opacity-50 ${PRESSED_NEUTRAL}`}
-      >
-        Lần lượt cả hai
-      </Button>
+      <DisabledReason reason={!yoursAvailable}>
+        <Button
+          variant="soft-you"
+          kbd="M"
+          title="Nghe lại bản của bạn (M)"
+          aria-pressed={active === "yours"}
+          aria-disabled={yoursDisabled}
+          onPointerUp={releaseFocusOnPointerUp}
+          onClick={fire(yoursEvent, yoursDisabled)}
+          className={`px-3.5 aria-disabled:opacity-50 ${PRESSED_YOU}`}
+        >
+          {active === "yours" ? (
+            <Square aria-hidden="true" fill="currentColor" />
+          ) : (
+            <Play aria-hidden="true" fill="currentColor" />
+          )}
+          Của bạn
+        </Button>
+      </DisabledReason>
+      <DisabledReason reason={!yoursAvailable}>
+        <Button
+          variant="outline"
+          kbd="B"
+          title="Nghe lần lượt bản gốc rồi bản của bạn (B)"
+          aria-pressed={active === "both"}
+          aria-disabled={bothDisabled}
+          onPointerUp={releaseFocusOnPointerUp}
+          onClick={fire(bothEvent, bothDisabled)}
+          className={`px-3.5 aria-disabled:opacity-50 ${PRESSED_NEUTRAL}`}
+        >
+          Lần lượt cả hai
+        </Button>
+      </DisabledReason>
       <span className="flex-1" />
       {recording ? (
         <Button

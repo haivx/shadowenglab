@@ -72,7 +72,11 @@ import {
   useSettings,
   useSystemStatus,
 } from "@/lib/queries";
-import { nextViewedAttempt, resolveViewedResult } from "@/lib/viewedAttempt";
+import {
+  nextViewedAttempt,
+  resolveViewedResult,
+  yoursAvailable,
+} from "@/lib/viewedAttempt";
 
 type SessionDefaults = Pick<
   AppSettings,
@@ -396,7 +400,12 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     },
     [toggleIpa, toggleTranslation],
   );
-  useShortcuts(actorRef, { videoReady, onToggle });
+  // Chỉ lượt đang xem có bản ghi trong phiên mới phát lại được M/B; các trạng thái khác giữ hành vi P1.
+  const canPlayYours =
+    top === "idle" || top === "reviewing"
+      ? yoursAvailable(viewedAttempt, recording?.attempt)
+      : true;
+  useShortcuts(actorRef, { videoReady, onToggle, yoursEnabled: canPlayYours });
 
   // Lượt mới đã được server ghi nhận (reviewing hoặc noVoice sau scoring): cập nhật chấm "đã tập" và header.
   // Tải lên thất bại (scoring -> error): toast bền với `Thử lại`; rời error thì tắt toast (REC-03).
@@ -635,6 +644,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
         segmentIndex={index}
         segmentCount={context.segmentCount}
         hasRecording={recording !== undefined}
+        yoursAvailable={canPlayYours}
         videoReady={videoReady}
         send={actorRef.send}
       />
