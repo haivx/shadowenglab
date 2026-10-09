@@ -7,15 +7,15 @@ import { toast } from "sonner";
 import { fromPromise } from "xstate";
 import type {
   AppSettings,
-  AttemptAck,
   Lesson,
   LessonProgress,
+  ScoreResult,
 } from "@shadowenglab/contracts";
 import { AttemptStrip } from "@/components/AttemptStrip";
 import { PlayerControls } from "@/components/PlayerControls";
 import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
 import { ResultActionBar } from "@/components/ResultActionBar";
-import { ReviewBlock } from "@/components/ReviewBlock";
+import { ResultPanel } from "@/components/ResultPanel";
 import { SentenceStatePanel } from "@/components/SentenceStatePanel";
 import { SpokenIpa } from "@/components/SpokenIpa";
 import {
@@ -245,7 +245,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
           ),
         ),
         record: makeRecordActor(),
-        uploadAttempt: fromPromise<AttemptAck, UploadInput>(
+        uploadAttempt: fromPromise<ScoreResult, UploadInput>(
           ({ input, signal }) =>
             uploadAttempt(lessonIdRef.current, input.segmentIndex, input.blob, {
               saveForEval: false,
@@ -366,10 +366,21 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   if (!segment) return null;
 
   const recording = context.recordings[index];
+  // Kết quả chấm đang hiển thị ở reviewing (null = chưa có / đã rời reviewing).
+  const scored =
+    top === "reviewing" &&
+    recording?.status === "scored" &&
+    recording.result !== undefined &&
+    recording.attempt !== undefined
+      ? {
+          result: recording.result,
+          attempt: recording.attempt,
+          blob: recording.blob,
+        }
+      : null;
   const voicedAttempts =
     progress?.segments.find((item) => item.segmentIndex === index)
       ?.voicedAttempts ?? 0;
-  const isLast = index >= lesson.segments.length - 1;
 
   // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
   const recordDurationMs = Math.min(
@@ -453,7 +464,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               bars={context.level.bars}
             />
           ) : top === "scoring" ? (
-            <SentenceStatePanel variant="processing" sentence={segment.text} />
+            <SentenceStatePanel variant="scoring" sentence={segment.text} />
           ) : top === "noVoice" ? (
             <SentenceStatePanel
               variant="noVoice"
@@ -473,29 +484,25 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               onRetry={() => actorRef.send({ type: "RETRY_UPLOAD" })}
               onRecord={() => actorRef.send({ type: "RECORD" })}
             />
-          ) : (
+          ) : scored ? null : (
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>
           )}
-          {ipaOn && (top === "idle" || top === "reviewing") ? (
-            <SpokenIpa words={segment.words} />
-          ) : null}
-          {top === "reviewing" &&
-          recording?.status === "uploaded" &&
-          recording.attempt !== undefined ? (
-            <ReviewBlock
-              key={`${index}:${recording.attempt}`}
+          {ipaOn && top === "idle" ? <SpokenIpa words={segment.words} /> : null}
+          {scored ? (
+            <ResultPanel
+              key={`${index}:${scored.attempt}`}
               lessonId={lesson.id}
               segmentIndex={index}
+              segment={segment}
+              result={scored.result}
               attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
-              attempt={recording.attempt}
-              blob={recording.blob}
-              durationMs={recording.durationMs}
-              isLast={isLast}
-              saved={savedClips.has(`${index}:${recording.attempt}`)}
+              ipaOn={ipaOn}
+              blob={scored.blob}
+              saved={savedClips.has(`${index}:${scored.attempt}`)}
               onSaved={() => {
-                const key = `${index}:${recording.attempt}`;
+                const key = `${index}:${scored.attempt}`;
                 setSavedClips((prev) => new Set(prev).add(key));
               }}
             />

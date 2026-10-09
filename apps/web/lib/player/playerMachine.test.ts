@@ -1,8 +1,11 @@
 // Test các transition chính của playerMachine (PLY-02): node env, không DOM, actor giả.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createActor, fromCallback, fromPromise, waitFor } from "xstate";
-import type { AttemptAck } from "@shadowenglab/contracts";
+import { ScoreResult } from "@shadowenglab/contracts";
 import {
+  isNoSpeechError,
   playerMachine,
   type PlayBlobInput,
   type PlayBothInput,
@@ -24,18 +27,33 @@ const INPUT: PlayerInput = {
 
 type SendBack = (event: PlayerEvent) => void;
 
-function ack(
-  segmentIndex: number,
-  attempt: number,
-  voiced: boolean,
-): AttemptAck {
+const FIXTURE_FILE = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "packages",
+  "contracts",
+  "fixtures",
+  "ScoreResult.json",
+);
+
+// Parse bằng Zod của hợp đồng: fixture sai hình thì test hỏng ngay, không cần ép kiểu.
+const SCORE_FIXTURE = ScoreResult.parse(
+  (JSON.parse(readFileSync(FIXTURE_FILE, "utf8")) as { data: unknown }[])[0]
+    ?.data,
+);
+
+/** Kết quả chấm lấy từ fixture hợp đồng, chỉ đổi câu và lượt. */
+function scoreResult(segmentIndex: number, attempt: number): ScoreResult {
+  return { ...SCORE_FIXTURE, segmentIndex, attempt };
+}
+
+/** Lỗi của api client khi server trả 422 no_speech (cùng hình `ApiRequestError.error`). */
+function noSpeech() {
   return {
-    lessonId: "lesson-1",
-    segmentIndex,
-    attempt,
-    durationMs: 1800,
-    voiced,
-    savedForEval: false,
+    error: { code: "no_speech", message: "Không nghe thấy tiếng nói." },
   };
 }
 
@@ -53,11 +71,11 @@ function makeFakes() {
   const ctl: {
     sample: SendBack | null;
     recorder: SendBack | null;
-    upload: (input: UploadInput) => Promise<AttemptAck>;
+    upload: (input: UploadInput) => Promise<ScoreResult>;
   } = {
     sample: null,
     recorder: null,
-    upload: async (input) => ack(input.segmentIndex, 1, true),
+    upload: async (input) => scoreResult(input.segmentIndex, 1),
   };
   const actors = {
     playSample: fromCallback<PlayerEvent, PlaySampleInput>(
@@ -79,7 +97,7 @@ function makeFakes() {
         return () => {};
       },
     ),
-    uploadAttempt: fromPromise<AttemptAck, UploadInput>(async ({ input }) => {
+    uploadAttempt: fromPromise<ScoreResult, UploadInput>(async ({ input }) => {
       calls.uploads.push(input);
       return ctl.upload(input);
     }),
@@ -131,7 +149,7 @@ afterEach(() => {
 });
 
 describe("playerMachine: luồng chính", () => {
-  it("idle -> playing -> recording -> scoring -> reviewing, lưu bản ghi đã tải lên", async () => {
+  it("idle -> playing -> recording -> scoring -> reviewing, lưu bản ghi và kết quả chấm", async () => {
     const h = start();
     expect(h.actor.getSnapshot().matches("idle")).toBe(true);
 
@@ -150,8 +168,9 @@ describe("playerMachine: luồng chính", () => {
     await waitFor(h.actor, (s) => s.matches("reviewing"));
     const snap = h.actor.getSnapshot();
     expect(snap.matches({ reviewing: "idle" })).toBe(true);
-    expect(snap.context.recordings[0]?.status).toBe("uploaded");
+    expect(snap.context.recordings[0]?.status).toBe("scored");
     expect(snap.context.recordings[0]?.attempt).toBe(1);
+    expect(snap.context.recordings[0]?.result).toEqual(scoreResult(0, 1));
     expect(snap.context.recordings[0]?.blob).toBe(blob);
     expect(h.calls.uploads[0]).toEqual({ segmentIndex: 0, blob });
   });
@@ -199,16 +218,31 @@ describe("playerMachine: luồng chính", () => {
     expect(h.calls.recorderStops).toBe(1);
   });
 
-  it("uploadAttempt trả voiced=false -> noVoice; RECORD từ noVoice -> recording", async () => {
+  it("uploadAttempt reject với error.code no_speech -> noVoice; RECORD từ noVoice -> recording", async () => {
     const h = start();
-    h.ctl.upload = async (input) => ack(input.segmentIndex, 1, false);
+    h.ctl.upload = async () => {
+      throw noSpeech();
+    };
     toScoring(h);
     await waitFor(h.actor, (s) => s.matches("noVoice"));
-    expect(h.actor.getSnapshot().context.recordings[0]?.status).toBe("noVoice");
+    const rec = h.actor.getSnapshot().context.recordings[0];
+    expect(rec?.status).toBe("noVoice");
+    expect(rec?.result).toBeUndefined();
 
     h.actor.send({ type: "RECORD" });
     expect(h.actor.getSnapshot().matches("recording")).toBe(true);
     expect(h.calls.records).toHaveLength(2);
+  });
+
+  it("isNoSpeechError chỉ nhận đối tượng có error.code === 'no_speech'", () => {
+    expect(isNoSpeechError(noSpeech())).toBe(true);
+    expect(
+      isNoSpeechError({ error: { code: "internal_error", message: "x" } }),
+    ).toBe(false);
+    expect(isNoSpeechError(new Error("no_speech"))).toBe(false);
+    expect(isNoSpeechError(null)).toBe(false);
+    expect(isNoSpeechError({ error: null })).toBe(false);
+    expect(isNoSpeechError("no_speech")).toBe(false);
   });
 
   it("uploadAttempt reject -> error, giữ nguyên blob, lastError; RETRY_UPLOAD gửi lại đúng blob; RECORD -> recording", async () => {
@@ -223,11 +257,12 @@ describe("playerMachine: luồng chính", () => {
     expect(snap.context.recordings[0]?.status).toBe("failed");
     expect(snap.context.lastError).toBe("backend 500");
 
-    h.ctl.upload = async (input) => ack(input.segmentIndex, 1, true);
+    h.ctl.upload = async (input) => scoreResult(input.segmentIndex, 1);
     h.actor.send({ type: "RETRY_UPLOAD" });
     expect(h.actor.getSnapshot().matches("scoring")).toBe(true);
     expect(h.calls.uploads[1]?.blob).toBe(blob);
     await waitFor(h.actor, (s) => s.matches("reviewing"));
+    expect(h.actor.getSnapshot().context.recordings[0]?.status).toBe("scored");
 
     // nhánh error -> RECORD
     const h2 = start();
@@ -283,7 +318,7 @@ describe("playerMachine: điều hướng và đồng thời", () => {
     expect(h.calls.records).toHaveLength(1); // không bắt đầu lượt ghi thứ hai
 
     h.ctl.recorder?.({ type: "STOPPED", blob: BLOB(), durationMs: 1000 });
-    h.ctl.upload = () => new Promise<AttemptAck>(() => {});
+    h.ctl.upload = () => new Promise<ScoreResult>(() => {});
     for (const event of [
       { type: "NEXT" },
       { type: "GOTO", index: 2 },
@@ -397,7 +432,7 @@ describe("playerMachine: nghe lại và cài đặt", () => {
 
   it("đang xử lý (scoring) vẫn nghe lại được bản ghi của mình (M)", () => {
     const h = start();
-    h.ctl.upload = () => new Promise<AttemptAck>(() => {});
+    h.ctl.upload = () => new Promise<ScoreResult>(() => {});
     const blob = toScoring(h);
     h.actor.send({ type: "LISTEN_YOURS" });
     expect(h.actor.getSnapshot().matches({ scoring: "yours" })).toBe(true);

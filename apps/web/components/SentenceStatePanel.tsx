@@ -31,8 +31,8 @@ interface RecordingPanelProps {
   bars: number;
 }
 
-interface ProcessingPanelProps {
-  variant: "processing";
+interface ScoringPanelProps {
+  variant: "scoring";
   sentence: string;
 }
 
@@ -58,12 +58,12 @@ interface UploadErrorPanelProps {
 
 /**
  * Thẻ trắng viền 1px, bo 12, padding 24, khoảng cách 18, câu 26/500 căn giữa (S3s).
- * Biến thể: playing, recording, processing, noVoice, micError, uploadError.
+ * Biến thể: playing, recording, scoring, noVoice, micError, uploadError.
  */
 export type SentenceStatePanelProps =
   | PlayingPanelProps
   | RecordingPanelProps
-  | ProcessingPanelProps
+  | ScoringPanelProps
   | NoVoicePanelProps
   | MicErrorPanelProps
   | UploadErrorPanelProps;
@@ -174,10 +174,32 @@ function RecordingPanel({ sentence, durationMs, bars }: RecordingPanelProps) {
   );
 }
 
-/** Độ rộng 6 chip xương theo S3s (state 4). */
-const SKELETON_CHIP_WIDTHS = [56, 96, 40, 76, 84, 44] as const;
+/** Sau ngần này mà chưa có kết quả thì đổi chú thích (P3-G9, D-03: lần đầu của câu tính đặc trưng bản gốc). */
+const SLOW_CAPTION_MS = 5000;
 
-function ProcessingPanel({ sentence }: ProcessingPanelProps) {
+/**
+ * Ba khối xương tương ứng ba chỉ số của ScoreHero (S3s 4, UI-SPEC "State 4"): 72px, bo 12, nền muted.
+ * Dùng lại cho khung chờ kết quả của lượt cũ (03-10).
+ */
+export function MetricSkeleton() {
+  return (
+    <div aria-hidden="true" className="grid grid-cols-3 gap-3">
+      {[0, 1, 2].map((key) => (
+        <Skeleton key={key} className="h-[72px] rounded-lg" />
+      ))}
+    </div>
+  );
+}
+
+function ScoringPanel({ sentence }: ScoringPanelProps) {
+  const [slow, setSlow] = useState(false);
+
+  // Panel chỉ mount khi machine vào `scoring`, nên mốc 5 s tính từ lúc bắt đầu chấm.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), SLOW_CAPTION_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <section
       aria-busy="true"
@@ -186,13 +208,16 @@ function ProcessingPanel({ sentence }: ProcessingPanelProps) {
       <p className="m-0 text-center text-[26px] font-medium leading-[1.3]">
         {sentence}
       </p>
-      <div aria-hidden="true" className="flex justify-center gap-2">
-        {SKELETON_CHIP_WIDTHS.map((width, index) => (
-          <Skeleton key={index} className="h-10 rounded-lg" style={{ width }} />
-        ))}
-      </div>
+      <MetricSkeleton />
       <span className="text-center text-[13px] text-muted-foreground">
-        Đang xử lý bản ghi… Bạn có thể nghe lại bản ghi của mình <Kbd>M</Kbd>
+        {slow ? (
+          "Đang so với bản gốc… Lần đầu của câu này có thể lâu hơn một chút."
+        ) : (
+          <>
+            Đang so với bản gốc… Bạn có thể nghe lại bản ghi của mình{" "}
+            <Kbd>M</Kbd>
+          </>
+        )}
       </span>
     </section>
   );
@@ -309,8 +334,8 @@ export function SentenceStatePanel(props: SentenceStatePanelProps) {
       return <PlayingPanel {...props} />;
     case "recording":
       return <RecordingPanel {...props} />;
-    case "processing":
-      return <ProcessingPanel {...props} />;
+    case "scoring":
+      return <ScoringPanel {...props} />;
     case "noVoice":
       return <NoVoicePanel {...props} />;
     case "micError":
