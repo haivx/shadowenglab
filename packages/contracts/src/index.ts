@@ -6,7 +6,7 @@ import {
   UpdateSegmentTextRequest,
   VideoPreview,
 } from "./api";
-import { AttemptAck } from "./attempt";
+import { AttemptAck, AttemptSummary } from "./attempt";
 import { ClipManifest, Label } from "./eval";
 import { Lesson, Segment } from "./lesson";
 import { IssueCode, ScoreResult } from "./score";
@@ -27,7 +27,8 @@ export * from "./settings";
 
 /**
  * Các kiểu I/O được xuất ra JSON Schema bundle và dùng bởi cli-parse.
- * Sáu kiểu đầu là FND-02 (Phase 1); mười một kiểu sau là contract Phase 2 (02-01).
+ * Sáu kiểu đầu là FND-02 (Phase 1); mười một kiểu sau là contract Phase 2 (02-01);
+ * AttemptSummary là phần thêm của Phase 3 (03-01).
  */
 export const Schemas = {
   Segment,
@@ -37,6 +38,7 @@ export const Schemas = {
   ClipManifest,
   Label,
   AttemptAck,
+  AttemptSummary,
   AppSettings,
   VideoPreview,
   CreateLessonRequest,

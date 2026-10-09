@@ -1000,6 +1000,29 @@
         "savedForEval"
       ]
     },
+    "AttemptSummary": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt",
+        "overall",
+        "createdAt"
+      ]
+    },
     "AppSettings": {
       "type": "object",
       "properties": {
@@ -1238,6 +1261,16 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "bestOverall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "bestAttempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -1371,6 +1404,7 @@
             "unsupported_media",
             "payload_too_large",
             "recording_too_long",
+            "no_speech",
             "busy",
             "no_openai_key",
             "upstream_error",

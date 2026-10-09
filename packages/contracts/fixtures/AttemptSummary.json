@@ -1,0 +1,18 @@
+[
+  {
+    "name": "first",
+    "data": {
+      "attempt": 1,
+      "overall": 0.58,
+      "createdAt": "2026-10-08T09:00:00.000Z"
+    }
+  },
+  {
+    "name": "best-later",
+    "data": {
+      "attempt": 3,
+      "overall": 0.74,
+      "createdAt": "2026-10-08T09:07:42.318Z"
+    }
+  }
+]

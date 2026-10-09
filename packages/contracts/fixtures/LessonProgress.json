@@ -26,5 +26,22 @@
       "segments": [{ "segmentIndex": 0, "attempts": 1, "voicedAttempts": 1 }],
       "firstUnpracticedIndex": null
     }
+  },
+  {
+    "name": "scored",
+    "data": {
+      "lessonId": "01JABCDEFGHJKMNPQRSTVWXYZ3",
+      "segments": [
+        {
+          "segmentIndex": 0,
+          "attempts": 4,
+          "voicedAttempts": 3,
+          "bestOverall": 0.74,
+          "bestAttempt": 3
+        },
+        { "segmentIndex": 1, "attempts": 1, "voicedAttempts": 0 }
+      ],
+      "firstUnpracticedIndex": 1
+    }
   }
 ]

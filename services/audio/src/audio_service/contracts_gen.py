@@ -230,6 +230,15 @@ class AttemptAck(BaseModel):
     saved_for_eval: Annotated[bool, Field(alias="savedForEval")]
 
 
+class AttemptSummary(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    attempt: Annotated[int, Field(ge=1, le=9007199254740991)]
+    overall: Annotated[float, Field(ge=0.0, le=1.0)]
+    created_at: Annotated[str, Field(alias="createdAt")]
+
+
 class AppSettings(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -299,6 +308,10 @@ class SegmentProgress(BaseModel):
     segment_index: Annotated[int, Field(alias="segmentIndex", ge=0, le=9007199254740991)]
     attempts: Annotated[int, Field(ge=0, le=9007199254740991)]
     voiced_attempts: Annotated[int, Field(alias="voicedAttempts", ge=0, le=9007199254740991)]
+    best_overall: Annotated[float | None, Field(alias="bestOverall", ge=0.0, le=1.0)] = None
+    best_attempt: Annotated[int | None, Field(alias="bestAttempt", ge=1, le=9007199254740991)] = (
+        None
+    )
 
 
 class ModelStatuses(BaseModel):
@@ -352,6 +365,7 @@ class ApiError(BaseModel):
         "unsupported_media",
         "payload_too_large",
         "recording_too_long",
+        "no_speech",
         "busy",
         "no_openai_key",
         "upstream_error",
