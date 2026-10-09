@@ -13,6 +13,9 @@
   --destructive-soft: var(--red-3);
   --destructive-border: var(--red-7);
   --video-bg: #111316;
+  /* Dấu ‖ ngắt thừa của IntonationChart (P3-G4); không dùng cho điểm hay lỗi hệ thống. */
+  --issue: var(--red-9);
+  --issue-text: var(--red-11);
 
   --font-sans:
     var(--font-figtree), var(--font-noto-sans), system-ui, sans-serif;

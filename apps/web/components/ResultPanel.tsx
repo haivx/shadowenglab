@@ -120,6 +120,24 @@ export function ResultPanel({
               So sánh ngữ điệu
             </Button>
           </CollapsibleTrigger>
+          {chartOpen ? (
+            <ul className="m-0 flex list-none gap-[14px] p-0 text-xs text-muted-foreground">
+              <li className="flex items-center gap-[6px]">
+                <span
+                  aria-hidden="true"
+                  className="h-[3px] w-4 rounded-[2px] bg-original"
+                />
+                Bản gốc
+              </li>
+              <li className="flex items-center gap-[6px]">
+                <span
+                  aria-hidden="true"
+                  className="h-[3px] w-4 rounded-[2px] bg-you"
+                />
+                Bạn
+              </li>
+            </ul>
+          ) : null}
         </div>
         <CollapsibleContent className="flex flex-col gap-[10px]">
           <h3 className="m-0 text-[13px] font-semibold leading-[1.2] text-muted-foreground">

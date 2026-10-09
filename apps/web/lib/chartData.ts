@@ -50,12 +50,35 @@ export function yDomain(rows: readonly ChartRow[]): [number, number] {
   return [-half, half];
 }
 
-// Khung rỗng cho pha RED của Task 2: chữ ký đúng, chưa có hành vi.
+/** Chiều cao thanh trọng âm: mẩu tối thiểu 3 px, tối đa 24 px (UI-SPEC "Word row"). */
+const STRESS_STUB_PX = 3;
+const STRESS_RANGE_PX = 21;
+
+/**
+ * Chiều rộng tương đối (tổng 1) của từng ô từ, theo phần `wordBounds` chiếm trên `pointCount`
+ * điểm của contour. Ranh giới trùng nhau không được cho ô rộng 0 nên mỗi ô có sàn nhỏ rồi
+ * chuẩn hoá lại; trường hợp bình thường không bị chạm.
+ */
 export function wordCells(
-  _wordBounds: readonly number[],
-  _pointCount: number,
+  wordBounds: readonly number[],
+  pointCount: number,
 ): number[] {
-  return [];
+  const first = wordBounds[0];
+  if (first === undefined) return [];
+  const total = pointCount - first;
+  if (total <= 0) return [];
+  const floor = 1 / (2 * total);
+  let clamped = false;
+  const widths = wordBounds.map((bound, i) => {
+    const next = wordBounds[i + 1] ?? pointCount;
+    const share = (next - bound) / total;
+    if (share >= floor) return share;
+    clamped = true;
+    return floor;
+  });
+  if (!clamped) return widths;
+  const sum = widths.reduce((a, b) => a + b, 0);
+  return widths.map((width) => width / sum);
 }
 
 export interface StressBarHeights {
@@ -63,25 +86,60 @@ export interface StressBarHeights {
   user: number;
 }
 
+/** Chiều cao (px) hai thanh mỗi từ: 3 + 21 × max(0, z) / z dương lớn nhất; không có z dương thì toàn mẩu 3 px. */
 export function stressBarHeights(
-  _stress: readonly { ref: number; user: number }[],
+  stress: readonly { ref: number; user: number }[],
 ): StressBarHeights[] {
-  return [];
+  let maxPositive = 0;
+  for (const entry of stress) {
+    maxPositive = Math.max(maxPositive, entry.ref, entry.user);
+  }
+  const height = (z: number): number =>
+    maxPositive > 0
+      ? STRESS_STUB_PX + (Math.max(0, z) / maxPositive) * STRESS_RANGE_PX
+      : STRESS_STUB_PX;
+  return stress.map((entry) => ({
+    ref: height(entry.ref),
+    user: height(entry.user),
+  }));
 }
 
+/** Chỉ số từ nổi nhất của bản gốc (max `ref`, hoà thì từ đứng trước); rỗng thì null. */
 export function topStressWord(
-  _stress: readonly { ref: number }[],
+  stress: readonly { ref: number; user: number }[],
 ): number | null {
-  return -1;
+  let best: number | null = null;
+  stress.forEach((entry, i) => {
+    const current = best === null ? undefined : stress[best];
+    if (current === undefined || entry.ref > current.ref) best = i;
+  });
+  return best;
 }
 
+/**
+ * Vị trí x của dấu ‖: `wordBounds[wordIndex + 1]` cho mỗi issue EXTRA_PAUSE. Từ cuối không có
+ * ranh giới kế tiếp thì bỏ qua; ngắt nghỉ không phải issue không được vẽ (P3-G4).
+ */
 export function pauseMarkerXs(
-  _issues: readonly Issue[],
-  _wordBounds: readonly number[],
+  issues: readonly Issue[],
+  wordBounds: readonly number[],
 ): number[] {
-  return [-1];
+  const xs: number[] = [];
+  for (const issue of issues) {
+    if (issue.code !== "EXTRA_PAUSE") continue;
+    const x = wordBounds[issue.wordIndex + 1];
+    if (x !== undefined) xs.push(x);
+  }
+  return xs;
 }
 
-export function chartAriaLabel(_tipTexts: readonly string[]): string {
-  return "";
+const ARIA_PREFIX =
+  "Ngữ điệu: đường xanh ngọc là bản gốc, đường cam là của bạn.";
+
+/** Nhãn `role="img"` của biểu đồ: giải thích màu rồi các gợi ý, đã bỏ dấu `*` đánh dấu từ. */
+export function chartAriaLabel(tipTexts: readonly string[]): string {
+  const tips = tipTexts
+    .map((text) => text.replaceAll("*", "").trim())
+    .filter((text) => text.length > 0);
+  return [ARIA_PREFIX, ...tips].join(" ");
 }
