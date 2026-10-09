@@ -133,13 +133,13 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans:** 11 plans
+**Plans:** 2/11 plans executed
 **UI hint**: yes
 
 Plans:
 **Wave 1**
-- [ ] 03-01-PLAN.md — Cổng quyết định: Liam duyệt A–K (no_speech, endpoint lượt, SQLite v2, ngưỡng, tiêu chí "câu sai hẳn", sidecar, gap UI); hiện thực contract (wave 1)
-- [ ] 03-02-PLAN.md — Cổng dependency: recharts 3.10.1 + react-is 18.3.1 (duyệt lockfile), shadcn collapsible (wave 1)
+- [x] 03-01-PLAN.md — Cổng quyết định: Liam duyệt A–K (no_speech, endpoint lượt, SQLite v2, ngưỡng, tiêu chí "câu sai hẳn", sidecar, gap UI); hiện thực contract (wave 1)
+- [x] 03-02-PLAN.md — Cổng dependency: recharts 3.10.1 + react-is 18.3.1 (duyệt lockfile), shadcn collapsible (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 03-03-PLAN.md — Lõi chấm Lớp B: prepare_features, align MFCC-DTW, 3 chỉ số, ScoreResult; tự so = 1.0 (wave 2)
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
-| 3. P2 · Chấm ngữ điệu | 0/0 | Not started | - |
+| 3. P2 · Chấm ngữ điệu | 2/11 | In Progress | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
