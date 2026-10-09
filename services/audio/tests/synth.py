@@ -48,13 +48,20 @@ def _envelope(freq: np.ndarray, formants: tuple[float, float]) -> np.ndarray:
 
 
 def _voiced_word(
-    word: SynthWord, *, dur_scale: float, f0_scale: float, flat_f0: float | None
+    word: SynthWord,
+    *,
+    dur_scale: float,
+    f0_scale: float,
+    flat_f0: float | None,
+    f0_offset_st: float = 0.0,
+    level_db: float = 0.0,
 ) -> np.ndarray:
     n = max(int(round(word.dur_s * dur_scale * SR)), 8)
     if flat_f0 is not None:
         f0 = np.full(n, flat_f0, dtype=np.float64)
     else:
         f0 = np.linspace(word.f0_start, word.f0_end, n) * f0_scale
+    f0 = f0 * 2.0 ** (f0_offset_st / 12.0)
     phase = 2.0 * np.pi * np.cumsum(f0) / SR
     out = np.zeros(n, dtype=np.float64)
     k_max = int(_MAX_HARMONIC_HZ / float(f0.min()))
@@ -68,7 +75,7 @@ def _voiced_word(
     win[:fade] = ramp
     win[-fade:] = ramp[::-1]
     out *= win
-    return out
+    return out * 10.0 ** (level_db / 20.0)
 
 
 def synth_sentence(
@@ -85,21 +92,33 @@ def synth_sentence(
     dur_scale: float = 1.0,
     flat_f0: float | None = None,
     extra_gap_after: dict[int, float] | None = None,
+    word_f0_offset_st: dict[int, float] | None = None,
+    word_level_db: dict[int, float] | None = None,
 ) -> tuple[np.ndarray, list[tuple[str, float, float]]]:
     """Trả (audio float32 16 kHz, [(text, start_s, end_s)]) với mốc từ tính từ đầu mảng.
 
     `level` nhân cả tín hiệu lẫn nhiễu (bất biến mức tín hiệu phải giữ được). `dur_scale` co
-    giãn cả từ lẫn khe. `extra_gap_after[i]` chèn thêm giây lặng sau từ i. Cùng tham số + seed
-    cho cùng mảng.
+    giãn cả từ lẫn khe. `extra_gap_after[i]` chèn thêm giây lặng sau từ i. `word_f0_offset_st[i]`
+    nâng F0 từ i lên (semitone) và `word_level_db[i]` đổi mức từ i (dB) so với các từ còn lại; cả
+    hai mặc định None (không đổi gì). Cùng tham số + seed cho cùng mảng.
     """
     if sr != SR:
         raise ValueError("synth chỉ hỗ trợ 16 kHz")
     extra = extra_gap_after or {}
+    offsets = word_f0_offset_st or {}
+    levels = word_level_db or {}
     pieces: list[np.ndarray] = [np.zeros(int(round(lead_s * sr)))]
     marks: list[tuple[str, float, float]] = []
     cursor = len(pieces[0])
     for i, word in enumerate(words):
-        sig = _voiced_word(word, dur_scale=dur_scale, f0_scale=f0_scale, flat_f0=flat_f0)
+        sig = _voiced_word(
+            word,
+            dur_scale=dur_scale,
+            f0_scale=f0_scale,
+            flat_f0=flat_f0,
+            f0_offset_st=offsets.get(i, 0.0),
+            level_db=levels.get(i, 0.0),
+        )
         marks.append((word.text, cursor / sr, (cursor + len(sig)) / sr))
         pieces.append(sig)
         cursor += len(sig)
