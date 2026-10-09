@@ -1,6 +1,10 @@
 import type { LessonProgress } from "@shadowenglab/contracts";
 import { describe, expect, it } from "vitest";
-import { bestBySegment, transcriptScoreCell } from "./progressView";
+import {
+  bestBySegment,
+  segmentFillClass,
+  transcriptScoreCell,
+} from "./progressView";
 
 function progress(segments: LessonProgress["segments"]): LessonProgress {
   return { lessonId: "lesson-1", segments, firstUnpracticedIndex: null };
@@ -78,5 +82,47 @@ describe("transcriptScoreCell", () => {
 
   it("không có điểm và chưa tập -> ô trống", () => {
     expect(transcriptScoreCell(undefined, false)).toEqual({ kind: "empty" });
+  });
+});
+
+describe("segmentFillClass", () => {
+  it("câu hiện tại luôn --foreground, bất kể điểm", () => {
+    expect(
+      segmentFillClass({ index: 2, current: 2, best: 0.5, practiced: true }),
+    ).toBe("bg-foreground");
+  });
+
+  it("câu có điểm tô theo scoreLevel của lượt tốt nhất", () => {
+    expect(
+      segmentFillClass({ index: 1, current: 2, best: 0.5, practiced: true }),
+    ).toBe("bg-score-bad");
+    expect(
+      segmentFillClass({ index: 1, current: 2, best: 0.65, practiced: true }),
+    ).toBe("bg-score-ok");
+    expect(
+      segmentFillClass({ index: 1, current: 2, best: 0.9, practiced: true }),
+    ).toBe("bg-score-good");
+  });
+
+  it("đã tập nhưng chưa có điểm -> --muted-foreground", () => {
+    expect(
+      segmentFillClass({
+        index: 0,
+        current: 2,
+        best: undefined,
+        practiced: true,
+      }),
+    ).toBe("bg-muted-foreground");
+  });
+
+  it("chưa đụng tới -> slate-4", () => {
+    expect(
+      segmentFillClass({
+        index: 0,
+        current: 2,
+        best: undefined,
+        practiced: false,
+      }),
+    ).toBe("bg-[color:var(--slate-4)]");
   });
 });

@@ -37,3 +37,18 @@ export function transcriptScoreCell(
   }
   return practiced ? { kind: "dot" } : { kind: "empty" };
 }
+
+export interface SegmentFillInput {
+  index: number;
+  /** Chỉ số (từ 0) của câu đang tập. */
+  current: number;
+  /** bestOverall của câu, undefined nếu chưa có lượt đã chấm. */
+  best: number | undefined;
+  /** Câu đã tập (voicedAttempts >= 1). */
+  practiced: boolean;
+}
+
+// RED stub: chữ ký đã có, hành vi chưa hiện thực.
+export function segmentFillClass(_input: SegmentFillInput): string {
+  return "";
+}
