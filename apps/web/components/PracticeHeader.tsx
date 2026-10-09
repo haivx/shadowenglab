@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { segmentFillClass } from "@/lib/progressView";
 import { cn } from "@/lib/utils";
 
 interface SegmentedProgressProps {
@@ -8,13 +9,19 @@ interface SegmentedProgressProps {
   currentIndex: number;
   /** Câu đã tập = có ít nhất một lượt có tiếng (D-08). Chỉ màu xám trung tính, không màu điểm. */
   practiced: ReadonlySet<number>;
+  /** Điểm tốt nhất theo câu (bestOverall, D-11); câu không có mục = chưa có lượt đã chấm. */
+  best: ReadonlyMap<number, number>;
 }
 
-/** Lưới N đoạn: hiện tại `--foreground`, đã tập `--muted-foreground`, còn lại slate-4 (D-08). */
+/**
+ * Lưới N đoạn: hiện tại `--foreground`, câu có điểm `--score-{level}` của lượt tốt nhất (D-11),
+ * đã tập chưa chấm `--muted-foreground`, còn lại slate-4 (D-08).
+ */
 export function SegmentedProgress({
   total,
   currentIndex,
   practiced,
+  best,
 }: SegmentedProgressProps) {
   return (
     <div
@@ -28,11 +35,12 @@ export function SegmentedProgress({
           key={index}
           className={cn(
             "h-1 rounded-[2px]",
-            index === currentIndex
-              ? "bg-foreground"
-              : practiced.has(index)
-                ? "bg-muted-foreground"
-                : "bg-[color:var(--slate-4)]",
+            segmentFillClass({
+              index,
+              current: currentIndex,
+              best: best.get(index),
+              practiced: practiced.has(index),
+            }),
           )}
         />
       ))}
@@ -63,6 +71,7 @@ export function PracticeHeader({
   total,
   currentIndex,
   practiced,
+  best,
 }: PracticeHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-4 border-b border-border px-6 py-2.5">
@@ -75,6 +84,7 @@ export function PracticeHeader({
           total={total}
           currentIndex={currentIndex}
           practiced={practiced}
+          best={best}
         />
         <span className="font-mono text-[13px] text-muted-foreground">
           {currentIndex + 1}/{total}
