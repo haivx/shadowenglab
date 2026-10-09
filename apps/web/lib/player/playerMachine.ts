@@ -1,17 +1,19 @@
 // Máy trạng thái phòng tập (PLY-02, ADR 0001). File này KHÔNG import React, DOM hay fetch:
 // mọi tác dụng phụ là actor khai báo trong `setup`, UI/test thay bằng `playerMachine.provide`.
 import { assign, fromCallback, fromPromise, sendTo, setup } from "xstate";
-import type { AttemptAck } from "@shadowenglab/contracts";
+import type { ScoreResult } from "@shadowenglab/contracts";
 
 export type RepeatCount = 1 | 2 | 3;
 
-export type RecordingStatus = "pending" | "uploaded" | "noVoice" | "failed";
+export type RecordingStatus = "pending" | "scored" | "noVoice" | "failed";
 
 export interface PlayerRecording {
   blob: Blob;
   durationMs: number;
   status: RecordingStatus;
   attempt?: number;
+  /** Kết quả chấm của lượt này; chỉ có khi `status === "scored"` (D-09). */
+  result?: ScoreResult;
 }
 
 export interface PlayerLevel {
@@ -107,6 +109,23 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Lỗi `no_speech` của backend (HTTP 422, D-09): không có tiếng nói trong lượt vừa ghi.
+ * Nhận dạng theo hình dạng `ApiRequestError.error.code` để file này không import api.ts.
+ */
+export function isNoSpeechError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("error" in error)) {
+    return false;
+  }
+  const inner = error.error;
+  return (
+    typeof inner === "object" &&
+    inner !== null &&
+    "code" in inner &&
+    inner.code === "no_speech"
+  );
+}
+
 const machineSetup = setup({
   types: {
     context: {} as PlayerContext,
@@ -119,7 +138,7 @@ const machineSetup = setup({
     playBlob: fromPromise<undefined, PlayBlobInput>(async () => undefined),
     playBoth: fromPromise<undefined, PlayBothInput>(async () => undefined),
     record: fromCallback<PlayerEvent, RecordInput>(() => () => {}),
-    uploadAttempt: fromPromise<AttemptAck, UploadInput>(async () => {
+    uploadAttempt: fromPromise<ScoreResult, UploadInput>(async () => {
       throw new Error("uploadAttempt actor chưa được cung cấp");
     }),
   },
@@ -142,8 +161,7 @@ const machineSetup = setup({
       event.index >= 0 &&
       event.index < context.segmentCount,
     hasRecording: ({ context }) => currentRecording(context) !== undefined,
-    hasUploaded: ({ context }) =>
-      currentRecording(context)?.status === "uploaded",
+    hasScored: ({ context }) => currentRecording(context)?.status === "scored",
     hasNoVoice: ({ context }) =>
       currentRecording(context)?.status === "noVoice",
     hasFailed: ({ context }) => currentRecording(context)?.status === "failed",
@@ -234,7 +252,7 @@ const settings = {
 
 /** Từ `idle`/`previewing`: về trạng thái đúng với bản ghi của câu hiện tại. */
 const backToRecordingState = [
-  { guard: "hasUploaded", target: "#player.reviewing" },
+  { guard: "hasScored", target: "#player.reviewing" },
   { guard: "hasNoVoice", target: "#player.noVoice" },
   { guard: "hasFailed", target: "#player.error" },
   { target: "#player.idle" },
@@ -324,12 +342,12 @@ export const playerMachine = machineSetup.createMachine({
         PREVIEW: "previewing",
         RECORD: "recording",
         LISTEN_YOURS: [
-          { guard: "hasUploaded", target: "#player.reviewing.yours" },
+          { guard: "hasScored", target: "#player.reviewing.yours" },
           { guard: "hasNoVoice", target: "#player.noVoice.yours" },
           { guard: "hasFailed", target: "#player.error.yours" },
         ],
         LISTEN_BOTH: [
-          { guard: "hasUploaded", target: "#player.reviewing.both" },
+          { guard: "hasScored", target: "#player.reviewing.both" },
           { guard: "hasNoVoice", target: "#player.noVoice.both" },
           { guard: "hasFailed", target: "#player.error.both" },
         ],
@@ -391,7 +409,7 @@ export const playerMachine = machineSetup.createMachine({
       },
     },
     scoring: {
-      // P1: bước xử lý = tải bản ghi lên (D-05). Phase 3 gắn chấm vào đây mà không đổi hình dạng machine.
+      // Phase 3: chấm trong cùng request tải lên; actor trả ScoreResult (D-09, hình machine không đổi).
       invoke: {
         src: "uploadAttempt",
         input: ({ context }) => {
@@ -399,30 +417,31 @@ export const playerMachine = machineSetup.createMachine({
           if (!rec) throw new Error("Không có bản ghi để tải lên");
           return { segmentIndex: context.segmentIndex, blob: rec.blob };
         },
-        onDone: [
+        onDone: {
+          target: "reviewing",
+          actions: assign({
+            recordings: ({ context, event }) => {
+              const rec = currentRecording(context);
+              return rec
+                ? {
+                    ...context.recordings,
+                    [context.segmentIndex]: {
+                      ...rec,
+                      status: "scored" as const,
+                      attempt: event.output.attempt,
+                      result: event.output,
+                    },
+                  }
+                : context.recordings;
+            },
+          }),
+        },
+        onError: [
           {
-            guard: ({ event }) => event.output.voiced,
-            target: "reviewing",
-            actions: assign({
-              recordings: ({ context, event }) => {
-                const rec = currentRecording(context);
-                return rec
-                  ? {
-                      ...context.recordings,
-                      [context.segmentIndex]: {
-                        ...rec,
-                        status: "uploaded" as const,
-                        attempt: event.output.attempt,
-                      },
-                    }
-                  : context.recordings;
-              },
-            }),
-          },
-          {
+            guard: ({ event }) => isNoSpeechError(event.error),
             target: "noVoice",
             actions: assign({
-              recordings: ({ context, event }) => {
+              recordings: ({ context }) => {
                 const rec = currentRecording(context);
                 return rec
                   ? {
@@ -430,7 +449,24 @@ export const playerMachine = machineSetup.createMachine({
                       [context.segmentIndex]: {
                         ...rec,
                         status: "noVoice" as const,
-                        attempt: event.output.attempt,
+                      },
+                    }
+                  : context.recordings;
+              },
+            }),
+          },
+          {
+            target: "error",
+            actions: assign({
+              lastError: ({ event }) => errorMessage(event.error),
+              recordings: ({ context }) => {
+                const rec = currentRecording(context);
+                return rec
+                  ? {
+                      ...context.recordings,
+                      [context.segmentIndex]: {
+                        ...rec,
+                        status: "failed" as const,
                       },
                     }
                   : context.recordings;
@@ -438,24 +474,6 @@ export const playerMachine = machineSetup.createMachine({
             }),
           },
         ],
-        onError: {
-          target: "error",
-          actions: assign({
-            lastError: ({ event }) => errorMessage(event.error),
-            recordings: ({ context }) => {
-              const rec = currentRecording(context);
-              return rec
-                ? {
-                    ...context.recordings,
-                    [context.segmentIndex]: {
-                      ...rec,
-                      status: "failed" as const,
-                    },
-                  }
-                : context.recordings;
-            },
-          }),
-        },
       },
       // Vẫn nghe lại bản ghi của mình trong lúc xử lý (M).
       initial: "idle",

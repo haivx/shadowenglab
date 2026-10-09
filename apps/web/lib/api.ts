@@ -8,6 +8,7 @@ import {
   LessonProgress,
   OpenAiKeyCheckRequest,
   OpenAiKeyCheckResult,
+  ScoreResult,
   Segment,
   SystemStatus,
   UpdateSegmentTextRequest,
@@ -204,19 +205,23 @@ export interface UploadAttemptOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Tải bản ghi lên và nhận kết quả chấm trong cùng request (A2, D-09). Phản hồi 2xx đi qua
+ * `ScoreResult.parse`; 422 `no_speech` thành `ApiRequestError` để machine rẽ sang noVoice.
+ */
 export function uploadAttempt(
   lessonId: string,
   index: number,
   blob: Blob,
   options: UploadAttemptOptions,
-): Promise<AttemptAck> {
+): Promise<ScoreResult> {
   const form = new FormData();
   form.append("audio", blob, "attempt");
   form.append("saveForEval", options.saveForEval ? "true" : "false");
   return request(
     `${segmentPath(lessonId, index)}/attempts`,
     { method: "POST", body: form, signal: options.signal },
-    AttemptAck,
+    ScoreResult,
   );
 }
 

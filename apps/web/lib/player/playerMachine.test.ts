@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createActor, fromCallback, fromPromise, waitFor } from "xstate";
-import type { ScoreResult } from "@shadowenglab/contracts";
+import { ScoreResult } from "@shadowenglab/contracts";
 import {
   isNoSpeechError,
   playerMachine,
@@ -27,24 +27,23 @@ const INPUT: PlayerInput = {
 
 type SendBack = (event: PlayerEvent) => void;
 
-const SCORE_FIXTURE: ScoreResult = (
-  JSON.parse(
-    readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "..",
-        "..",
-        "packages",
-        "contracts",
-        "fixtures",
-        "ScoreResult.json",
-      ),
-      "utf8",
-    ),
-  ) as { name: string; data: ScoreResult }[]
-)[0]!.data;
+const FIXTURE_FILE = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "packages",
+  "contracts",
+  "fixtures",
+  "ScoreResult.json",
+);
+
+// Parse bằng Zod của hợp đồng: fixture sai hình thì test hỏng ngay, không cần ép kiểu.
+const SCORE_FIXTURE = ScoreResult.parse(
+  (JSON.parse(readFileSync(FIXTURE_FILE, "utf8")) as { data: unknown }[])[0]
+    ?.data,
+);
 
 /** Kết quả chấm lấy từ fixture hợp đồng, chỉ đổi câu và lượt. */
 function scoreResult(segmentIndex: number, attempt: number): ScoreResult {

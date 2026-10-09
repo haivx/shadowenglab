@@ -7,15 +7,15 @@ import { toast } from "sonner";
 import { fromPromise } from "xstate";
 import type {
   AppSettings,
-  AttemptAck,
   Lesson,
   LessonProgress,
+  ScoreResult,
 } from "@shadowenglab/contracts";
 import { AttemptStrip } from "@/components/AttemptStrip";
 import { PlayerControls } from "@/components/PlayerControls";
 import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
 import { ResultActionBar } from "@/components/ResultActionBar";
-import { ReviewBlock } from "@/components/ReviewBlock";
+import { ResultPanel } from "@/components/ResultPanel";
 import { SentenceStatePanel } from "@/components/SentenceStatePanel";
 import { SpokenIpa } from "@/components/SpokenIpa";
 import {
@@ -245,7 +245,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
           ),
         ),
         record: makeRecordActor(),
-        uploadAttempt: fromPromise<AttemptAck, UploadInput>(
+        uploadAttempt: fromPromise<ScoreResult, UploadInput>(
           ({ input, signal }) =>
             uploadAttempt(lessonIdRef.current, input.segmentIndex, input.blob, {
               saveForEval: false,
@@ -369,7 +369,6 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const voicedAttempts =
     progress?.segments.find((item) => item.segmentIndex === index)
       ?.voicedAttempts ?? 0;
-  const isLast = index >= lesson.segments.length - 1;
 
   // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
   const recordDurationMs = Math.min(
@@ -482,17 +481,16 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             <SpokenIpa words={segment.words} />
           ) : null}
           {top === "reviewing" &&
-          recording?.status === "uploaded" &&
+          recording?.status === "scored" &&
+          recording.result !== undefined &&
           recording.attempt !== undefined ? (
-            <ReviewBlock
+            <ResultPanel
               key={`${index}:${recording.attempt}`}
               lessonId={lesson.id}
               segmentIndex={index}
+              result={recording.result}
               attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
-              attempt={recording.attempt}
               blob={recording.blob}
-              durationMs={recording.durationMs}
-              isLast={isLast}
               saved={savedClips.has(`${index}:${recording.attempt}`)}
               onSaved={() => {
                 const key = `${index}:${recording.attempt}`;
