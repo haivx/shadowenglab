@@ -404,6 +404,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
         total={lesson.segments.length}
         currentIndex={index}
         practiced={practiced}
+        best={best}
       />
       <div className="flex min-h-0 flex-1 flex-wrap items-stretch overflow-y-auto min-[1160px]:flex-nowrap min-[1160px]:overflow-hidden">
         <aside

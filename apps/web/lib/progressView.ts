@@ -1,5 +1,10 @@
 import type { LessonProgress } from "@shadowenglab/contracts";
-import { SCORE_TEXT_CLASS, scoreLevel, scorePercent } from "./scoreLevel";
+import {
+  SCORE_FILL_CLASS,
+  SCORE_TEXT_CLASS,
+  scoreLevel,
+  scorePercent,
+} from "./scoreLevel";
 
 /** Ô điểm bên phải một hàng của TranscriptList (UI-SPEC E6). */
 export type ScoreCell =
@@ -48,7 +53,17 @@ export interface SegmentFillInput {
   practiced: boolean;
 }
 
-// RED stub: chữ ký đã có, hành vi chưa hiện thực.
-export function segmentFillClass(_input: SegmentFillInput): string {
-  return "";
+/**
+ * Màu một đoạn của SegmentedProgress: hiện tại `--foreground` (bất kể điểm), có điểm thì
+ * `--score-{level}` của lượt tốt nhất (D-11), đã tập chưa chấm `--muted-foreground`, còn lại slate-4.
+ */
+export function segmentFillClass({
+  index,
+  current,
+  best,
+  practiced,
+}: SegmentFillInput): string {
+  if (index === current) return "bg-foreground";
+  if (best !== undefined) return SCORE_FILL_CLASS[scoreLevel(best)];
+  return practiced ? "bg-muted-foreground" : "bg-[color:var(--slate-4)]";
 }
