@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { translateSegment, updateSegmentText } from "@/lib/api";
 import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
+import { transcriptScoreCell, type ScoreCell } from "@/lib/progressView";
 import { patchLessonSegment } from "@/lib/segmentCache";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +124,8 @@ interface TranscriptListProps {
   currentIndex: number;
   /** Câu đã tập (voicedAttempts >= 1, D-08): chấm xám trung tính. */
   practiced: ReadonlySet<number>;
+  /** Điểm tốt nhất theo câu (bestOverall, D-11); câu không có mục = chưa có lượt đã chấm. */
+  best: ReadonlyMap<number, number>;
   /** Chọn câu: dừng phát và đưa câu đó thành câu hiện tại. */
   onSelect: (index: number) => void;
   lessonId: string;
@@ -137,6 +140,7 @@ export function TranscriptList({
   segments,
   currentIndex,
   practiced,
+  best,
   onSelect,
   lessonId,
   translation,
@@ -360,23 +364,42 @@ export function TranscriptList({
                     />
                   ) : null}
                 </span>
-                <span className="flex justify-end pt-1.5">
-                  {isPracticed ? (
-                    <>
-                      <span
-                        aria-hidden="true"
-                        className="size-2 rounded-full bg-muted-foreground"
-                      />
-                      <span className="sr-only">Đã tập</span>
-                    </>
-                  ) : null}
-                </span>
+                <ScoreCellView
+                  cell={transcriptScoreCell(best.get(index), isPracticed)}
+                />
               </button>
             </li>
           );
         })}
       </ol>
     </section>
+  );
+}
+
+/** Ô phải 28px của hàng: điểm tốt nhất có màu, chấm xám P1, hoặc trống (UI-SPEC E6). */
+function ScoreCellView({ cell }: { cell: ScoreCell }) {
+  return (
+    <span className="flex justify-end pt-1.5">
+      {cell.kind === "score" ? (
+        <span
+          aria-label={`Điểm tốt nhất ${cell.text}`}
+          className={cn(
+            "font-mono text-xs font-semibold leading-none tabular-nums",
+            cell.className,
+          )}
+        >
+          {cell.text}
+        </span>
+      ) : cell.kind === "dot" ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="size-2 rounded-full bg-muted-foreground"
+          />
+          <span className="sr-only">Đã tập</span>
+        </>
+      ) : null}
+    </span>
   );
 }
 

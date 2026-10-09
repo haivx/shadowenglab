@@ -51,6 +51,7 @@ import {
 } from "@/lib/player/playerMachine";
 import type { ShortcutToggle } from "@/lib/player/shortcuts";
 import { useShortcuts } from "@/lib/player/useShortcuts";
+import { bestBySegment } from "@/lib/progressView";
 import {
   queryKeys,
   useLesson,
@@ -298,6 +299,8 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
       ),
     [progress],
   );
+  // Điểm tốt nhất theo câu cho danh sách câu và thanh tiến độ (D-11).
+  const best = useMemo(() => bestBySegment(progress), [progress]);
 
   const { context } = snapshot;
   const index = context.segmentIndex;
@@ -429,6 +432,7 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             segments={lesson.segments}
             currentIndex={index}
             practiced={practiced}
+            best={best}
             onSelect={(next) => actorRef.send({ type: "GOTO", index: next })}
             lessonId={lesson.id}
             translation={translation}
