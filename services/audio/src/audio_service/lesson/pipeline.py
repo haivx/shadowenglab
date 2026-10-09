@@ -99,6 +99,9 @@ class PipelineDeps:
     # Vocab id -> token IPA của model PPG (D-14). Mặc định rỗng = không có IPA; bản thật ở
     # default_deps.
     load_vocab: Callable[[], Mapping[int, str]] = lambda: {}
+    # Feature ngữ điệu của bản gốc (sidecar `seg/NNNN.prosody.npz`, D-03). Hàm thuần, không model,
+    # nên mặc định là bản thật và các PipelineDeps(...) tường minh trong test vẫn chạy được.
+    prosody_features: Callable[[np.ndarray], ProsodyFeatures] = prepare_features
 
 
 def _separate_on(device: str, stereo: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
@@ -625,6 +628,12 @@ def analyze_segment(
         energy = deps.frame_energy(clip)
     with timer.step("ppg"):
         ppg = deps.compute_ppg(clip, ppg_model)
+    with timer.step("prosody"):
+        # Cùng cửa sổ với .npz bên dưới: "Mất chữ cuối?" gọi lại hàm này nên sidecar cũng được làm
+        # mới, và cache lệch cửa sổ không bao giờ được dùng để chấm (03-01 mục F).
+        ref_cache.write_ref_prosody(
+            lesson_id, seg.index, (w_start, w_end), deps.prosody_features(clip)
+        )
     with timer.step("write_features"):
         out = segment_features_path(lesson_id, seg.index)
         out.parent.mkdir(parents=True, exist_ok=True)
