@@ -2,7 +2,14 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useActorRef, useSelector } from "@xstate/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { fromPromise } from "xstate";
 import type {
@@ -16,7 +23,10 @@ import { PlayerControls } from "@/components/PlayerControls";
 import { BackToLibraryLink, PracticeHeader } from "@/components/PracticeHeader";
 import { ResultActionBar } from "@/components/ResultActionBar";
 import { ResultPanel } from "@/components/ResultPanel";
-import { SentenceStatePanel } from "@/components/SentenceStatePanel";
+import {
+  MetricSkeleton,
+  SentenceStatePanel,
+} from "@/components/SentenceStatePanel";
 import { SpokenIpa } from "@/components/SpokenIpa";
 import {
   TranscriptList,
@@ -55,12 +65,14 @@ import { useShortcuts } from "@/lib/player/useShortcuts";
 import { bestBySegment } from "@/lib/progressView";
 import {
   queryKeys,
+  useAttemptResult,
   useAttempts,
   useLesson,
   useLessonProgress,
   useSettings,
   useSystemStatus,
 } from "@/lib/queries";
+import { nextViewedAttempt, resolveViewedResult } from "@/lib/viewedAttempt";
 
 type SessionDefaults = Pick<
   AppSettings,
@@ -313,11 +325,58 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const [sessionResults, setSessionResults] = useState<
     Readonly<Record<number, readonly ScoreResult[]>>
   >({});
+  const recording = context.recordings[index];
+  // Lượt vừa chấm của câu (machine giữ đúng lượt mới nhất của mỗi câu).
+  const latestResult =
+    recording?.status === "scored" ? recording.result : undefined;
   const attempts = useAttempts(lesson.id, index);
   const sentenceSession = sessionResults[index];
+  const sessionList = useMemo(() => {
+    const kept = (sentenceSession ?? []).filter(
+      (item) => item.attempt !== latestResult?.attempt,
+    );
+    return latestResult ? [...kept, latestResult] : [...kept];
+  }, [sentenceSession, latestResult]);
   const chips = useMemo(
-    () => attemptChips(attempts.data, [...(sentenceSession ?? [])]),
-    [attempts.data, sentenceSession],
+    () => attemptChips(attempts.data, sessionList),
+    [attempts.data, sessionList],
+  );
+
+  // Lượt đang xem là state UI ngoài machine (UI-SPEC Interaction Contract). Mọi quy tắc nằm ở
+  // `nextViewedAttempt`; ở đây chỉ báo sự kiện, ngay lúc render để không có khung hình lạc lượt.
+  const [viewedAttempt, dispatchViewed] = useReducer(nextViewedAttempt, null);
+  const [seen, setSeen] = useState({ index, chips });
+  if (seen.index !== index) {
+    setSeen({ index, chips });
+    dispatchViewed({ type: "sentenceChanged", chips });
+  } else if (seen.chips !== chips) {
+    setSeen({ index, chips });
+    dispatchViewed({ type: "chipsLoaded", chips });
+  }
+  // Lượt mới chấm (R) trở thành lượt đang xem và được giữ trong phiên để chip không mất lượt cũ (FBK-06).
+  const [seenScoredKey, setSeenScoredKey] = useState<string | null>(null);
+  const scoredKey = latestResult ? `${index}:${latestResult.attempt}` : null;
+  if (latestResult && scoredKey !== seenScoredKey) {
+    setSeenScoredKey(scoredKey);
+    setSessionResults((prev) => ({
+      ...prev,
+      [index]: [
+        ...(prev[index] ?? []).filter(
+          (item) => item.attempt !== latestResult.attempt,
+        ),
+        latestResult,
+      ],
+    }));
+    dispatchViewed({ type: "scored", attempt: latestResult.attempt });
+  }
+
+  // Kết quả đang xem: trong phiên thì dùng ngay; lượt cũ hơn thì tải bản đã lưu (D-11).
+  const viewed = resolveViewedResult(viewedAttempt, sessionList, chips);
+  const stored = useAttemptResult(
+    lesson.id,
+    index,
+    viewed.kind === "stored" ? viewed.attempt : 0,
+    viewed.kind === "stored",
   );
 
   // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine.
@@ -352,21 +411,12 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
       });
     }
     if (was === "scoring" && top === "reviewing") {
-      // Lượt vừa chấm: giữ trong phiên, nạp sẵn cache chi tiết (bấm lại chip không cần tải) và
-      // làm mới danh sách để chip khớp server.
+      // Lượt vừa chấm: nạp sẵn cache chi tiết (bấm lại chip không cần tải) và làm mới danh sách
+      // để chip khớp server.
       const machine = actorRef.getSnapshot().context;
       const result = machine.recordings[machine.segmentIndex]?.result;
       if (result) {
         const sentence = machine.segmentIndex;
-        setSessionResults((prev) => ({
-          ...prev,
-          [sentence]: [
-            ...(prev[sentence] ?? []).filter(
-              (item) => item.attempt !== result.attempt,
-            ),
-            result,
-          ],
-        }));
         queryClient.setQueryData(
           queryKeys.attemptResult(lesson.id, sentence, result.attempt),
           result,
@@ -409,22 +459,24 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const segment = lesson.segments[index];
   if (!segment) return null;
 
-  const recording = context.recordings[index];
-  // Kết quả chấm đang hiển thị ở reviewing (null = chưa có / đã rời reviewing).
-  const scored =
-    top === "reviewing" &&
-    recording?.status === "scored" &&
-    recording.result !== undefined &&
-    recording.attempt !== undefined
-      ? {
-          result: recording.result,
-          attempt: recording.attempt,
-          blob: recording.blob,
-        }
+  // Vùng kết quả chỉ hiện khi không có panel trạng thái nào chiếm chỗ (playing/recording/scoring/…).
+  const resultVisible = top === "idle" || top === "reviewing";
+  // Bản ghi trong phiên chỉ phát lại được khi chính là lượt đang xem (D-11).
+  const viewedBlob =
+    viewedAttempt !== null && recording?.attempt === viewedAttempt
+      ? recording.blob
       : null;
-  const voicedAttempts =
-    progress?.segments.find((item) => item.segmentIndex === index)
-      ?.voicedAttempts ?? 0;
+  // Kết quả sẵn sàng để vẽ: lượt trong phiên, hoặc bản đã lưu khi tải xong.
+  const viewedResult =
+    viewed.kind === "session"
+      ? viewed.result
+      : viewed.kind === "stored"
+        ? stored.data
+        : undefined;
+  const viewedOrdinal = viewed.kind === "none" ? 0 : viewed.ordinal;
+  const storedFailed = viewed.kind === "stored" && stored.isError;
+  // Câu thường chỉ hiện khi chưa có kết quả nào để xem; lỗi tải lượt cũ thì giữ câu cùng thông báo.
+  const showPlainSentence = viewed.kind === "none" || storedFailed;
 
   // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
   const recordDurationMs = Math.min(
@@ -490,8 +542,10 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             segmentIndex={segment.index}
             sentenceNumber={index + 1}
             chips={chips}
-            viewedAttempt={scored?.attempt ?? null}
-            onSelectAttempt={() => undefined}
+            viewedAttempt={viewedAttempt}
+            onSelectAttempt={(attempt) =>
+              dispatchViewed({ type: "selected", attempt })
+            }
             ipaOn={ipaOn}
             onToggleIpa={toggleIpa}
           />
@@ -532,27 +586,44 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               onRetry={() => actorRef.send({ type: "RETRY_UPLOAD" })}
               onRecord={() => actorRef.send({ type: "RECORD" })}
             />
-          ) : scored ? null : (
+          ) : !showPlainSentence ? null : (
             <p className="m-0 text-[38px] font-semibold leading-[1.2] tracking-[-0.015em]">
               {segment.text}
             </p>
           )}
-          {ipaOn && top === "idle" ? <SpokenIpa words={segment.words} /> : null}
-          {scored ? (
+          {ipaOn && top === "idle" && showPlainSentence ? (
+            <SpokenIpa words={segment.words} />
+          ) : null}
+          {resultVisible && storedFailed ? (
+            <Alert>
+              <AlertDescription>
+                Không tải được kết quả của lượt này.
+              </AlertDescription>
+              <AlertAction>
+                <Button variant="outline" onClick={() => void stored.refetch()}>
+                  Thử lại
+                </Button>
+              </AlertAction>
+            </Alert>
+          ) : resultVisible && viewed.kind === "stored" && !viewedResult ? (
+            <div aria-busy="true">
+              <MetricSkeleton />
+            </div>
+          ) : resultVisible && viewedAttempt !== null && viewedResult ? (
             <ResultPanel
-              key={`${index}:${scored.attempt}`}
+              key={`${index}:${viewedAttempt}`}
               lessonId={lesson.id}
               segmentIndex={index}
               segment={segment}
-              result={scored.result}
-              attemptLabel={voicedAttempts >= 1 ? voicedAttempts : 1}
+              result={viewedResult}
+              attemptLabel={viewedOrdinal}
               ipaOn={ipaOn}
-              blob={scored.blob}
+              blob={viewedBlob}
               chartOpen={chartOpen}
               onChartOpenChange={setChartOpen}
-              saved={savedClips.has(`${index}:${scored.attempt}`)}
+              saved={savedClips.has(`${index}:${viewedAttempt}`)}
               onSaved={() => {
-                const key = `${index}:${scored.attempt}`;
+                const key = `${index}:${viewedAttempt}`;
                 setSavedClips((prev) => new Set(prev).add(key));
               }}
             />
