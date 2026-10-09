@@ -25,10 +25,13 @@ from audio_service.config import (
     get_settings,
     lesson_json_path,
     ref_prosody_path,
+    segment_features_path,
     stems_dir,
 )
 from audio_service.contracts_gen import ScoreResult
 from audio_service.main import create_app
+from audio_service.scoring import ref_cache
+from audio_service.scoring.features import FEAT_VERSION, prepare_features
 
 LESSON_ID = "01HZX3Y7Q8K2M4N6P8R0S2T4V6"
 VIDEO_ID = "dUDi-F6eAvk"
@@ -384,3 +387,96 @@ def test_progress_keeps_the_best_attempt_when_a_later_one_scores_lower(
     assert segments[0]["attempts"] == 2
     assert segments[0]["bestAttempt"] == 1
     assert segments[0]["bestOverall"] >= 0.95
+
+
+# --- Task 3: sidecar hợp lệ / lệch cửa sổ / lệch phiên bản ---------------------------------------
+
+
+def sidecar_window() -> tuple[float, float]:
+    with np.load(ref_prosody_path(LESSON_ID, 0), allow_pickle=False) as data:
+        low, high = (float(x) for x in data["window"])
+    return low, high
+
+
+def write_feature_npz(window: tuple[float, float]) -> None:
+    """Giả lập `seg/0000.npz` mà analyze_segment ghi (chỉ `window` được cache đọc)."""
+    path = segment_features_path(LESSON_ID, 0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, window=np.array(window))
+
+
+def test_sidecar_with_a_different_window_is_ignored_and_rewritten(
+    client: TestClient, recording: bytes
+) -> None:
+    first = upload(client, recording)
+    assert "ref_backfill" in first.json()["timingMs"]
+    old_low, old_high = sidecar_window()
+
+    # "Mất chữ cuối?" kéo dài cửa sổ: .npz đổi, sidecar cũ không còn hợp lệ.
+    write_feature_npz((old_low, old_high + 0.2))
+    second = upload(client, recording)
+
+    assert second.status_code == 201
+    assert "ref_backfill" in second.json()["timingMs"]
+    assert sidecar_window() == (pytest.approx(old_low), pytest.approx(old_high + 0.2))
+    third = upload(client, recording)
+    assert "ref_backfill" not in third.json()["timingMs"]  # sidecar mới khớp cửa sổ mới
+
+
+def test_sidecar_with_a_different_feat_version_is_ignored_and_rewritten(
+    client: TestClient, recording: bytes
+) -> None:
+    upload(client, recording)
+    path = ref_prosody_path(LESSON_ID, 0)
+    with np.load(path, allow_pickle=False) as data:
+        payload = {key: data[key] for key in data.files}
+    payload["feat_version"] = np.array("pf-0")
+    np.savez(path, **payload)
+
+    res = upload(client, recording)
+
+    assert res.status_code == 201
+    assert "ref_backfill" in res.json()["timingMs"]
+    with np.load(path, allow_pickle=False) as data:
+        assert str(data["feat_version"]) == FEAT_VERSION
+
+
+def test_ref_cache_round_trip_and_atomic_write(data_dir: Path) -> None:
+    store_lesson(scoring_lesson())
+    feats = prepare_features(sentence()[0])
+    window = (0.35, 2.81)
+
+    ref_cache.write_ref_prosody(LESSON_ID, 0, window, feats)
+
+    seg_dir = ref_prosody_path(LESSON_ID, 0).parent
+    assert sorted(p.name for p in seg_dir.iterdir()) == ["0000.prosody.npz"]  # không còn .part
+    back = ref_cache.read_ref_prosody(LESSON_ID, 0, window)
+    assert back is not None
+    np.testing.assert_array_equal(back.f0_st, feats.f0_st)  # NaN ở cùng chỗ
+    np.testing.assert_array_equal(back.voiced, feats.voiced)
+    np.testing.assert_array_equal(back.energy_db, feats.energy_db)
+    np.testing.assert_array_equal(back.mfcc, feats.mfcc)
+    assert (back.trim_start, back.trim_end) == (feats.trim_start, feats.trim_end)
+    assert ref_cache.read_ref_prosody(LESSON_ID, 0, (0.35, 2.9)) is None
+    assert ref_cache.read_ref_prosody(LESSON_ID, 1, window) is None
+
+
+def test_ref_cache_never_unpickles_a_tampered_sidecar(data_dir: Path) -> None:
+    store_lesson(scoring_lesson())
+    path = ref_prosody_path(LESSON_ID, 0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        path,
+        feat_version=np.array(FEAT_VERSION),
+        window=np.array([0.35, 2.81]),
+        trim=np.array([0, 3]),
+        f0_st=np.array([object()], dtype=object),  # cần pickle để đọc lại
+        voiced=np.zeros(3, dtype=bool),
+        energy_db=np.zeros(3),
+        mfcc=np.zeros((3, 12)),
+    )
+
+    assert ref_cache.read_ref_prosody(LESSON_ID, 0, (0.35, 2.81)) is None
+    path.write_bytes(b"not an npz at all")
+    assert ref_cache.read_ref_prosody(LESSON_ID, 0, (0.35, 2.81)) is None
+    assert ref_cache.read_feature_window(LESSON_ID, 0) is None

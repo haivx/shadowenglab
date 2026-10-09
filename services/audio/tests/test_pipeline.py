@@ -5,6 +5,7 @@ Không nạp model, không gọi mạng, không chạy ffmpeg: mọi stage nặn
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import threading
@@ -19,6 +20,7 @@ from audio_service import config
 from audio_service.config import (
     get_settings,
     lesson_json_path,
+    ref_prosody_path,
     segment_features_path,
     stems_dir,
     video_asset_path,
@@ -43,6 +45,8 @@ from audio_service.lesson.pipeline import (
 )
 from audio_service.lesson.segment import AsrWord
 from audio_service.lesson.urls import InvalidYoutubeUrl
+from audio_service.scoring import ref_cache
+from audio_service.scoring.features import FEAT_VERSION, ProsodyFeatures
 
 VIDEO_ID = "dUDi-F6eAvk"
 URL = f"https://www.youtube.com/watch?v={VIDEO_ID}"
@@ -274,6 +278,49 @@ def test_one_npz_per_segment_with_expected_keys_and_padded_window(data_dir: Path
             assert float(npz["f0_hop_s"]) == 0.01
             assert float(npz["ppg_fps"]) == 50.0
     assert not segment_features_path(run.lesson.id, 2).exists()
+
+
+def test_every_segment_gets_a_prosody_sidecar_with_the_npz_window(data_dir: Path) -> None:
+    run = run_lesson(URL, deps=Fakes().deps())
+
+    assert len(run.lesson.segments) == 2
+    for seg in run.lesson.segments:
+        with np.load(segment_features_path(run.lesson.id, seg.index)) as npz:
+            window = (float(npz["window"][0]), float(npz["window"][1]))
+        with np.load(ref_prosody_path(run.lesson.id, seg.index), allow_pickle=False) as side:
+            assert str(side["feat_version"]) == FEAT_VERSION
+            assert (float(side["window"][0]), float(side["window"][1])) == window
+            n = int(side["trim"][1] - side["trim"][0])
+            assert side["f0_st"].shape == (n,) and side["mfcc"].shape == (n, 12)
+        # cùng cửa sổ nên cache hợp lệ ngay: lần chấm đầu không phải tính bù (D-03)
+        assert ref_cache.read_ref_prosody(run.lesson.id, seg.index, window) is not None
+    assert not ref_prosody_path(run.lesson.id, 2).exists()
+    assert not list(ref_prosody_path(run.lesson.id, 0).parent.glob("*.part"))
+    assert run.timings["prosody"] >= 0.0  # bước có tên trong bảng thời gian
+
+
+def test_prosody_features_dep_is_used_for_the_sidecar(data_dir: Path) -> None:
+    clips: list[int] = []
+
+    def fake_features(clip: np.ndarray) -> ProsodyFeatures:
+        clips.append(len(clip))
+        return ProsodyFeatures(
+            f0_st=np.full(4, 1.5),
+            voiced=np.ones(4, dtype=bool),
+            energy_db=np.zeros(4),
+            mfcc=np.zeros((4, 12)),
+            trim_start=2,
+            trim_end=6,
+        )
+
+    deps = dataclasses.replace(Fakes().deps(), prosody_features=fake_features)
+
+    run = run_lesson(URL, deps=deps)
+
+    assert len(clips) == 2
+    with np.load(ref_prosody_path(run.lesson.id, 0), allow_pickle=False) as side:
+        assert side["f0_st"].tolist() == [1.5] * 4
+        assert side["trim"].tolist() == [2, 6]
 
 
 def test_confident_words_get_ipa_from_the_ppg_and_the_rest_have_no_key(data_dir: Path) -> None:
@@ -525,7 +572,12 @@ def test_entering_analyzing_removes_stale_segment_features(data_dir: Path) -> No
 
     assert len(done.segments) == 2
     assert not stale.exists()
-    assert sorted(p.name for p in stale.parent.glob("*.npz")) == ["0000.npz", "0001.npz"]
+    assert sorted(p.name for p in stale.parent.glob("*.npz")) == [
+        "0000.npz",
+        "0000.prosody.npz",  # sidecar ngữ điệu (03-05) đi cùng mỗi .npz
+        "0001.npz",
+        "0001.prosody.npz",
+    ]
 
 
 def test_load_range_vocals16_returns_the_cached_stem_and_its_base_offset(data_dir: Path) -> None:
