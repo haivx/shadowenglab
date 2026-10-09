@@ -2,6 +2,11 @@
 
 Hàm thuần. Tip luôn `source: "template"`; mỗi tip trỏ tới một issue cùng mã bằng `issueRef`.
 Khen/nhận xét khi không có issue sinh ở client (D-15), nên `select_tips([])` trả `[]`.
+
+Quy ước đánh dấu từ: `*từ*` trong `Tip.text` (client gạch chân, không bao giờ render HTML, 03-08).
+Từ lấy từ Whisper hoặc ô "Sửa câu" là dữ liệu không tin cậy (T-03-14): mọi `*` trong từ bị xoá
+trước khi chèn vào template, nên từ không thể tự đóng/mở dấu đánh dấu. Lời văn là đề xuất để
+Liam duyệt ở PR (P3-G18).
 """
 
 from __future__ import annotations
@@ -14,20 +19,78 @@ from audio_service.rules.engine import RuleIssue
 PRIORITY = ("STRESS_MISMATCH", "FINAL_CONTOUR", "EXTRA_PAUSE", "PITCH_DEVIATION", "FLAT_PITCH")
 MAX_TIPS = 3  # D-14: tối đa 3 tip, mỗi mã tối đa 1
 
+_STRESS_MISMATCH = "Nhấn vào *{ref_word}*, không phải *{user_word}*."
+_EXTRA_PAUSE = "Đọc liền qua *{word}*, đừng ngắt ({user_ms} ms)."
+_FINAL_FALL = "Xuống giọng ở cuối câu, ở *{last_word}*; bạn đang lên giọng."
+_FINAL_RISE = "Lên giọng ở cuối câu, ở *{last_word}*; bạn đang xuống giọng."
+_PITCH_HIGH = "Bạn đang đọc cao hơn bản gốc ở *{word}*; hạ giọng xuống."
+_PITCH_LOW = "Bạn đang đọc thấp hơn bản gốc ở *{word}*; nâng giọng lên."
 _FLAT_PITCH = "Giọng hơi phẳng; lên xuống rõ hơn theo bản gốc."
 
 
+def _clean(text: object) -> str | None:
+    """Bỏ mọi `*` và khoảng trắng hai đầu; None nếu không còn gì để gạch chân (T-03-14)."""
+    if not isinstance(text, str):
+        return None
+    return text.replace("*", "").strip() or None
+
+
+def _word_at(words: Sequence[str], index: object) -> str | None:
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(words):
+        return None
+    return _clean(words[index])
+
+
+def _number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value)
+
+
 def render_tip(issue: dict[str, Any], words: Sequence[str]) -> str | None:
-    """Câu gợi ý template cho một issue; None khi không dựng được an toàn."""
-    if issue.get("code") == "FLAT_PITCH":
+    """Câu gợi ý template cho một issue; None khi không dựng được an toàn (thiếu từ, dữ liệu lạ).
+
+    Tip chỉ nêu từ mà chính issue chỉ tới (`wordIndex`, `refWord`/`userWord`, từ cuối câu).
+    """
+    code = issue.get("code")
+    data = issue.get("data")
+    if not isinstance(data, dict):
+        return None
+    if code == "FLAT_PITCH":
         return _FLAT_PITCH
+    if code == "STRESS_MISMATCH":
+        ref_word, user_word = _clean(data.get("refWord")), _clean(data.get("userWord"))
+        if ref_word is None or user_word is None:
+            return None
+        return _STRESS_MISMATCH.format(ref_word=ref_word, user_word=user_word)
+    if code == "EXTRA_PAUSE":
+        word, user_ms = _word_at(words, issue.get("wordIndex")), _number(data.get("userMs"))
+        if word is None or user_ms is None:
+            return None
+        return _EXTRA_PAUSE.format(word=word, user_ms=int(round(user_ms)))
+    if code == "FINAL_CONTOUR":
+        ref_slope, user_slope = _number(data.get("refSlope")), _number(data.get("userSlope"))
+        last_word = _word_at(words, len(words) - 1)
+        if ref_slope is None or user_slope is None or last_word is None:
+            return None
+        if ref_slope * user_slope >= 0.0:
+            return None
+        template = _FINAL_FALL if ref_slope < 0.0 else _FINAL_RISE
+        return template.format(last_word=last_word)
+    if code == "PITCH_DEVIATION":
+        word, diff = _word_at(words, issue.get("wordIndex")), _number(data.get("meanDiffSt"))
+        if word is None or diff is None or diff == 0.0:
+            return None
+        return (_PITCH_HIGH if diff > 0.0 else _PITCH_LOW).format(word=word)
     return None
 
 
 def select_tips(issues: Sequence[RuleIssue], words: Sequence[str]) -> list[dict[str, Any]]:
     """Tối đa MAX_TIPS tip theo PRIORITY, mỗi mã một tip lấy issue lệch nhiều nhất (D-14).
 
-    `issueRef` là chỉ số trong `issues` đúng như được truyền vào (không sắp lại, không lọc).
+    `issueRef` là chỉ số trong `issues` đúng như được truyền vào (không sắp lại, không lọc);
+    `issues` vẫn chứa đủ mọi issue cho eval và thống kê. Issue không dựng được câu an toàn bị bỏ
+    qua, và mã đó dùng issue tốt nhất còn dựng được. Bằng độ lệch thì lấy issue đứng trước.
     """
     best: dict[str, tuple[int, str]] = {}
     for index, rule_issue in enumerate(issues):
