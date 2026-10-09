@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ApiError,
+  ApiErrorCode,
   AppSettings,
   AttemptAck,
+  AttemptSummary,
   ClipManifest,
   ExtraPauseData,
   IssueCode,
@@ -13,6 +15,7 @@ import {
   LessonListItem,
   Schemas,
   Scores,
+  SegmentProgress,
   UpdateSegmentTextRequest,
   VideoPreview,
   Word,
@@ -37,11 +40,12 @@ const fixtureFiles = readdirSync(FIXTURE_DIR).filter((f) =>
 );
 
 describe("fixtures", () => {
-  it("covers all fifteen fixture files", () => {
+  it("covers all sixteen fixture files", () => {
     expect(fixtureFiles.sort()).toEqual([
       "ApiError.json",
       "AppSettings.json",
       "AttemptAck.json",
+      "AttemptSummary.json",
       "ClipManifest.json",
       "CreateLessonRequest.json",
       "Label.json",
@@ -297,7 +301,7 @@ describe("phase 2 contract edges", () => {
     );
   });
 
-  it("ApiErrorCode has exactly the 20 approved codes", () => {
+  it("ApiErrorCode has exactly the 21 approved codes", () => {
     const codes = [
       "invalid_request",
       "invalid_url",
@@ -312,6 +316,7 @@ describe("phase 2 contract edges", () => {
       "unsupported_media",
       "payload_too_large",
       "recording_too_long",
+      "no_speech",
       "busy",
       "no_openai_key",
       "upstream_error",
@@ -323,7 +328,78 @@ describe("phase 2 contract edges", () => {
     for (const code of codes) {
       expect(ApiError.safeParse({ code, message: "m" }).success).toBe(true);
     }
-    expect(codes).toHaveLength(20);
+    expect(codes).toHaveLength(21);
+    expect(ApiErrorCode.options).toEqual(codes);
+  });
+});
+
+describe("phase 3 contract edges", () => {
+  const progress = { segmentIndex: 0, attempts: 3, voicedAttempts: 3 };
+  const summary = {
+    attempt: 2,
+    overall: 0.8,
+    createdAt: "2026-10-08T09:00:00.000Z",
+  };
+
+  it("ApiError accepts no_speech (D-09) and still rejects unknown codes", () => {
+    expect(
+      ApiError.safeParse({
+        code: "no_speech",
+        message: "Không nghe thấy tiếng nói trong lượt vừa rồi.",
+      }).success,
+    ).toBe(true);
+    expect(ApiError.safeParse({ code: "teapot", message: "m" }).success).toBe(
+      false,
+    );
+  });
+
+  it("SegmentProgress accepts bestOverall + bestAttempt, and the P1 shape without them", () => {
+    expect(
+      SegmentProgress.safeParse({
+        ...progress,
+        bestOverall: 0.74,
+        bestAttempt: 3,
+      }).success,
+    ).toBe(true);
+    expect(SegmentProgress.safeParse(progress).success).toBe(true);
+  });
+
+  it("SegmentProgress.bestOverall is optional, never null, and stays within [0, 1]", () => {
+    const ok = { ...progress, bestOverall: 0.74, bestAttempt: 3 };
+    expect(
+      SegmentProgress.safeParse({ ...ok, bestOverall: null }).success,
+    ).toBe(false);
+    expect(SegmentProgress.safeParse({ ...ok, bestOverall: 1.2 }).success).toBe(
+      false,
+    );
+  });
+
+  it("SegmentProgress.bestAttempt is optional, never null, and starts at 1", () => {
+    const ok = { ...progress, bestOverall: 0.74, bestAttempt: 3 };
+    expect(SegmentProgress.safeParse({ ...ok, bestAttempt: 0 }).success).toBe(
+      false,
+    );
+    expect(
+      SegmentProgress.safeParse({ ...ok, bestAttempt: null }).success,
+    ).toBe(false);
+  });
+
+  it("AttemptSummary parses attempt 2 / overall 0.8 / ISO createdAt", () => {
+    expect(AttemptSummary.safeParse(summary).success).toBe(true);
+  });
+
+  it("AttemptSummary rejects attempt 0 and overall 1.2", () => {
+    expect(AttemptSummary.safeParse({ ...summary, attempt: 0 }).success).toBe(
+      false,
+    );
+    expect(AttemptSummary.safeParse({ ...summary, overall: 1.2 }).success).toBe(
+      false,
+    );
+  });
+
+  it("AttemptSummary rejects a missing createdAt", () => {
+    const { createdAt: _createdAt, ...rest } = summary;
+    expect(AttemptSummary.safeParse(rest).success).toBe(false);
   });
 });
 
@@ -346,6 +422,7 @@ describe("committed schema naming", () => {
       "WordFlags",
       "ClipWord",
       "AttemptAck",
+      "AttemptSummary",
       "AppSettings",
       "VideoPreview",
       "CreateLessonRequest",
