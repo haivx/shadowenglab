@@ -2,6 +2,7 @@ import {
   ApiError,
   AppSettings,
   AttemptAck,
+  AttemptSummary,
   CreateLessonRequest,
   Lesson,
   LessonListItem,
@@ -223,6 +224,21 @@ export function uploadAttempt(
     { method: "POST", body: form, signal: options.signal },
     ScoreResult,
   );
+}
+
+export function listAttempts(
+  _lessonId: string,
+  _index: number,
+): Promise<AttemptSummary[]> {
+  return Promise.resolve([]);
+}
+
+export function getAttemptResult(
+  _lessonId: string,
+  _index: number,
+  _attempt: number,
+): Promise<ScoreResult> {
+  return Promise.reject(new Error("not implemented"));
 }
 
 /** Gửi lại blob của một lượt đã có để lưu cho eval; không tạo lượt mới. */
