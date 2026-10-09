@@ -1,8 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { LessonListItem, SystemStatus } from "@shadowenglab/contracts";
 import {
+  getAttemptResult,
   getLesson,
   getLessonProgress,
+  listAttempts,
   getSettings,
   getSystemStatus,
   listLessons,
@@ -15,6 +17,10 @@ export const queryKeys = {
   lessons: ["lessons"] as const,
   lesson: (id: string) => ["lessons", id] as const,
   lessonProgress: (id: string) => ["lessons", id, "progress"] as const,
+  attempts: (id: string, index: number) =>
+    ["lessons", id, "segments", index, "attempts"] as const,
+  attemptResult: (id: string, index: number, attempt: number) =>
+    ["lessons", id, "segments", index, "attempts", attempt] as const,
   systemStatus: ["system", "status"] as const,
   settings: ["settings"] as const,
 };
@@ -49,6 +55,29 @@ export function useLessonProgress(id: string) {
   return useQuery({
     queryKey: queryKeys.lessonProgress(id),
     queryFn: () => getLessonProgress(id),
+  });
+}
+
+/** Danh sách lượt đã chấm của một câu; chỉ là phần bổ sung cho chip nên lỗi không chặn gì. */
+export function useAttempts(lessonId: string, index: number) {
+  return useQuery({
+    queryKey: queryKeys.attempts(lessonId, index),
+    queryFn: () => listAttempts(lessonId, index),
+  });
+}
+
+/** Kết quả đã lưu của một lượt cũ; một kết quả đã lưu không bao giờ đổi nên không refetch. */
+export function useAttemptResult(
+  lessonId: string,
+  index: number,
+  attempt: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: queryKeys.attemptResult(lessonId, index, attempt),
+    queryFn: () => getAttemptResult(lessonId, index, attempt),
+    enabled,
+    staleTime: Infinity,
   });
 }
 

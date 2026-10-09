@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ApiRequestError, extendSegmentEnd } from "@/lib/api";
+import type { AttemptChip } from "@/lib/attemptChips";
 import { releaseFocusOnPointerUp } from "@/lib/player/useShortcuts";
 import { queryKeys } from "@/lib/queries";
 import { patchLessonSegment } from "@/lib/segmentCache";
@@ -19,8 +20,11 @@ interface AttemptStripProps {
   segmentIndex: number;
   /** Số thứ tự câu hiển thị (từ 1). */
   sentenceNumber: number;
-  /** Số lượt có tiếng của câu này (voicedAttempts); `Lượt k` chỉ hiện khi k ≥ 1. */
-  voicedAttempts: number;
+  /** Một chip cho mỗi lượt đã chấm (tối đa 6, xem `attemptChips`). */
+  chips: AttemptChip[];
+  /** Số `attempt` của lượt đang hiển thị (null = chưa xem lượt nào). */
+  viewedAttempt: number | null;
+  onSelectAttempt: (attempt: number) => void;
   /** IPA đang bật (nút `IPA` / phím I). */
   ipaOn: boolean;
   onToggleIpa: () => void;
@@ -34,7 +38,9 @@ export function AttemptStrip({
   lessonId,
   segmentIndex,
   sentenceNumber,
-  voicedAttempts,
+  chips,
+  viewedAttempt,
+  onSelectAttempt,
   ipaOn,
   onToggleIpa,
 }: AttemptStripProps) {
@@ -66,7 +72,31 @@ export function AttemptStrip({
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
       <span className="font-bold text-foreground">Câu {sentenceNumber}</span>
-      {voicedAttempts >= 1 ? <span>Lượt {voicedAttempts}</span> : null}
+      {chips.map((chip) => {
+        const viewed = chip.attempt === viewedAttempt;
+        return (
+          <Button
+            key={chip.attempt}
+            variant="ghost"
+            aria-current={viewed ? "true" : undefined}
+            onPointerUp={releaseFocusOnPointerUp}
+            onClick={() => onSelectAttempt(chip.attempt)}
+            className={`rounded-lg px-3 text-[13px] ${
+              viewed
+                ? "font-semibold text-foreground"
+                : "font-normal text-muted-foreground"
+            }`}
+          >
+            {chip.label}
+            {chip.isBest ? (
+              <>
+                {" · "}
+                <span className="font-semibold">tốt nhất</span>
+              </>
+            ) : null}
+          </Button>
+        );
+      })}
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <span role="status">
           {extendedIndex === segmentIndex ? EXTENDED_TEXT : ""}

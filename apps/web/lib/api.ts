@@ -2,6 +2,7 @@ import {
   ApiError,
   AppSettings,
   AttemptAck,
+  AttemptSummary,
   CreateLessonRequest,
   Lesson,
   LessonListItem,
@@ -221,6 +222,31 @@ export function uploadAttempt(
   return request(
     `${segmentPath(lessonId, index)}/attempts`,
     { method: "POST", body: form, signal: options.signal },
+    ScoreResult,
+  );
+}
+
+/** Các lượt đã chấm của một câu, `attempt` tăng dần (D-11). */
+export function listAttempts(
+  lessonId: string,
+  index: number,
+): Promise<AttemptSummary[]> {
+  return request(
+    `${segmentPath(lessonId, index)}/attempts`,
+    { method: "GET" },
+    AttemptSummary.array(),
+  );
+}
+
+/** ScoreResult đã lưu của một lượt; body sai schema thành lỗi (E9 error). */
+export function getAttemptResult(
+  lessonId: string,
+  index: number,
+  attempt: number,
+): Promise<ScoreResult> {
+  return request(
+    `${segmentPath(lessonId, index)}/attempts/${enc(attempt)}`,
+    { method: "GET" },
     ScoreResult,
   );
 }

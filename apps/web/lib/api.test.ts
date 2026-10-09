@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, listLessons, uploadAttempt } from "./api";
+import {
+  ApiRequestError,
+  getAttemptResult,
+  listAttempts,
+  listLessons,
+  uploadAttempt,
+} from "./api";
 
 const FIXTURE_DIR = join(
   import.meta.dirname,
@@ -170,5 +176,57 @@ describe("uploadAttempt", () => {
     await expect(
       uploadAttempt("01JABC", 0, blob, { saveForEval: false }),
     ).rejects.toThrow();
+  });
+});
+
+describe("listAttempts", () => {
+  it("parses the AttemptSummary fixture array from GET …/attempts", async () => {
+    const items = loadFixture("AttemptSummary.json").map((c) => c.data);
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(items));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listAttempts("01JABC", 2);
+
+    expect(result).toHaveLength(items.length);
+    expect(result[1]?.overall).toBe(0.74);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/lessons\/01JABC\/segments\/2\/attempts$/,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("GET");
+  });
+
+  it("rejects when the list body violates the schema", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse([{ attempt: 0 }])),
+    );
+
+    await expect(listAttempts("01JABC", 2)).rejects.toThrow();
+  });
+});
+
+describe("getAttemptResult", () => {
+  it("parses the stored ScoreResult from GET …/attempts/{n}", async () => {
+    const body = fixtureData("ScoreResult.json", "full");
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getAttemptResult("01JABC", 2, 3);
+
+    expect(result.attempt).toBe(3);
+    expect(result.scores.overall).toBe(0.74);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/lessons\/01JABC\/segments\/2\/attempts\/3$/,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("GET");
+  });
+
+  it("rejects an invalid stored body (Zod) instead of returning it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ attempt: 3 })),
+    );
+
+    await expect(getAttemptResult("01JABC", 2, 3)).rejects.toThrow();
   });
 });

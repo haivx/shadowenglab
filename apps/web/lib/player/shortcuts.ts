@@ -104,6 +104,40 @@ const TABLE: Record<StateGroup, Partial<Record<Key, PlayerEvent>>> = {
   },
 };
 
+/** Các sự kiện làm video phát: chưa dùng được khi video chưa sẵn sàng. */
+const NEEDS_VIDEO = new Set<PlayerEvent["type"]>([
+  "PLAY",
+  "PREVIEW",
+  "LISTEN_ORIGINAL",
+  "LISTEN_BOTH",
+]);
+
+/** Các sự kiện phát bản ghi của người học: chỉ dùng được khi lượt đang xem còn bản ghi trong phiên. */
+const NEEDS_YOURS = new Set<PlayerEvent["type"]>([
+  "LISTEN_YOURS",
+  "LISTEN_BOTH",
+]);
+
+export type ShortcutGate = {
+  /** false cho tới khi video `canplay` hoặc khi video lỗi. */
+  videoReady: boolean;
+  /** false khi lượt đang xem không còn bản ghi trong phiên (D-11, FBK-04). */
+  yoursEnabled: boolean;
+};
+
+/**
+ * Cổng cuối trước khi gửi sự kiện cho machine. `O`, `R`, `→`… không bị ảnh hưởng bởi lượt đang xem;
+ * `M`/`B` không làm gì với lượt cũ để không bao giờ phát nhầm bản ghi khác.
+ */
+export function allowShortcutAction(
+  action: PlayerEvent,
+  gate: ShortcutGate,
+): boolean {
+  if (!gate.videoReady && NEEDS_VIDEO.has(action.type)) return false;
+  if (!gate.yoursEnabled && NEEDS_YOURS.has(action.type)) return false;
+  return true;
+}
+
 function topLevelState(stateValue: ShortcutStateValue): string {
   if (typeof stateValue === "string") return stateValue;
   return Object.keys(stateValue)[0] ?? "";
