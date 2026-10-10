@@ -448,3 +448,13 @@ Applicable state considerations resolved: 44 covered, 3 backstop, 0 unresolved, 
 - Idle: `SpokenIpa` block unchanged (badge + `/…/` + helper).
 - `Đang phát` and `Đang ghi` panels: one compact centred line `/…/` under the 26px sentence (`font-ipa` 16/1.4, `--teal-12`, 14px below the sentence), hidden when IPA is off or no word has IPA. No badge or helper inside the panels.
 - Supersedes the P1 rule "SpokenIpa only when `IPA` is on and not hidden by the sentence region" for these two panels.
+
+## Amendment 2026-10-10 (Liam): what the OpenAI key is for
+
+Today the key is used only by sentence translation (`Dịch`, `T`, `routers/translate.py`); LLM tips and TTS are Phase 8. The P1 copy described features that do not exist yet and omitted translation. Replaced:
+
+- S8 API key card: under the subtitle, a muted 14px block "OpenAI key dùng cho" + list (`Dịch câu sang tiếng Việt (nút Dịch, phím T)`, `Gợi ý viết bằng AI · sắp có`, `Đọc chậm câu mẫu (TTS) · sắp có`) + `Chỉ gửi chữ (câu cần dịch), không bao giờ gửi audio. Không có key: không dịch được câu mới, gợi ý dùng mẫu có sẵn, chấm điểm vẫn chạy.` Field label `OpenAI key` (was `OpenAI · gợi ý bằng LLM và đọc chậm (TTS)`).
+- S1 no-key banner: `Chưa có OpenAI key: chưa dịch được câu mới. Chấm điểm vẫn chạy bình thường.` + `Thêm key` link (unchanged).
+- `Dịch` locked tooltip: `Cần OpenAI key để dịch. Thêm key trong Settings.` (was `Cần OPENAI_API_KEY`; plain text, a tooltip cannot hold a reliable link).
+- Phase 8 drops `· sắp có` when LLM tips / TTS ship.
+

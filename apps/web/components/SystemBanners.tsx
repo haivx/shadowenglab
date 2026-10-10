@@ -76,8 +76,8 @@ export function SystemBanners() {
           </Link>
         }
       >
-        Chưa có OpenAI key: gợi ý dùng template, đọc chậm (TTS) tắt. Chấm điểm
-        vẫn chạy bình thường.
+        Chưa có OpenAI key: chưa dịch được câu mới. Chấm điểm vẫn chạy bình
+        thường.
       </Banner>,
     );
   }

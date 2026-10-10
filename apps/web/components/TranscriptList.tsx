@@ -29,7 +29,7 @@ const GROUP_LABEL_CLASS =
 
 const TRANSLATING_TEXT = "Đang dịch…";
 const TRANSLATE_FAILED_TEXT = "Không dịch được câu này. Bấm Dịch để thử lại.";
-const NEEDS_KEY_TEXT = "Cần OPENAI_API_KEY";
+const NEEDS_KEY_TEXT = "Cần OpenAI key để dịch. Thêm key trong Settings.";
 const SAVE_FAILED_TEXT = "Không lưu được. Thử lại.";
 const MAX_SEGMENT_TEXT = 500;
 

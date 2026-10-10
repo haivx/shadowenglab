@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { ApiRequestError, checkOpenAiKey } from "@/lib/api";
 import { queryKeys, useSystemStatus } from "@/lib/queries";
@@ -98,6 +99,23 @@ export function KeyField() {
           máy. Chấm điểm không cần key.
         </span>
       </div>
+      {/* Liam 2026-10-10: nói rõ key dùng cho gì. Chỉ dịch câu đang gọi OpenAI; gợi ý AI và TTS là Phase 8. */}
+      <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">
+          OpenAI key dùng cho
+        </span>
+        <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
+          <li>
+            Dịch câu sang tiếng Việt (nút Dịch, phím <Kbd>T</Kbd>)
+          </li>
+          <li>Gợi ý viết bằng AI · sắp có</li>
+          <li>Đọc chậm câu mẫu (TTS) · sắp có</li>
+        </ul>
+        <span>
+          Chỉ gửi chữ (câu cần dịch), không bao giờ gửi audio. Không có key:
+          không dịch được câu mới, gợi ý dùng mẫu có sẵn, chấm điểm vẫn chạy.
+        </span>
+      </div>
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {
@@ -105,9 +123,7 @@ export function KeyField() {
           if (!check.isPending && !noKeyAtAll) check.mutate(apiKey.trim());
         }}
       >
-        <Label htmlFor={inputId}>
-          OpenAI · gợi ý bằng LLM và đọc chậm (TTS)
-        </Label>
+        <Label htmlFor={inputId}>OpenAI key</Label>
         <div className="flex flex-wrap gap-2">
           <Input
             id={inputId}
