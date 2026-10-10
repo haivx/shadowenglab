@@ -20,6 +20,8 @@ interface PlayingPanelProps {
   autoRecord: boolean;
   /** Tiến độ 0..1 của lần phát hiện tại, đọc từ video mỗi khung hình. */
   getPassProgress: () => number;
+  /** Dòng phiên âm `/…/` dưới câu; null khi tắt IPA hoặc không từ nào có IPA. */
+  ipa: string | null;
 }
 
 interface RecordingPanelProps {
@@ -27,6 +29,8 @@ interface RecordingPanelProps {
   sentence: string;
   /** 0..10 vạch sáng của LevelMeter. */
   bars: number;
+  /** Dòng phiên âm `/…/` dưới câu; null khi tắt IPA hoặc không từ nào có IPA. */
+  ipa: string | null;
 }
 
 interface ScoringPanelProps {
@@ -66,6 +70,20 @@ export type SentenceStatePanelProps =
   | MicErrorPanelProps
   | UploadErrorPanelProps;
 
+/** Phiên âm gọn dưới câu trong panel (font IPA, teal-12 như SpokenIpa); cách câu 14px như S3. */
+function PanelIpa({ ipa }: { ipa: string | null }) {
+  if (ipa === null) return null;
+  return (
+    <p
+      lang="en-fonipa"
+      aria-label="IPA từ audio mẫu"
+      className="m-0 -mt-1 break-words text-center font-ipa text-base leading-[1.4] text-[color:var(--teal-12)]"
+    >
+      {ipa}
+    </p>
+  );
+}
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
@@ -76,6 +94,7 @@ function PlayingPanel({
   rep,
   autoRecord,
   getPassProgress,
+  ipa,
 }: PlayingPanelProps) {
   const [pass, setPass] = useState(0);
 
@@ -111,6 +130,7 @@ function PlayingPanel({
       <p className="m-0 text-center text-[26px] font-medium leading-[1.3]">
         {sentence}
       </p>
+      <PanelIpa ipa={ipa} />
       <div
         aria-hidden="true"
         className="h-1.5 overflow-hidden rounded-[3px] bg-muted"
@@ -131,7 +151,7 @@ function PlayingPanel({
 /** Tần suất cập nhật số giây đã ghi: 0.1 s khớp độ phân giải `s.s` của chip. */
 const ELAPSED_TICK_MS = 100;
 
-function RecordingPanel({ sentence, bars }: RecordingPanelProps) {
+function RecordingPanel({ sentence, bars, ipa }: RecordingPanelProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   // Ghi đến khi người dùng dừng (Liam 2026-10-10), nên chip đếm lên từ lúc panel mount.
@@ -161,6 +181,7 @@ function RecordingPanel({ sentence, bars }: RecordingPanelProps) {
       <p className="m-0 text-center text-[26px] font-medium leading-[1.3]">
         {sentence}
       </p>
+      <PanelIpa ipa={ipa} />
       <LevelMeter bars={bars} />
       <span className="text-center text-[13px] text-muted-foreground">
         <Kbd>Space</Kbd> hoặc Dừng ghi để kết thúc

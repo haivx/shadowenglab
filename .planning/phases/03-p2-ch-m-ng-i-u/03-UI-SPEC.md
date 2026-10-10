@@ -441,3 +441,10 @@ Applicable state considerations resolved: 44 covered, 3 backstop, 0 unresolved, 
 - [ ] Dimension 7 Inventory Provenance: PASS
 
 **Approval:** pending
+
+## Amendment 2026-10-10 (Liam, after UAT): IPA under the sentence
+
+- `ipaOn` defaults to **on** and is remembered per machine (`localStorage` key `shadowenglab.ipaOn`, read after mount; storage errors fall back to on).
+- Idle: `SpokenIpa` block unchanged (badge + `/…/` + helper).
+- `Đang phát` and `Đang ghi` panels: one compact centred line `/…/` under the 26px sentence (`font-ipa` 16/1.4, `--teal-12`, 14px below the sentence), hidden when IPA is off or no word has IPA. No badge or helper inside the panels.
+- Supersedes the P1 rule "SpokenIpa only when `IPA` is on and not hidden by the sentence region" for these two panels.

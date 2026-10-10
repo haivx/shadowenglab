@@ -28,6 +28,8 @@ import {
   SentenceStatePanel,
 } from "@/components/SentenceStatePanel";
 import { SpokenIpa } from "@/components/SpokenIpa";
+import { ipaLine } from "@/lib/ipaLine";
+import { readIpaPreference, writeIpaPreference } from "@/lib/ipaPreference";
 import {
   TranscriptList,
   TranscriptListSkeleton,
@@ -383,9 +385,18 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
     viewed.kind === "stored",
   );
 
-  // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine.
-  const [ipaOn, setIpaOn] = useState(false);
-  const toggleIpa = useCallback(() => setIpaOn((on) => !on), []);
+  // IPA (phím I) và bản dịch (phím T) là state UI, không đi vào machine. IPA mặc định bật và nhớ
+  // lựa chọn trên máy (Liam 2026-10-10); đọc sau khi mount để khớp lần render phía server.
+  const [ipaOn, setIpaOn] = useState(true);
+  useEffect(() => {
+    setIpaOn(readIpaPreference(safeLocalStorage()));
+  }, []);
+  const toggleIpa = useCallback(() => {
+    setIpaOn((on) => {
+      writeIpaPreference(safeLocalStorage(), !on);
+      return !on;
+    });
+  }, []);
   const systemStatus = useSystemStatus();
   const translation = useTranslationTool({
     lessonId: lesson.id,
@@ -488,6 +499,9 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   const showPlainSentence = viewed.kind === "none" || storedFailed;
 
   const listening = top === "playing" || top === "previewing";
+  // Dòng phiên âm gọn dưới câu trong panel Đang phát / Đang ghi (bỏ qua khi không từ nào có IPA).
+  const sentenceIpa = ipaLine(segment.words);
+  const panelIpa = ipaOn && !sentenceIpa.allMissing ? sentenceIpa.text : null;
 
   return (
     <div className="flex h-screen flex-col">
@@ -558,12 +572,14 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
               rep={context.rep}
               autoRecord={top === "playing"}
               getPassProgress={getPassProgress}
+              ipa={panelIpa}
             />
           ) : top === "recording" ? (
             <SentenceStatePanel
               variant="recording"
               sentence={segment.text}
               bars={context.level.bars}
+              ipa={panelIpa}
             />
           ) : top === "scoring" ? (
             <SentenceStatePanel variant="scoring" sentence={segment.text} />
@@ -641,4 +657,13 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
       />
     </div>
   );
+}
+
+/** `window.localStorage`, hoặc null khi không có (SSR) hay bị chặn (chế độ riêng tư). */
+function safeLocalStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
 }

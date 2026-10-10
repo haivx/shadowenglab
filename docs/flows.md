@@ -77,6 +77,8 @@
 
 **Nguyên tắc thao tác:** đây là web app, nút bấm là cách thao tác chính. Mọi hành động đều có nút rõ ràng (có chữ, cao 44–48px). Phím tắt chỉ là lối tắt phụ, hiện dạng gợi ý nhỏ trong nút và tooltip.
 
+**Phiên âm (Liam, 2026-10-10):** IPA từ chính giọng người nói mặc định **bật** và được nhớ trên máy; hiện dưới câu ở trạng thái chờ (khối đầy đủ kèm ghi chú), và một dòng gọn `/…/` dưới câu trong panel "Đang phát" và "Đang ghi". Nút `IPA` / phím `I` tắt/bật.
+
 **Phím tắt (phụ):** `Space` phát/ghi/dừng · `R` thử lại · `←/→` câu trước/sau · `O` nghe bản gốc · `M` nghe bản của mình · `B` nghe lần lượt · `I` bật/tắt IPA · `T` dịch.
 **Trạng thái cần thiết kế:** đang phát, đang ghi (có mức âm), không thu được tiếng, đang chấm, kết quả tốt (không có gợi ý → lời khen ngắn), kết quả có lỗi, câu `ref_unclear` (chỉ chấm ngữ điệu, giải thích vì sao), lỗi backend, thiếu key (gợi ý dạng template, không có nhãn "AI").
 **Xong khi:** tập trọn 30 câu chỉ bằng chuột, và cũng làm được chỉ bằng bàn phím; mỗi vòng nghe–nói–xem kết quả ≤ 3 giây chờ.
