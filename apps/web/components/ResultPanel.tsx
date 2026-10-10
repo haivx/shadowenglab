@@ -97,7 +97,7 @@ export function ResultPanel({
   });
 
   // Mọi quyết định hiển thị đi qua hàm thuần đã có test, không có điều kiện inline (D-15, E4).
-  const note = resultNote(result.scores.overall, result.tips.length);
+  const note = resultNote(result);
   const wordsOk = wordsMatchSegment(result.words, segment.text);
   // Gợi ý đang hover -> các từ của chính issue nó trỏ tới (FBK-03); issueRef lạc phạm vi thì không tô.
   const hoveredIssue =
