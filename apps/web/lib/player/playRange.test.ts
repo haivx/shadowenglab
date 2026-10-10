@@ -6,6 +6,7 @@ import {
   makePlaySample,
   playRange,
   sampleWindow,
+  showSentenceFrame,
   type PlayableLesson,
   type RafLike,
   type VideoLike,
@@ -134,6 +135,32 @@ describe("sampleWindow", () => {
     const w = sampleWindow({ start: 59.9, end: 60, endExtraMs: 300 }, 150, 60);
     expect(w.endS).toBe(60);
     expect(w.startS).toBeCloseTo(59.75, 6);
+  });
+});
+
+describe("showSentenceFrame", () => {
+  it("video đang dừng: tua tới đầu câu mới để khung hình đổi theo câu", () => {
+    const video = { currentTime: 12.4, paused: true };
+
+    expect(showSentenceFrame(video, 52.8)).toBe(true);
+    expect(video.currentTime).toBe(52.8);
+  });
+
+  it("video đang phát (câu mẫu): không tua, để playRange tự quản lý", () => {
+    const video = { currentTime: 12.4, paused: false };
+
+    expect(showSentenceFrame(video, 52.8)).toBe(false);
+    expect(video.currentTime).toBe(12.4);
+  });
+
+  it("đã ở đúng đầu câu thì không tua lại; mốc âm hoặc không hữu hạn bị bỏ qua", () => {
+    const at = { currentTime: 52.8, paused: true };
+    expect(showSentenceFrame(at, 52.8)).toBe(false);
+
+    const bad = { currentTime: 3, paused: true };
+    expect(showSentenceFrame(bad, Number.NaN)).toBe(false);
+    expect(showSentenceFrame(bad, -1)).toBe(false);
+    expect(bad.currentTime).toBe(3);
   });
 });
 

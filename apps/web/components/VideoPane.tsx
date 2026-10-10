@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { lessonVideoUrl, reloadLessonVideo } from "@/lib/api";
+import { showSentenceFrame } from "@/lib/player/playRange";
 
 /** `mm:ss.s` cho lớp phủ khoảng thời gian của câu (UI-SPEC S3 Video). */
 export function formatClockTenths(seconds: number): string {
@@ -60,6 +61,22 @@ export function VideoPane({
       updateStatus("ready");
     }
   }, [videoRef, updateStatus]);
+
+  // Đổi câu thì khung hình đổi theo: tua tới đầu câu khi video đang dừng. Video chưa có metadata
+  // (vừa mở bài, vừa tải lại) thì đợi `loadedmetadata` rồi mới tua.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const seek = () => {
+      showSentenceFrame(video, startSec);
+    };
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      seek();
+      return;
+    }
+    video.addEventListener("loadedmetadata", seek, { once: true });
+    return () => video.removeEventListener("loadedmetadata", seek);
+  }, [startSec, nonce, videoRef]);
 
   // Đổi `src` đã tự nạp lại; `load()` để chắc chắn bỏ trạng thái lỗi cũ của phần tử.
   useEffect(() => {

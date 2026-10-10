@@ -59,6 +59,21 @@ export function sampleWindow(
   return { startS, endS };
 }
 
+/**
+ * Đổi câu (Tiếp / Trước / chọn trong danh sách) khi video đang dừng: tua tới đầu câu để khung hình
+ * hiện đúng câu mới (Liam, 2026-10-10). Đang phát câu mẫu thì không đụng, `playRange` tự tua.
+ * Trả true khi đã tua.
+ */
+export function showSentenceFrame(
+  video: { currentTime: number; paused: boolean },
+  startSec: number,
+): boolean {
+  if (!Number.isFinite(startSec) || startSec < 0) return false;
+  if (!video.paused || video.currentTime === startSec) return false;
+  video.currentTime = startSec;
+  return true;
+}
+
 function abortError(): DOMException {
   return new DOMException("aborted", "AbortError");
 }
