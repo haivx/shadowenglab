@@ -1,6 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,16 @@ export function AppHeader() {
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-8 py-3">
       <Link
         href="/"
-        className="text-lg font-extrabold tracking-[-0.02em] text-foreground hover:text-muted-foreground"
+        className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.02em] text-foreground hover:text-muted-foreground"
       >
+        <Image
+          src="/LOGO-512x512.png"
+          alt=""
+          width={32}
+          height={32}
+          priority
+          className="size-8"
+        />
         ShadowEngLab
       </Link>
       <nav aria-label="Điều hướng chính" className="flex items-center gap-1">
