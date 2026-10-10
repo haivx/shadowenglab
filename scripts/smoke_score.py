@@ -44,7 +44,7 @@ P95_MAX_MS = 3000.0  # PRO-04: chấm một lượt < 3 s
 CROSS_MEDIAN_MAX = 0.6  # 03-01 mục D-a: trung vị chéo câu < 0.6 và mọi cặp căn không ok
 MIN_SENTENCES = 2
 TEXT_WIDTH = 38
-TABLE_HEADER = "   #  dài(s)  tự so  issue      ms  chéo vs  chéo  căn  câu"
+TABLE_HEADER = "   #  dài(s)  tự so  issue      ms  chéo vs  chéo  căn  cost  tỉ lệ  câu"
 
 
 class SelfRow(NamedTuple):
@@ -64,6 +64,8 @@ class CrossRow(NamedTuple):
     other: int
     overall: float
     align_ok: bool
+    cost: float = 0.0  # chi phí căn DTW (cổng ALIGN_COST_MAX), chỉ để in
+    ratio: float = 0.0
 
 
 def verdict(rows: Sequence[SelfRow], cross: Sequence[CrossRow]) -> tuple[str, int]:
@@ -166,10 +168,13 @@ def _format_table(
     for row in rows:
         pair = by_index.get(row.index)
         if pair is None:
-            cross_text = f"{'-':>7}  {'-':>4}  {'-':>3}"
+            cross_text = f"{'-':>7}  {'-':>4}  {'-':>3}  {'-':>4}  {'-':>5}"
         else:
             quality = "ok" if pair.align_ok else "kém"
-            cross_text = f"{'#' + str(pair.other):>7}  {pair.overall:4.2f}  {quality:>3}"
+            cross_text = (
+                f"{'#' + str(pair.other):>7}  {pair.overall:4.2f}  {quality:>3}"
+                f"  {pair.cost:4.2f}  {pair.ratio:5.2f}"
+            )
         lines.append(
             f"{row.index:4d}  {durations[row.index]:6.1f}  {row.overall:5.3f}  {row.issues:5d}"
             f"  {row.ms:6.0f}  {cross_text}  {row.text[:TEXT_WIDTH]}"
@@ -308,7 +313,10 @@ def _run(args: argparse.Namespace, root: Path) -> int:
             continue
         other = selected[(position + 1) % len(selected)]
         pair = score_prosody(refs[other].features, learner[i], refs[other].words)
-        cross.append(CrossRow(i, other, pair.overall, pair.alignment.ok))
+        alignment = pair.alignment
+        cross.append(
+            CrossRow(i, other, pair.overall, alignment.ok, alignment.cost, alignment.ratio)
+        )
 
     print(_format_table(rows, cross, durations))
     print()
