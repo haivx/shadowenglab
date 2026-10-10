@@ -195,7 +195,7 @@ export function IntonationChart({
             strokeWidth={3}
             strokeLinecap="round"
             strokeLinejoin="round"
-            connectNulls={false}
+            connectNulls
             isAnimationActive={false}
             style={{ stroke: "var(--original)" }}
           />
@@ -205,7 +205,7 @@ export function IntonationChart({
             strokeWidth={3}
             strokeLinecap="round"
             strokeLinejoin="round"
-            connectNulls={false}
+            connectNulls
             isAnimationActive={false}
             style={{ stroke: "var(--you)" }}
           />
