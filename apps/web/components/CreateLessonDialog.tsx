@@ -120,6 +120,36 @@ function PreviewBlock({ preview }: { preview: VideoPreview }) {
   );
 }
 
+/** Quy tắc chọn video (Liam 2026-10-10), khớp hành vi thật: trần 6 phút (`MAX_RANGE_S`), chọn đoạn
+ * cho video dài, nhãn "Có nhạc nền", lỗi `live_video` / `channel_url` / `video_unavailable`. */
+const VIDEO_GUIDELINES = [
+  "Dài tối đa 6 phút thì dùng cả video. Dài hơn: chọn một đoạn ≤ 6 phút sau khi dán link (tạo nhiều bài cho các đoạn khác nhau).",
+  "Giọng Mỹ, nói rõ, tốt nhất 1–2 người, ít nói chồng lên nhau.",
+  "Audio sạch: ít nhạc nền, vỗ tay, tiếng cười. Có nhạc nền vẫn tạo được, nhưng vài câu sẽ không chấm được.",
+  "Video công khai; không dùng livestream, link kênh hay playlist.",
+] as const;
+
+function VideoGuidelines() {
+  return (
+    <section
+      aria-labelledby="video-guidelines-title"
+      className="flex flex-col gap-1.5 text-[13px] leading-[1.45] text-muted-foreground"
+    >
+      <h3
+        id="video-guidelines-title"
+        className="m-0 text-[13px] font-semibold text-foreground"
+      >
+        Video phù hợp
+      </h3>
+      <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
+        {VIDEO_GUIDELINES.map((rule) => (
+          <li key={rule}>{rule}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Video ≤ 6 phút: dùng toàn bộ, không có thanh chọn đoạn (backend áp cùng quy tắc). */
 function WholeVideoNote({ durationSec }: { durationSec: number }) {
   const [low, high] = estimateSentences(durationSec);
@@ -304,6 +334,7 @@ export function CreateLessonDialog({ open, onClose }: CreateLessonDialogProps) {
             </div>
           </div>
 
+          {!waiting && !previewData ? <VideoGuidelines /> : null}
           {waiting ? <PreviewSkeleton /> : null}
           {previewData ? <PreviewBlock preview={previewData} /> : null}
           {previewData && longVideo ? (

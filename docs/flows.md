@@ -42,7 +42,8 @@
 **Mục tiêu:** dán link → có bài tập được, không phải ngồi chờ trước màn hình.
 
 1. S1 → nút "Tạo bài" → S2.
-2. Dán link. App lấy metadata (tiêu đề, thời lượng, thumbnail) và hiển thị preview.
+2. Dán link. Trước khi có preview, hộp thoại hiện mục "Video phù hợp" (Liam, 2026-10-10): tối đa 6 phút dùng cả video, dài hơn thì chọn một đoạn ≤ 6 phút (có thể tạo nhiều bài cho các đoạn khác nhau); giọng Mỹ, nói rõ, tốt nhất 1–2 người; audio sạch, ít nhạc nền/vỗ tay/tiếng cười (có nhạc nền vẫn tạo được nhưng vài câu không chấm được); video công khai, không livestream, link kênh hay playlist. Mục này ẩn khi đang tải hoặc đã có preview.
+   App lấy metadata (tiêu đề, thời lượng, thumbnail) và hiển thị preview.
 3. Video > 6 phút → gợi ý chọn đoạn (thanh kéo start–end, mặc định 5 phút đầu). Video ≤ 6 phút → dùng toàn bộ.
 4. Bấm "Tạo bài" → job chạy nền. S2 đóng, card bài mới xuất hiện ở S1 với tiến độ theo bước:
    `Tải video → Tách giọng → Phiên âm → Chia câu → Phân tích bản gốc`
