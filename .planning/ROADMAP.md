@@ -133,7 +133,7 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans:** 11/11 plans executed (UAT chờ Liam)
+**Plans:** 11/12 plans executed (03-12 gap closure sau UAT: gợi ý)
 **UI hint**: yes
 
 Plans:
@@ -159,6 +159,9 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 - [x] 03-11-PLAN.md — make smoke-score trên bài thật, ADR 0006, CLAUDE.md, cổng cuối phase + UAT (wave 6)
+
+**Wave 7** *(gap closure, blocked on Wave 6 completion)*
+- [ ] 03-12-PLAN.md — Gợi ý sau UAT: biến thể có số đo theo lượt (D-16), chọn tip hai lượt (D-14 sửa), nhận xét theo chỉ số khi không có issue (D-15b) (wave 7)
 
 **Notes**:
 - Phạm vi (seed): Lớp B (F0, semitone, căn theo từ, 3 chỉ số Tốc độ / Độ lên xuống / Khớp giai điệu, prominence), rule engine Lớp C dạng template (`STRESS_MISMATCH`, `EXTRA_PAUSE`, `FINAL_CONTOUR`, `FLAT_PITCH`, `PITCH_DEVIATION`), UI `ScoreHero` (phần ngữ điệu), `IntonationChart`, `TipList`, 6 trạng thái vùng câu (S3).
