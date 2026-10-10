@@ -20,7 +20,7 @@ from scipy.ndimage import median_filter, uniform_filter1d
 
 from audio_service.lesson.features import SR, frame_energy
 
-FEAT_VERSION = "pf-1"
+FEAT_VERSION = "pf-2"
 HOP_S = 0.01
 
 _EPS = 1e-10
@@ -28,9 +28,8 @@ _N_MFCC = 12  # c1..c12 (bỏ c0, tương quan với năng lượng)
 _MFCC_WINDOW_S = 0.025
 
 # Cắt lặng hai đầu (RESEARCH Pattern 1, Pitfall 2)
-_TRIM_FLAT_RANGE_DB = 20.0  # p95 - p10 nhỏ hơn mức này: không có đoạn lặng thật
-_TRIM_FLAT_BELOW_PEAK_DB = 30.0  # ... thì ngưỡng = p95 - 30 dB
-_TRIM_NOISE_MARGIN_DB = 12.0  # ... ngược lại ngưỡng = p10 + 12 dB
+# 03-11 (Liam duyệt): một quy tắc cho cả hai phía, không phụ thuộc clip có lặng thật hay không
+_TRIM_BELOW_PEAK_DB = 30.0  # ngưỡng = p95 - 30 dB
 _TRIM_FLOOR_DB = -60.0  # nhưng không thấp hơn -60 dB
 _TRIM_MARGIN_FRAMES = 5
 
@@ -45,6 +44,10 @@ _F0_MIN_AUDIO_S = 0.25  # ngắn hơn: Praat không đủ cửa sổ, coi như v
 _ST_MIN_VOICED = 5
 _ST_OCTAVE_WINDOW = 9
 _ST_OCTAVE_DEV = 6.0
+# 03-11 (Liam duyệt): cụm nhảy quãng tám dài 5-15 khung lọt cửa sổ 9 khung. Lượt hai dùng cửa sổ
+# 41 khung (~410 ms) và chỉ bỏ khung lệch gần đúng một quãng tám, để lên giọng thật vẫn còn.
+_ST_OCTAVE_RUN_WINDOW = 41
+_ST_OCTAVE_RUN_DEV = (9.0, 15.0)
 _INTERP_MAX_GAP = 12  # khe vô thanh <= 120 ms thì nội suy
 _SMOOTH_MEDIAN = 5
 _SMOOTH_MEAN = 3
@@ -77,11 +80,7 @@ def energy_db(audio16k: np.ndarray) -> np.ndarray:
 
 
 def _trim_threshold(db: np.ndarray) -> float:
-    p95 = float(np.percentile(db, 95))
-    p10 = float(np.percentile(db, 10))
-    if p95 - p10 < _TRIM_FLAT_RANGE_DB:
-        return p95 - _TRIM_FLAT_BELOW_PEAK_DB
-    return max(p10 + _TRIM_NOISE_MARGIN_DB, _TRIM_FLOOR_DB)
+    return max(float(np.percentile(db, 95)) - _TRIM_BELOW_PEAK_DB, _TRIM_FLOOR_DB)
 
 
 def trim_bounds(db: np.ndarray) -> tuple[int, int]:
@@ -140,7 +139,11 @@ def f0_two_pass(audio16k: np.ndarray, n: int | None = None) -> np.ndarray:
 
 
 def to_semitone(f0: np.ndarray) -> np.ndarray:
-    """12*log2(f0/median) trên frame hữu thanh; NaN = vô thanh hoặc nghi lỗi quãng tám (>6 st)."""
+    """12*log2(f0/median) trên frame hữu thanh; NaN = vô thanh hoặc nghi lỗi quãng tám.
+
+    Nghi lỗi quãng tám: lệch > 6 st so với trung vị 9 khung, hoặc lệch 9-15 st so với trung vị 41
+    khung (cụm nhảy dài, 03-11).
+    """
     st = np.full(f0.shape, np.nan, dtype=np.float64)
     voiced = f0 > 0
     if int(voiced.sum()) < _ST_MIN_VOICED:
@@ -150,6 +153,12 @@ def to_semitone(f0: np.ndarray) -> np.ndarray:
     size = min(_ST_OCTAVE_WINDOW, idx.size | 1)
     rolling = median_filter(st[idx], size=size, mode="nearest")
     st[idx[np.abs(st[idx] - rolling) > _ST_OCTAVE_DEV]] = np.nan
+    idx = np.flatnonzero(np.isfinite(st))
+    if idx.size:
+        size = min(_ST_OCTAVE_RUN_WINDOW, idx.size | 1)
+        dev = np.abs(st[idx] - median_filter(st[idx], size=size, mode="nearest"))
+        lo, hi = _ST_OCTAVE_RUN_DEV
+        st[idx[(dev >= lo) & (dev <= hi)]] = np.nan
     return st
 
 
