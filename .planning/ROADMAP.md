@@ -133,7 +133,7 @@ Plans:
   4. Mỗi tip trỏ tới một issue (`issueRef`).
   5. UI khớp `docs/design/`: đủ 6 trạng thái vùng câu (`S3-trang-thai-cau`), hover gợi ý highlight từ liên quan, Ghi lại (`R`) giữ lượt chấm tốt nhất.
 
-**Plans:** 11/12 plans executed (03-12 gap closure sau UAT: gợi ý)
+**Plans:** 12/12 plans executed (03-12 gap closure sau UAT: gợi ý)
 **UI hint**: yes
 
 Plans:
@@ -161,7 +161,7 @@ Plans:
 - [x] 03-11-PLAN.md — make smoke-score trên bài thật, ADR 0006, CLAUDE.md, cổng cuối phase + UAT (wave 6)
 
 **Wave 7** *(gap closure, blocked on Wave 6 completion)*
-- [ ] 03-12-PLAN.md — Gợi ý sau UAT: biến thể có số đo theo lượt (D-16), chọn tip hai lượt (D-14 sửa), nhận xét theo chỉ số khi không có issue (D-15b) (wave 7)
+- [x] 03-12-PLAN.md — Gợi ý sau UAT: biến thể có số đo theo lượt (D-16), chọn tip hai lượt (D-14 sửa), nhận xét theo chỉ số khi không có issue (D-15b) (wave 7)
 
 **Notes**:
 - Phạm vi (seed): Lớp B (F0, semitone, căn theo từ, 3 chỉ số Tốc độ / Độ lên xuống / Khớp giai điệu, prominence), rule engine Lớp C dạng template (`STRESS_MISMATCH`, `EXTRA_PAUSE`, `FINAL_CONTOUR`, `FLAT_PITCH`, `PITCH_DEVIATION`), UI `ScoreHero` (phần ngữ điệu), `IntonationChart`, `TipList`, 6 trạng thái vùng câu (S3).
@@ -270,7 +270,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 |-------|----------------|--------|-----------|
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
-| 3. P2 · Chấm ngữ điệu | 11/11 | In Progress | - |
+| 3. P2 · Chấm ngữ điệu | 12/12 | In Progress | - |
 | 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 0/0 | Not started | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
