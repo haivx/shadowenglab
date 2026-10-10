@@ -20,6 +20,11 @@ NOISE_PERCENTILE = 10.0  # nền ồn = phân vị 10 của dB các khung
 MARGIN_DB = 12.0  # khung có tiếng khi dB > nền ồn + MARGIN_DB
 MIN_VOICED_MS = 150  # tổng thời lượng có tiếng tối thiểu
 MIN_RUN_MS = 100  # và phải có một đoạn liên tục tối thiểu
+# 03-11 (Liam duyệt): nói liền không có lặng thì p10 chính là tiếng nói và nhánh tương đối không
+# nhận ra. Khung > ABS_VOICED_DB cũng tính là có tiếng, nhưng chỉ khi mức năng lượng có dao động
+# (p95 - p10 >= MIN_DYNAMIC_DB), để nền ồn đều (quạt) vẫn không bị tính là nói.
+ABS_VOICED_DB = -35.0
+MIN_DYNAMIC_DB = 6.0
 _EPS = 1e-10
 
 
@@ -29,7 +34,10 @@ def _voiced_mask(audio16k: np.ndarray) -> np.ndarray:
         return np.zeros(0, dtype=bool)
     db = 20.0 * np.log10(np.maximum(energy.astype(np.float64), _EPS))
     noise = float(np.percentile(db, NOISE_PERCENTILE))
-    return db > max(FLOOR_DB, noise + MARGIN_DB)
+    mask = db > max(FLOOR_DB, noise + MARGIN_DB)
+    if float(np.percentile(db, 95)) - noise >= MIN_DYNAMIC_DB:
+        mask |= db > ABS_VOICED_DB
+    return mask
 
 
 def _longest_run(mask: np.ndarray) -> int:
