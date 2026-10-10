@@ -7,6 +7,7 @@ Bản gốc là `synth_sentence(DEFAULT_WORDS)` ghi thành `vocals.wav` của st
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import time
 from collections.abc import Iterator
@@ -345,6 +346,38 @@ def test_history_lists_scored_attempts_only_and_detail_rereads_the_stored_result
             "message": "Không tìm thấy kết quả của lượt này.",
         }
         assert str(data_dir) not in res.text
+
+
+def test_flat_learner_tip_states_the_measured_range_and_rotates_per_attempt(
+    client: TestClient, tmp_path: Path
+) -> None:
+    flat, _ = synth_sentence(DEFAULT_WORDS, flat_f0=180.0, seed=4)
+    body = encode_webm(flat, tmp_path)
+
+    first = upload(client, body)
+    second = upload(client, body)
+
+    assert (first.status_code, second.status_code) == (201, 201)
+    assert (first.json()["attempt"], second.json()["attempt"]) == (1, 2)
+    texts = []
+    for res in (first, second):
+        payload = res.json()
+        flat_tips = [
+            tip
+            for tip in payload["tips"]
+            if payload["issues"][tip["issueRef"]]["code"] == "FLAT_PITCH"
+        ]
+        assert len(flat_tips) == 1, payload["issues"]
+        pitch_range = payload["issues"][flat_tips[0]["issueRef"]]["data"]["pitchRange"]
+        pct = int(math.floor(pitch_range * 20 + 0.5) * 5)
+        assert f"{pct}%" in flat_tips[0]["text"]
+        texts.append(flat_tips[0]["text"])
+    assert texts[0].startswith("Độ lên xuống của bạn chỉ bằng khoảng ")
+    assert texts[1].startswith("Giọng còn phẳng (khoảng ")
+
+    detail = client.get(f"/lessons/{LESSON_ID}/segments/0/attempts/1")
+    assert detail.status_code == 200
+    assert detail.json()["tips"] == first.json()["tips"]
 
 
 def test_history_of_a_sentence_without_attempts_is_empty_and_guards_apply(

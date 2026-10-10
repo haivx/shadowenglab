@@ -90,7 +90,10 @@ def test_self_compare_has_stress_entries_and_no_issue_or_tip(
         assert entry["ref"] == pytest.approx(entry["user"], abs=1e-9)
     assert score.pauses == []
     assert score.issues == []
-    assert score.tips == []
+    result = to_score_result(
+        score, lesson_id="01TESTLESSON", segment_index=0, attempt=1, timing_ms={"rules": 1.0}
+    )
+    assert result.tips == []
 
 
 def test_flat_learner_yields_one_flat_pitch_issue_and_one_template_tip(
@@ -101,9 +104,16 @@ def test_flat_learner_yields_one_flat_pitch_issue_and_one_template_tip(
 
     assert [i["code"] for i in score.issues] == ["FLAT_PITCH"]
     assert score.issues[0]["data"]["pitchRange"] < 0.6
-    assert score.tips == [
+    pct = int(math.floor(score.issues[0]["data"]["pitchRange"] * 20 + 0.5) * 5)
+    result = to_score_result(
+        score, lesson_id="01TESTLESSON", segment_index=0, attempt=1, timing_ms={"rules": 1.0}
+    )
+    assert [t.model_dump(by_alias=True) for t in result.tips] == [
         {
-            "text": "Giọng hơi phẳng; lên xuống rõ hơn theo bản gốc.",
+            "text": (
+                f"Độ lên xuống của bạn chỉ bằng khoảng {pct}% bản gốc; "
+                "mở rộng giọng, lên cao và xuống thấp rõ hơn."
+            ),
             "issueRef": 0,
             "source": "template",
         }

@@ -155,7 +155,7 @@ Neutral highlight (no meaning beyond "this is what the tip talks about"): fill `
 
 Issue marker (new alias tokens, gap P3-G4): `--issue: var(--red-9)` (`#E5484D`), `--issue-text: var(--red-11)` (`#CE2C31`), added to `globals.css` next to the P2-G3 aliases. Used **only** for the `ngắt thừa` ‖ marker and its label in the chart (S3 uses exactly these hexes). `--score-bad` stays score-only and `--destructive` stays failure-only.
 
-Neutral result line (no issue, overall < 80): background `--muted`, text `--muted-foreground` (5.22:1), no border. Not dashed (dashed + grey is the `unrated` / `ref_unclear` language, reserved for Phase 5).
+Neutral result line and metric notes (no issue, overall < 80 or a displayed metric < 80): background `--muted`, text `--muted-foreground` (5.22:1), no border. Not dashed (dashed + grey is the `unrated` / `ref_unclear` language, reserved for Phase 5).
 
 Contrast measured this session (white unless noted): green-11 4.72, amber-11 4.61, red-11 5.21, teal-11 4.56, orange-11 4.51, muted-foreground on muted 5.22, foreground on score-good-soft 14.63. Two deviations from the mock, both for contrast: (1) praise text uses `--foreground` instead of green-11 (green-11 on green-3 is 4.21:1 < 4.5 for 15px text); (2) `TranscriptList` score numbers on the slate-2 aside are amber-11 4.38:1 and green-11 4.49:1 at 12px — copied from the locked mock, weight raised to 600, accepted as a FLAG because the number is always present (gap P3-G16).
 
@@ -174,8 +174,9 @@ All UI copy is Vietnamese. Verbatim from the design HTML unless marked *(gap)*. 
 | Primary CTA (reviewing) | `Câu tiếp` (solid 48, footer, unchanged) · secondary `Ghi lại` (R, outline 48) |
 | New secondary action | `So sánh ngữ điệu` (outline 44, `ChartLine` icon, `aria-expanded`) *(gap P3-G2: `flows.md` F2 / FBK-02 name the button, `S3` does not draw it)* |
 | Empty state (no scored attempt for this sentence) | The idle sentence with no result block; `AttemptStrip` shows `Câu {n}` only. There is no empty-state heading: an unscored sentence is the normal idle state. |
-| Empty state (no issue, overall ≥ 80) — praise, client-side (D-15) | `Rất sát bản gốc. Qua câu tiếp, hoặc thử lại để sát hơn nữa.` *(gap P3-G7: S3s 5 says "thử nói nhanh hơn một chút", but `speed = min(r, 1/r)` has no sign so the app cannot know the learner was slower)* |
-| Empty state (no issue, overall < 80) — neutral, client-side (D-15) | `Chưa thấy lỗi cụ thể nào chắc chắn; nghe lại bản gốc rồi thử lại.` (CONTEXT D-15 verbatim). Never praise a score < 80. |
+| Empty state (no issue, overall and all three displayed metrics ≥ 80) — praise, client-side (D-15, D-15b) | `Rất sát bản gốc. Qua câu tiếp, hoặc thử lại để sát hơn nữa.` *(gap P3-G7: S3s 5 says "thử nói nhanh hơn một chút", but `speed = min(r, 1/r)` has no sign so the app cannot know the learner was slower)* |
+| Empty state (no issue, overall < 80, every displayed metric ≥ 80) — neutral, client-side (D-15) | `Chưa thấy lỗi cụ thể nào chắc chắn; nghe lại bản gốc rồi thử lại.` (CONTEXT D-15 verbatim). Never praise a score < 80. Also used when an issue exists but no tip could be built safely. |
+| No issue, a displayed metric < 80 — metric notes, client-side (D-15b) | Up to 2 notes joined by one space in the neutral block, lowest displayed metric first (tie order melodyMatch, pitchRange, speed), each one of 3 sentences chosen by `(segmentIndex + attempt − 1) mod 3`, `{v}` = the integer ScoreHero shows. **melodyMatch:** `Giai điệu mới khớp {v}%: nghe lại bản gốc, chú ý chỗ giọng đi lên, đi xuống rồi bắt chước đúng hướng.` · `Đường lên xuống của bạn còn khác bản gốc (khớp {v}%). Mở So sánh ngữ điệu để xem đoạn lệch rồi đọc lại.` · `Đọc lại từng cụm theo bản gốc, bám chỗ giọng lên và xuống; giai điệu hiện khớp {v}%.` **pitchRange:** `Độ lên xuống mới khớp {v}% với bản gốc; nghe lại xem bản gốc lên cao, xuống thấp tới đâu rồi bắt chước đúng mức đó.` · `Biên độ giọng của bạn khác bản gốc (khớp {v}%). Mở So sánh ngữ điệu để so độ cao thấp của hai đường.` · `Bám theo độ cao thấp của bản gốc ở từng cụm; độ lên xuống hiện khớp {v}%.` **speed:** `Nhịp đọc của bạn còn lệch bản gốc (khớp {v}%); đọc cùng lúc với bản gốc để bắt nhịp.` · `Tốc độ khớp {v}%: nghe lại bản gốc, để ý độ dài các khoảng nghỉ rồi đọc theo đúng nhịp đó.` · `Nhại sát theo bản gốc, gần như cùng lúc, để tốc độ khớp hơn; hiện khớp {v}%.` No word highlight, no `AI` label, `tips` stays empty. |
 | Error state (scoring/upload failed) | Panel (P1, unchanged): `Không xử lý được bản ghi. Bản ghi của bạn vẫn còn, bấm Thử lại để gửi lại.` + `Thử lại` (solid) + `Ghi lại` (R) + persistent Sonner toast with action `Thử lại`; the blob is retained so `M` works. |
 | Error state (no voice, `ApiError.code === 'no_speech'`) | Panel (P1, unchanged): title `Không nghe thấy gì trong lượt vừa rồi`, body `Kiểm tra micro đang chọn hoặc nói gần hơn. Lượt này không được tính.`, buttons `Ghi lại` (R) + `Chọn micro`. The attempt consumes no "Lượt N" label. |
 | Error state (open a past attempt fails) | `Không tải được kết quả của lượt này.` + `Thử lại` (outline 44) *(gap P3-G13)* |
@@ -199,13 +200,19 @@ All UI copy is Vietnamese. Verbatim from the design HTML unless marked *(gap)*. 
 
 Marker rule: `*word*` inside `Tip.text` marks a word (bold 700 + 2px underline). The client splits the string into plain/word segments and renders React elements; **never** `dangerouslySetInnerHTML` (words come from Whisper and the `Sửa câu` field, untrusted — RES Security). An unmatched `*` renders literally.
 
-| Code | Template |
-|------|----------|
-| `STRESS_MISMATCH` | `Nhấn vào *{refWord}*, không phải *{userWord}*.` |
-| `EXTRA_PAUSE` | `Đọc liền qua *{word}*, đừng ngắt ({userMs} ms).` |
-| `FINAL_CONTOUR` | `Xuống giọng ở cuối câu, ở *{lastWord}*; bạn đang lên giọng.` · `Lên giọng ở cuối câu, ở *{lastWord}*; bạn đang xuống giọng.` *(`{lastWord}` added to the RES template so the sentence-level tip has a word to underline, as S3 tip 03 does)* |
-| `PITCH_DEVIATION` | `Bạn đang đọc cao hơn bản gốc ở *{word}*; hạ giọng xuống.` · `…thấp hơn…; nâng giọng lên.` |
-| `FLAT_PITCH` | `Giọng hơi phẳng; lên xuống rõ hơn theo bản gốc.` |
+Each code has several approved wordings (D-16, 03-12). The first tip of a code uses variant `(segmentIndex + attempt − 1) mod n`; a second tip of the same code (D-14 revised) uses the next variant. The text is built once, when the attempt is scored, and stored with it, so reopening a past attempt shows the wording it had. Numbers come only from `issue.data`: `{pct}` = `pitchRange × 100` rounded half-up to a multiple of 5; `{ms}` = `userMs` rounded half-up; `{st}` = `|meanDiffSt|` rounded half-up to 0.5, printed `3` or `3.5`.
+
+Selection (D-14 revised, backend): pass 1 gives one tip per code in order `STRESS_MISMATCH > FINAL_CONTOUR > EXTRA_PAUSE > PITCH_DEVIATION > FLAT_PITCH`, each the most severe renderable issue of its code; pass 2, only while fewer than 3 tips, adds for `EXTRA_PAUSE` then `PITCH_DEVIATION` the next most severe renderable issue whose word is not already named by a selected tip. At most 2 tips per code and 3 in total; `STRESS_MISMATCH`, `FINAL_CONTOUR` and `FLAT_PITCH` never get a second tip.
+
+| Code | Approved wordings (variant 1 / 2 / 3 / 4) |
+|------|------------------------------------------|
+| `FLAT_PITCH` | `Độ lên xuống của bạn chỉ bằng khoảng {pct}% bản gốc; mở rộng giọng, lên cao và xuống thấp rõ hơn.` · `Giọng còn phẳng (khoảng {pct}% độ lên xuống của bản gốc). Nghe lại bản gốc và bắt chước chỗ giọng vút lên, hạ xuống.` · `Thử phóng đại ngữ điệu một chút: bạn mới lên xuống được khoảng {pct}% so với bản gốc.` · `Bản gốc lên xuống nhiều hơn bạn (bạn ≈ {pct}%); đừng ngại đọc hơi "quá", thường sẽ vừa.` |
+| `EXTRA_PAUSE` | `Đọc liền qua *{word}*, đừng ngắt ({ms} ms).` · `Bạn dừng {ms} ms sau *{word}*, bản gốc đọc nối luôn; nối *{word}* với từ sau.` · `Bỏ khoảng nghỉ sau *{word}* ({ms} ms): giữ hơi và đọc trọn cụm.` |
+| `FINAL_CONTOUR` original falls (`refSlope < 0`) | `Xuống giọng ở cuối câu, ở *{last}*; bạn đang lên giọng.` · `Cuối câu bản gốc hạ giọng ở *{last}*, còn bạn lại lên nên nghe như đang hỏi. Kết thúc dứt khoát, hạ xuống.` · `Ở *{last}*, để giọng rơi xuống như kết thúc một ý, đừng kéo lên.` |
+| `FINAL_CONTOUR` original rises (`refSlope > 0`) | `Lên giọng ở cuối câu, ở *{last}*; bạn đang xuống giọng.` · `Bản gốc kéo giọng lên ở *{last}* (giọng hỏi hoặc chưa nói hết ý), bạn lại hạ xuống; kết thúc bằng giọng đi lên.` · `Ở *{last}*, nâng giọng lên ở cuối như bản gốc thay vì hạ xuống.` *(`{last}` is the last word, so the sentence-level tip has a word to underline, as S3 tip 03 does)* |
+| `PITCH_DEVIATION` higher (`meanDiffSt > 0`) | `Bạn đang đọc cao hơn bản gốc ở *{word}*; hạ giọng xuống.` · `*{word}* của bạn cao hơn bản gốc khoảng {st} nửa cung; đọc từ này thấp và nhẹ hơn.` · `Hạ *{word}* xuống chừng {st} nửa cung cho khớp bản gốc.` |
+| `PITCH_DEVIATION` lower (`meanDiffSt < 0`) | `Bạn đang đọc thấp hơn bản gốc ở *{word}*; nâng giọng lên.` · `*{word}* của bạn thấp hơn bản gốc khoảng {st} nửa cung; đẩy giọng lên ở từ này.` · `Nâng *{word}* lên chừng {st} nửa cung, bản gốc nói từ này cao hơn.` |
+| `STRESS_MISMATCH` | `Nhấn vào *{ref}*, không phải *{user}*.` · `Bản gốc nhấn mạnh nhất ở *{ref}*, bạn lại nhấn *{user}*. Đọc *{ref}* to, dài và cao hơn một chút.` · `Dồn trọng âm của câu về *{ref}*; *{user}* nên đọc nhẹ đi.` |
 
 ---
 
@@ -268,7 +275,7 @@ Geometry (S3 SVG `760×150` adapted): the chart fills the column width (max ≈ 
 
 ### `TipList`
 
-`ol`, `list-style: none`, flex column, gap 14, 16/1.5. Each `li`: grid `28px minmax(0, 1fr)`, gap 8; index `01`–`03` (mono 13/500, `--muted-foreground`, padding-top 3; S3's slate-9 is lifted per P2-G20); text with `*word*` markers rendered per the Copywriting rule: bold 700 + 2px underline — `--slate-9` for every code except `STRESS_MISMATCH`, whose first marked word (the original's) is underlined `--original` and second (yours) `--you`. At most 3 rows, order and selection are the backend's (D-14); the UI does not reorder. Each `li` is `tabIndex={0}` so keyboard users get the same highlight as hover (gap P3-G14): `:hover` and `:focus-visible` set the hovered tip; leaving/blur clears it; the focus ring is the global 2px `--ring`. Touch-only devices are out of scope.
+`ol`, `list-style: none`, flex column, gap 14, 16/1.5. Each `li`: grid `28px minmax(0, 1fr)`, gap 8; index `01`–`03` (mono 13/500, `--muted-foreground`, padding-top 3; S3's slate-9 is lifted per P2-G20); text with `*word*` markers rendered per the Copywriting rule: bold 700 + 2px underline — `--slate-9` for every code except `STRESS_MISMATCH`, in which every marked word except the second is the original's (`--original`, including the variant that names the original's word twice) and the second is yours (`--you`) — the backend guarantees marker 2 is the learner's word and the colour comes from `markedWordTone(code, ordinal)`. At most 3 rows (D-14 revised: up to 2 per word-level code, `EXTRA_PAUSE` and `PITCH_DEVIATION`); order and selection are the backend's, the UI does not reorder. Each `li` is `tabIndex={0}` so keyboard users get the same highlight as hover (gap P3-G14): `:hover` and `:focus-visible` set the hovered tip; leaving/blur clears it; the focus ring is the global 2px `--ring`. Touch-only devices are out of scope.
 
 **Highlight resolution** — pure `tipHighlight(issue, words) → { ref: number[]; you: number[]; neutral: number[] }` (word indexes into `ScoreResult.words`), unit-tested in node:
 - `STRESS_MISMATCH`: `ref` = index of the word whose normalised text equals `data.refWord` (fallback `issue.wordIndex`); `you` = index of the word matching `data.userWord` if found (else none).
@@ -280,7 +287,7 @@ Normalise = lowercase, strip leading/trailing punctuation.
 Sentence word styles while highlighted (S3 selected-word recipe, recoloured): `ref` fill `--original-soft` + 3px bottom border `--original`; `you` fill `--you-soft` + 3px bottom border `--you`; `neutral` fill `--slate-4` + 3px bottom border `--slate-9`; radius 8; the S3 `padding 4px 6px; margin −4px −6px` so layout does not shift. Text colour stays `--foreground`.
 
 ### `Praise / neutral line`
-Block: padding `14px 16px`, radius 12. Praise: bg `--score-good-soft`, 15/600 `--foreground`, leading `Check` icon 18 in `--score-good-text`. Neutral: bg `--muted`, 14/400 `--muted-foreground`. `role="status"`.
+Block: padding `14px 16px`, radius 12. Praise: bg `--score-good-soft`, 15/600 `--foreground`, leading `Check` icon 18 in `--score-good-text`. Neutral: bg `--muted`, 14/400 `--muted-foreground`. `role="status"`. Metric notes (D-15b) use this neutral block as is: no new component, no icon, no word highlight, no `AI` label. Praise needs no issue and overall and all three displayed metrics ≥ 80; with overall ≥ 80 but a metric < 80, the metric notes show instead.
 
 ### `TranscriptList` and `SegmentedProgress` (left aside / header)
 
@@ -337,13 +344,13 @@ Applicable state considerations resolved: 44 covered, 3 backstop, 0 unresolved, 
 | overflow | E2 IntonationChart | ✅ covered | Chart fills the column (min 480); word cells shrink with their `wordBounds` share; labels truncate with ellipsis |
 | zero-one-many | E2 IntonationChart | 🧪 backstop | Visual test with a 1-word and a 25-word sentence: the word row fills / shrinks without overlap, and 0, 1 or several ‖ markers render correctly |
 | long-text | E2 IntonationChart | ✅ covered | Long word labels truncate with ellipsis and carry `title` |
-| empty | E3 TipList | ✅ covered | `tips.length === 0` renders the praise (≥ 80) or neutral (< 80) line, never an empty list |
+| empty | E3 TipList | ✅ covered | `tips.length === 0` renders the praise (overall and all three metrics ≥ 80), the metric notes (D-15b: no issue and a displayed metric < 80) or the neutral line, never an empty list and never both a list and a note |
 | loading | E3 TipList | ➖ dismissed | Rendered together with the result; the scoring skeleton covers the wait |
 | error | E3 TipList | ➖ dismissed | No separate fetch; a bad result is handled at the panel level |
 | populated | E3 TipList | ✅ covered | Numbered 01–03, marked words bold + underline, hover/focus highlights words |
 | partial | E3 TipList | ✅ covered | 1 or 2 tips show only their rows with matching numbers; an issue without a `wordIndex` (`FINAL_CONTOUR`, `FLAT_PITCH`) still renders and highlights per `tipHighlight` |
-| overflow | E3 TipList | ✅ covered | Contract and D-14 cap tips at 3; long Vietnamese text wraps inside the `minmax(0, 1fr)` column |
-| zero-one-many | E3 TipList | ✅ covered | 0 → praise/neutral line; 1, 2, 3 → rows `01`…; no plural copy needed in Vietnamese |
+| overflow | E3 TipList | ✅ covered | Contract and D-14 (revised) cap tips at 3, up to 2 per word-level code; long Vietnamese text wraps inside the `minmax(0, 1fr)` column |
+| zero-one-many | E3 TipList | ✅ covered | 0 → praise, metric notes or neutral line; 1, 2, 3 → rows `01`…; no plural copy needed in Vietnamese |
 | long-text | E3 TipList | 🧪 backstop | Visual check with a 20-character marked word and a 120-character tip at 1280px; no horizontal scroll, `overflow-wrap: anywhere` on the text |
 | loading | E4 Sentence words (hover) | ➖ dismissed | Highlight is synchronous local state |
 | error | E4 Sentence words (hover) | ✅ covered | `words` empty or text mismatching `segment.text` → plain paragraph, highlighting disabled, no error shown |

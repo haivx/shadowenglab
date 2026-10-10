@@ -1,7 +1,9 @@
 """Ghép điểm ngữ điệu Lớp B thành `ScoreResult` (PRO-02, D-04, D-05, D-06).
 
 Hàm thuần: hai `ProsodyFeatures` + mốc từ của bản gốc vào, `ProsodyScore` ra; không model, không
-file. Stress và pauses (prominence), issues (rule Lớp C), tips (template, D-14) do 03-06 điền.
+file. Stress và pauses (prominence), issues (rule Lớp C) do 03-06 điền. Tip (template, D-14 sửa,
+D-16) chọn trong `to_score_result`, lúc đã biết số lượt do transaction cấp (C1): cách nói của tip
+phụ thuộc câu và lượt.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from audio_service.contracts_gen import ScoreResult
-from audio_service.rules.engine import RuleInput, run_rules
+from audio_service.rules.engine import RuleInput, RuleIssue, run_rules
 from audio_service.rules.tips import select_tips
 from audio_service.scoring import metrics, prominence
 from audio_service.scoring.align import Aligner, Alignment, align
@@ -47,7 +49,8 @@ class ProsodyScore:
     stress: list[dict[str, Any]]
     pauses: list[dict[str, Any]]
     issues: list[dict[str, Any]]
-    tips: list[dict[str, Any]]
+    rule_issues: list[RuleIssue]
+    word_texts: list[str]
     alignment: Alignment
     word_issues_allowed: bool
     ref_word_frames: list[tuple[int, int]]
@@ -136,7 +139,6 @@ def score_prosody(
         )
     )
     issues = [rule_issue.issue for rule_issue in rule_issues]
-    tips = select_tips(rule_issues, texts)
     rules_ms = _ms(started)
 
     return ProsodyScore(
@@ -151,7 +153,8 @@ def score_prosody(
         stress=stress,
         pauses=pauses,
         issues=issues,
-        tips=tips,
+        rule_issues=rule_issues,
+        word_texts=texts,
         alignment=alignment,
         word_issues_allowed=alignment.ok,
         ref_word_frames=frames,
@@ -194,6 +197,8 @@ def to_score_result(
             "pauses": score.pauses,
         },
         "issues": score.issues,
-        "tips": score.tips,
+        "tips": select_tips(
+            score.rule_issues, score.word_texts, segment_index=segment_index, attempt=attempt
+        ),
     }
     return ScoreResult.model_validate(payload)
