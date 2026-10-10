@@ -12,7 +12,7 @@ import mà không phải sửa file này.
 from __future__ import annotations
 
 THRESHOLDS_VERSION = "p2-1"  # 03-01 mục E
-SCORER_VERSION = "prosody-1"  # 03-01 mục E
+SCORER_VERSION = "prosody-2"  # prosody-2: pitchRange/melodyMatch dùng thống kê bền (03-11)
 
 # --- Căn thời gian (D-01, D-02; RESEARCH Pattern 2) ------------------------------------------
 ALIGN_COST_MAX = 1.10  # căn ok khi chi phí DTW chuẩn hoá <= giá trị này (RESEARCH Pattern 2)

@@ -22,6 +22,7 @@ from audio_service.scoring.thresholds import (
 )
 
 _CONST_STD = 1e-6  # độ lệch chuẩn nhỏ hơn mức này coi là phẳng tuyệt đối
+_MAD_TO_SD = 1.4826  # MAD * hệ số này = std với phân phối chuẩn
 _HOP_MS = HOP_S * 1000.0
 
 
@@ -63,8 +64,13 @@ def speed(ref_db: np.ndarray, user_db: np.ndarray) -> float:
     return min(r, 1.0 / r)
 
 
+def robust_sd(values: np.ndarray) -> float:
+    """Độ lệch chuẩn bền = 1.4826 * MAD: vài khung nhảy quãng tám không kéo lệch (03-11)."""
+    return _MAD_TO_SD * float(np.median(np.abs(values - np.median(values))))
+
+
 def pitch_range(ref_st: np.ndarray, user_st: np.ndarray) -> float:
-    """min(r, 1/r) với r = std(semitone người học) / std(semitone bản gốc) trên frame hữu hạn.
+    """min(r, 1/r) với r = std bền(semitone người học) / std bền(semitone bản gốc), frame hữu hạn.
 
     Cả hai phẳng tuyệt đối -> 1.0; đúng một bên phẳng -> 0.0; ít hơn MIN_COMMON_VOICED_FRAMES frame
     hữu hạn ở một bên -> 0.0.
@@ -72,7 +78,7 @@ def pitch_range(ref_st: np.ndarray, user_st: np.ndarray) -> float:
     ref_v, user_v = ref_st[np.isfinite(ref_st)], user_st[np.isfinite(user_st)]
     if ref_v.size < MIN_COMMON_VOICED_FRAMES or user_v.size < MIN_COMMON_VOICED_FRAMES:
         return 0.0
-    ref_sd, user_sd = float(ref_v.std()), float(user_v.std())
+    ref_sd, user_sd = robust_sd(ref_v), robust_sd(user_v)
     ref_flat, user_flat = ref_sd < _CONST_STD, user_sd < _CONST_STD
     if ref_flat and user_flat:
         return 1.0
