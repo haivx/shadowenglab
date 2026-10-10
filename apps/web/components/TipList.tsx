@@ -1,7 +1,7 @@
 "use client";
 
 import type { Issue, Tip } from "@shadowenglab/contracts";
-import { splitTipMarkup } from "@/lib/tipMarkup";
+import { markedWordTone, splitTipMarkup } from "@/lib/tipMarkup";
 
 interface TipListProps {
   /** Đúng thứ tự và số lượng backend trả về (D-14); UI không sắp xếp, không bỏ, không tự thêm. */
@@ -12,16 +12,19 @@ interface TipListProps {
   onHoverTip: (index: number | null) => void;
 }
 
+/** Lớp Tailwind viết nguyên văn để JIT nhìn thấy (không ghép chuỗi). */
+const DECORATION = {
+  original: "decoration-original",
+  you: "decoration-you",
+  neutral: "decoration-[color:var(--slate-9)]",
+} as const;
+
 /**
  * Màu gạch chân của từ được đánh dấu (UI-SPEC "TipList"): `--slate-9` cho mọi mã, riêng
- * STRESS_MISMATCH thì từ thứ nhất (bản gốc) gạch `--original`, từ thứ hai (bạn) gạch `--you`.
+ * STRESS_MISMATCH thì từ của bản gốc gạch `--original` (mọi lần nhắc), từ của bạn gạch `--you`.
  */
 function wordDecoration(code: Issue["code"] | undefined, ordinal: number) {
-  if (code === "STRESS_MISMATCH") {
-    if (ordinal === 0) return "decoration-original";
-    if (ordinal === 1) return "decoration-you";
-  }
-  return "decoration-[color:var(--slate-9)]";
+  return DECORATION[markedWordTone(code, ordinal)];
 }
 
 /**

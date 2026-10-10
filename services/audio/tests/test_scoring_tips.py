@@ -175,18 +175,17 @@ def test_five_codes_give_three_tips_in_priority_order() -> None:
     assert len(issues) == 5, "issues giữ nguyên đủ mọi issue"
 
 
-def test_the_most_deviant_issue_wins_inside_a_code() -> None:
+def test_the_most_deviant_issue_of_a_code_gets_the_first_tip() -> None:
     issues = [_deviation(0, 3.2), _deviation(3, 4.1)]
 
     tips = select_tips(issues, WORDS, segment_index=0, attempt=1)
 
-    assert tips == [
-        {
-            "text": "Bạn đang đọc cao hơn bản gốc ở *fox*; hạ giọng xuống.",
-            "issueRef": 1,
-            "source": "template",
-        }
-    ]
+    assert [t["issueRef"] for t in tips] == [1, 0]
+    assert tips[0] == {
+        "text": "Bạn đang đọc cao hơn bản gốc ở *fox*; hạ giọng xuống.",
+        "issueRef": 1,
+        "source": "template",
+    }
 
 
 def test_each_code_picks_its_own_severity_measure() -> None:
@@ -631,9 +630,9 @@ def test_every_tip_names_the_word_of_the_issue_it_points_at() -> None:
                     issue = subset[tip["issueRef"]].issue
                     marked = _marked(tip["text"])
                     if issue["code"] in ("EXTRA_PAUSE", "PITCH_DEVIATION"):
-                        assert marked == [WORDS[issue["wordIndex"]]]
+                        assert set(marked) == {WORDS[issue["wordIndex"]]}
                     elif issue["code"] == "FINAL_CONTOUR":
-                        assert marked == [WORDS[-1]]
+                        assert set(marked) == {WORDS[-1]}
                     elif issue["code"] == "STRESS_MISMATCH":
                         assert marked[0] == issue["data"]["refWord"]
                         assert marked[1] == issue["data"]["userWord"]
