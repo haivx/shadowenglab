@@ -54,6 +54,13 @@ def test_melody_match_uses_only_frames_finite_on_both_sides() -> None:
     assert metrics.melody_match(x_noisy, y) == pytest.approx(1.0)
 
 
+def _with_octave_jumps(x: np.ndarray, every: int = 30) -> np.ndarray:
+    """~3 % khung nhảy lên một quãng tám (+12 st), như F0 sau khi qua opus (03-11 smoke)."""
+    y = x.copy()
+    y[::every] += 12.0
+    return y
+
+
 # --- pitch_range -----------------------------------------------------------------------------
 
 
@@ -63,6 +70,13 @@ def test_pitch_range_is_the_std_ratio_folded_to_at_most_one() -> None:
     assert metrics.pitch_range(x, 0.5 * x) == pytest.approx(0.5)
     assert metrics.pitch_range(0.5 * x, x) == pytest.approx(0.5)
     assert metrics.pitch_range(x, x) == pytest.approx(1.0)
+
+
+def test_pitch_range_ignores_a_few_octave_jumps() -> None:
+    x = _wave(300)
+
+    assert metrics.pitch_range(x, _with_octave_jumps(x)) == pytest.approx(1.0, abs=0.05)
+    assert metrics.pitch_range(_with_octave_jumps(x), x) == pytest.approx(1.0, abs=0.05)
 
 
 def test_pitch_range_with_exactly_one_constant_side_is_zero() -> None:

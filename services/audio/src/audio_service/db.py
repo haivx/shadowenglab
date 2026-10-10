@@ -112,10 +112,12 @@ def connection() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(path, timeout=5, isolation_level=None)
     try:
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         with _SCHEMA_GUARD:
             if path not in _SCHEMA_READY:
+                # WAL lưu trong file DB: đặt một lần. Mọi connection cùng đổi journal mode trên DB
+                # mới thì SQLite trả "database is locked" ngay, không chờ timeout.
+                conn.execute("PRAGMA journal_mode=WAL")
                 ensure_schema(conn)
                 _SCHEMA_READY.add(path)
         yield conn

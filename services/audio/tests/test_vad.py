@@ -58,3 +58,24 @@ def test_sixty_millisecond_click_is_not_voiced() -> None:
 def test_empty_and_very_short_input_are_not_voiced() -> None:
     assert not is_voiced(np.zeros(0, dtype=np.float32))
     assert not is_voiced(_tone_burst(0.2, 0.05, 0.1))
+
+
+def _dense_speech_like(seconds: float = 3.0, dbfs: float = -25.0) -> np.ndarray:
+    """Nói liền không có khoảng lặng: tone 150 Hz điều biên 4 Hz (âm tiết), dao động ~12 dB."""
+    t = np.arange(int(SR * seconds)) / SR
+    envelope = 0.4 + 0.6 * (0.5 + 0.5 * np.sin(2 * np.pi * 4 * t))
+    x = envelope * np.sin(2 * np.pi * 150 * t)
+    x /= np.sqrt(np.mean(x**2))
+    return (x * 10 ** (dbfs / 20)).astype(np.float32)
+
+
+def test_dense_speech_without_any_pause_is_voiced() -> None:
+    """03-11: nền ồn phân vị 10 chính là tiếng nói; nhánh tuyệt đối vẫn nhận ra có tiếng."""
+    audio = _dense_speech_like()
+
+    assert is_voiced(audio)
+    assert voiced_ms(audio) >= 2000
+
+
+def test_quiet_dense_signal_below_the_absolute_floor_is_not_voiced() -> None:
+    assert not is_voiced(_dense_speech_like(dbfs=-55.0))

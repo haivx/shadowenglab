@@ -46,6 +46,28 @@ def test_a_single_octave_error_frame_is_removed() -> None:
     assert abs(float(np.nanmedian(st))) < 1e-9
 
 
+def test_a_twelve_frame_octave_jump_run_is_removed() -> None:
+    """03-11: cụm 120 ms nhảy quãng tám (F0 x2) lọt cửa sổ 9 khung; lượt cửa sổ dài bắt được."""
+    f0 = 150.0 * 2 ** (np.sin(np.linspace(0, 3 * np.pi, 300)) * 3 / 12)  # dao động ±3 st
+    jump = slice(140, 152)
+    f0[jump] *= 2.0
+
+    st = to_semitone(f0)
+
+    assert np.isnan(st[jump]).all()
+    assert np.isfinite(np.delete(st, np.arange(140, 152))).all()
+
+
+def test_a_genuine_eight_semitone_rise_is_kept() -> None:
+    """Lên giọng thật 8 st (câu hỏi) không giống quãng tám: giữ nguyên."""
+    f0 = np.full(300, 150.0)
+    f0[200:240] = 150.0 * 2 ** (8 / 12)
+
+    st = to_semitone(f0)
+
+    assert np.isfinite(st).all()
+
+
 def test_too_few_voiced_frames_gives_all_nan() -> None:
     f0 = np.zeros(50)
     f0[:4] = 180.0
@@ -123,6 +145,18 @@ def test_f0_two_pass_stays_inside_the_speaker_range() -> None:
     assert len(f0) == len(energy_db(audio))
     assert voiced.size > 150
     assert voiced.min() > 120.0 and voiced.max() < 300.0
+
+
+def test_a_soft_tail_is_cut_the_same_way_with_or_without_real_silence() -> None:
+    """03-11: ngưỡng cắt tính từ đỉnh ở cả hai phía. Trước đây lặng thật kéo p10 xuống, ngưỡng tụt
+    về sàn và đuôi nhỏ của lượt ghi được giữ trong khi bản gốc cắt mất (tỉ lệ độ dài 1.15)."""
+    window = np.concatenate([np.full(200, -20.0), np.full(30, -55.0)])
+    recording = np.concatenate([np.full(60, -90.0), window, np.full(60, -90.0)])
+
+    margin = 5  # _TRIM_MARGIN_FRAMES
+
+    assert trim_bounds(window)[1] == 200 + margin
+    assert trim_bounds(recording)[1] == 60 + 200 + margin
 
 
 def test_padding_with_silence_trims_to_the_same_length() -> None:

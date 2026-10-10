@@ -287,6 +287,18 @@ def test_final_contour_needs_enough_voiced_frames_on_both_sides() -> None:
     assert final_contour(ref_few) is None
 
 
+def test_final_contour_reads_the_aligned_user_tail_when_the_alignment_is_ok() -> None:
+    """03-11: mép cắt lệch vài khung làm đuôi riêng của người học rơi vào đoạn khác. Khi căn ok,
+    rule so 300 ms cuối của bản gốc với đúng các khung người học được căn vào đó."""
+    ref = _tail_contour(-10.0)
+    own_tail_rises = _crafted(ref_st=ref, user_st=_tail_contour(10.0))
+    aligned_same = replace(own_tail_rises, user_st_on_ref=ref.copy())
+    aligned_rises = replace(own_tail_rises, user=_feats(ref.copy(), _db()))
+
+    assert final_contour(aligned_same) is None
+    assert final_contour(aligned_rises) is not None
+
+
 def test_final_contour_is_still_allowed_when_the_alignment_is_not_ok() -> None:
     inp = _crafted(ref_st=_tail_contour(-10.0), user_st=_tail_contour(10.0), allowed=False)
 

@@ -53,6 +53,7 @@ make lint      # eslint, prettier, tsc, ruff
 make eval      # stub ở P0; Phase 4: python eval/analyze.py → eval/report.md
 make smoke     # scripts/smoke_lesson.py trên scripts/smoke_video.url (tuỳ chọn: URL=, START=, END=, BUDGET=)
 make smoke-jobs # 2 bài tạo liên tiếp qua API thật, không key: kiểm tra không chặn nhau (Phase 2)
+make smoke-score # chấm tự so + chéo câu trên một bài thật (chỉ đọc DATA_DIR), in timingMs; tuỳ chọn LESSON= (Phase 3)
 make contracts # sinh lại JSON Schema + pydantic từ Zod (packages/contracts)
 make dev-eval  # khung app eval (localhost:3001)
 ```
