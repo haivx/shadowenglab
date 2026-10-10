@@ -56,7 +56,7 @@ export function LessonCard({ item }: { item: LessonListItem }) {
   return (
     <Card
       data-status={lesson.status}
-      className={cn("gap-0 p-0", failed && "border-destructive-border")}
+      className={cn("flex-1 gap-0 p-0", failed && "border-destructive-border")}
     >
       <div className="relative flex aspect-video items-center justify-center bg-video">
         {thumbnail ? (
@@ -81,7 +81,8 @@ export function LessonCard({ item }: { item: LessonListItem }) {
         </span>
       </div>
 
-      <div className="flex flex-col gap-2.5 p-4">
+      {/* flex-1 + mt-auto: các thẻ cùng hàng cao bằng nhau, nút luôn nằm ở đáy thẻ. */}
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
         <h2
           title={lesson.title}
           className="line-clamp-2 break-words text-base font-bold leading-[1.3] text-foreground"
@@ -105,24 +106,26 @@ export function LessonCard({ item }: { item: LessonListItem }) {
                 {MUSIC_WARNING}
               </p>
             ) : null}
-            {item.segmentCount > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <Progress
-                  value={progressPercent}
-                  aria-label={`Đã tập ${item.practicedCount} trên ${item.segmentCount} câu`}
-                />
-                <span className="text-[13px] text-muted-foreground">
-                  {allDone
-                    ? `Đã xong ${item.segmentCount}/${item.segmentCount}`
-                    : `Đã tập ${item.practicedCount}/${item.segmentCount}`}
-                </span>
-              </div>
-            ) : null}
-            <Button asChild variant={cta.variant} className="w-full">
-              <Link href={`/lessons/${encodeURIComponent(lesson.id)}`}>
-                {cta.label}
-              </Link>
-            </Button>
+            <div className="mt-auto flex flex-col gap-2.5">
+              {item.segmentCount > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  <Progress
+                    value={progressPercent}
+                    aria-label={`Đã tập ${item.practicedCount} trên ${item.segmentCount} câu`}
+                  />
+                  <span className="text-[13px] text-muted-foreground">
+                    {allDone
+                      ? `Đã xong ${item.segmentCount}/${item.segmentCount}`
+                      : `Đã tập ${item.practicedCount}/${item.segmentCount}`}
+                  </span>
+                </div>
+              ) : null}
+              <Button asChild variant={cta.variant} className="w-full">
+                <Link href={`/lessons/${encodeURIComponent(lesson.id)}`}>
+                  {cta.label}
+                </Link>
+              </Button>
+            </div>
           </>
         ) : null}
 
@@ -135,7 +138,7 @@ export function LessonCard({ item }: { item: LessonListItem }) {
             </p>
             <Button
               variant="outline"
-              className="w-full"
+              className="mt-auto w-full"
               disabled={retry.isPending}
               onClick={() => retry.mutate()}
             >
