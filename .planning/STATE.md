@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 03
 current_phase_name: P2 · Chấm ngữ điệu
 status: executing
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-10-09T07:04:44.052Z"
-last_activity: 2026-10-09
-last_activity_desc: Phase 03 execution resumed (wave continue)
+stopped_at: 03-11 complete, UAT pending
+last_updated: "2026-10-10T00:00:00.000Z"
+last_activity: 2026-10-10
+last_activity_desc: 03-11 executed (smoke-score, scoring fixes, ADR 0006); UAT pending
 state_head: "0b260a770957bf00026117e41786a8badbdb4ad9"
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 39
-  completed_plans: 30
+  completed_plans: 31
   percent: 25
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-10-08)
 ## Current Position
 
 Phase: 03 (P2 · Chấm ngữ điệu) — EXECUTING
-Plan: 1 of 11
-Status: Executing Phase 03
-Last activity: 2026-10-09 — Phase 03 execution resumed (wave continue)
+Plan: 11 of 11 (all plans executed)
+Status: UAT pending (03-11 human-check), then Verify
+Last activity: 2026-10-10 — 03-11 executed: make smoke-score, 5 scoring fixes approved by Liam, ADR 0006
 
-Next step: `/gsd-discuss-phase 3` — Discuss trước; Liam chốt contract trong `packages/contracts` rồi mới Plan.
+Next step: Liam làm UAT 03-11 (5 mục trong `03-11-SUMMARY.md`, `make dev`), rồi `/gsd-verify-work 3`.
 
 Progress: [███░░░░░░░] 25%
 
@@ -85,6 +85,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Wave 3 ui.safety-gate (blocking) overridden by Liam: 01-07 shells are bare frames; UI-SPEC deferred to the first phase with real screens (design in docs/design/)
 - [Phase 2]: Contract P1 (02-01 mục A–H) Liam duyệt nguyên đề xuất; package mới duyệt qua cổng 02-02
 - [Phase 2]: Tách câu D-21 (3 s / 8 s / 18 từ): câu < 3 s trên video smoke giảm 35/59 → 7/46
+- [Phase 3]: 03-11 smoke thật → Liam duyệt: pitchRange MAD (prosody-2), lọc cụm octave + cắt lặng một quy tắc (pf-2), VAD nhánh −35 dBFS, FINAL_CONTOUR dùng đuôi đã căn, D-a chỉ còn trung vị chéo < 0.6 (ADR 0006)
 - [Phase 2]: Dịch câu dùng `gpt-6-luna` (effort none) qua httpx — ứng viên gpt-5 nano/mini đã deprecated
 - [Phase 2]: Video tự host H.264/AAC, bỏ IFrame (ADR 0004); job runner/attempts/dataDir ghi ở ADR 0005
 
@@ -95,9 +96,10 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 1]: Bộ 3–4 video eval chưa chọn; smoke script dùng tạm một video giọng Mỹ có audio sạch
-- [Phase 2]: Code review fix (2026-10-08): 8/8 warning đã sửa (`02-REVIEW-FIX.md`); 9 info còn `open`. `test_db.py::test_concurrent_inserts_get_distinct_numbers` chập chờn (`database is locked`, có từ trước)
+- [Phase 2]: Code review fix (2026-10-08): 8/8 warning đã sửa (`02-REVIEW-FIX.md`); 9 info còn `open`. test `database is locked` chập chờn đã sửa ở 03-11 (WAL đặt một lần mỗi DB)
 - [Phase 2]: Chờ Liam chốt: `EXTEND_MAX_MS = 3000`. Đã chốt: WR-04 (`live_video`/`video_unavailable` ở POST /lessons), WR-05 (`MAX_RANGE_S = 360`; RangePicker chưa chặn > 6 phút ở UI)
 - [Phase 2]: `extract_audio` (Phase 1) gọi ffmpeg không timeout; chất lượng dịch `gpt-6-luna` chưa eval
+- [Phase 3]: Bài QWYCtbho-vY (một người nói) có trung vị chéo câu 0.616 ≥ 0.6: câu sai cùng người nói ~60 % (D-04); Phase 4/8 cân trọng số. `ALIGN_COST_MAX` 1.10 chưa đo trên giọng thật
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
 
@@ -111,6 +113,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-08T16:18:51.521Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/phases/03-p2-ch-m-ng-i-u/03-UI-SPEC.md
+Last session: 2026-10-10
+Stopped at: 03-11 complete, UAT pending
+Resume file: .planning/phases/03-p2-ch-m-ng-i-u/03-11-SUMMARY.md
