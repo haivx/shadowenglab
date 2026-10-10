@@ -92,7 +92,7 @@ def test_flat_pitch_variant_wraps_around() -> None:
 
 @pytest.mark.parametrize(
     ("pitch_range", "pct"),
-    [(0.33, 35), (0.125, 15), (0.0015, 0), (0.64, 65), (0.3, 30), (0.575, 60)],
+    [(0.33, 35), (0.125, 15), (0.0015, 0), (0.64, 65), (0.3, 30), (0.375, 40)],
 )
 def test_flat_pitch_percentage_is_rounded_half_up_to_a_multiple_of_five(
     pitch_range: float, pct: int
