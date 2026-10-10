@@ -126,9 +126,12 @@ def final_contour(inp: RuleInput) -> RuleIssue | None:
 
     Cổng chắc chắn: mỗi bên đủ FINAL_MIN_VOICED_FRAMES khung hữu thanh trong cửa sổ cuối; cả hai
     |độ dốc| trong [FINAL_SLOPE_MIN_ST_S, FINAL_SLOPE_MAX_ST_S] (dưới là nhiễu, trên là nghi lỗi
-    quãng tám). Dùng contour cuối của chính mỗi bên nên vẫn chạy khi căn kém (D-02).
+    quãng tám). Căn ok: đuôi người học là các khung được căn vào 300 ms cuối của bản gốc
+    (`user_st_on_ref`), để mép cắt lệch vài khung không đổi đoạn được so (03-11). Căn kém: đuôi
+    riêng của mỗi bên, nên rule vẫn chạy (D-02).
     """
-    ref_slope, user_slope = _final_slope(inp.ref.f0_st), _final_slope(inp.user.f0_st)
+    user_st = inp.user_st_on_ref if inp.word_issues_allowed else inp.user.f0_st
+    ref_slope, user_slope = _final_slope(inp.ref.f0_st), _final_slope(user_st)
     if ref_slope is None or user_slope is None:
         return None
     for slope in (ref_slope, user_slope):
