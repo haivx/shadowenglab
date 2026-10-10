@@ -6,8 +6,10 @@
 Chọn bài `ready` mới tạo nhất (hoặc `--lesson`) trong DATA_DIR, lấy tối đa `--limit` câu dài 3-8 s
 (rải đều trong bài). Với mỗi câu, "người học" là chính lát vocal của bản gốc, được mã hoá webm/opus
 bằng ffmpeg rồi chuẩn hoá y như một lượt tải lên (`normalize_to_wav16k`, VAD), tính feature và chấm
-so với bản gốc của câu đó (tự so, mong đợi gần 100 %). Cặp chéo là bản ghi của câu i chấm với bản
-gốc của câu (i + 1) mod N (mong đợi thấp và căn kém, tiêu chí D-a của 03-01 mục D).
+so với bản gốc của câu đó (tự so, mong đợi gần 100 %). Lát vocal được đệm lặng hai đầu như một
+bản ghi thật (bấm ghi rồi mới nói). Cặp chéo là bản ghi của câu i chấm với bản gốc của câu
+(i + 1) mod N: tiêu chí D-a (03-01 mục D, nới ở 03-11) chỉ đòi trung vị chéo < 0.6; các cặp vẫn
+căn ok được in ra để theo dõi ALIGN_COST_MAX, không làm hỏng smoke.
 
 In một bảng cố định cộng các dòng tóm tắt, rồi `SCORE OK` (thoát 0) hoặc `SCORE FAILED: <lý do>`
 (thoát 1). Thoát 2: tham số sai, không có bài `ready`, thiếu audio bản gốc hoặc dưới 2 câu dùng
@@ -41,7 +43,8 @@ MAX_SENTENCE_S = 8.0
 SELF_MEDIAN_MIN = 0.97  # tự so qua opus: "gần 100 %" kiểm bằng trung vị >= 0.97 ...
 SELF_MIN = 0.90  # ... không câu nào dưới 0.90 và không có issue nào
 P95_MAX_MS = 3000.0  # PRO-04: chấm một lượt < 3 s
-CROSS_MEDIAN_MAX = 0.6  # 03-01 mục D-a: trung vị chéo câu < 0.6 và mọi cặp căn không ok
+CROSS_MEDIAN_MAX = 0.6  # 03-01 mục D-a, nới ở 03-11: chỉ đòi trung vị chéo câu < 0.6
+RECORDING_PAD_S = 0.3  # lặng đệm hai đầu lượt "người học", như bản ghi thật
 MIN_SENTENCES = 2
 TEXT_WIDTH = 38
 TABLE_HEADER = "   #  dài(s)  tự so  issue      ms  chéo vs  chéo  căn  cost  tỉ lệ  câu"
@@ -93,9 +96,6 @@ def verdict(rows: Sequence[SelfRow], cross: Sequence[CrossRow]) -> tuple[str, in
         cross_median = statistics.median(pair.overall for pair in cross)
         if cross_median >= CROSS_MEDIAN_MAX:
             problems.append(f"trung vị chéo câu {cross_median:.3f} >= {CROSS_MEDIAN_MAX}")
-        aligned = [f"#{pair.index}->#{pair.other}" for pair in cross if pair.align_ok]
-        if aligned:
-            problems.append("cặp chéo câu có căn ok: " + ", ".join(aligned))
 
     if problems:
         return "SCORE FAILED: " + "; ".join(problems), 1
@@ -129,6 +129,12 @@ def _pick_evenly(candidates: list[int], limit: int) -> list[int]:
     if len(candidates) <= limit:
         return candidates
     return [candidates[(k * len(candidates)) // limit] for k in range(limit)]
+
+
+def _pad_like_a_recording(clip: np.ndarray) -> np.ndarray:
+    """Đệm RECORDING_PAD_S giây lặng hai đầu: bản ghi thật có lặng trước và sau khi nói."""
+    pad = np.zeros(int(RECORDING_PAD_S * 16000), dtype=np.float32)
+    return np.concatenate([pad, clip.astype(np.float32), pad])
 
 
 def _encode_like_a_browser(clip: np.ndarray, workdir: Path, name: str) -> Path:
@@ -198,6 +204,11 @@ def _summary(rows: Sequence[SelfRow], cross: Sequence[CrossRow]) -> list[str]:
             f"chéo câu: trung vị {statistics.median(pair.overall for pair in cross):.3f}, "
             f"căn không ok {bad}/{len(cross)} cặp"
         )
+        aligned = [f"#{pair.index}->#{pair.other}" for pair in cross if pair.align_ok]
+        if aligned:
+            lines.append(
+                "theo dõi: cặp chéo câu vẫn căn ok (không làm hỏng smoke): " + ", ".join(aligned)
+            )
     else:
         lines.append("chéo câu: không có cặp nào")
     return lines
@@ -288,7 +299,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         )
         name = f"s{i:04d}"
         try:
-            src = _encode_like_a_browser(clip, root, name)
+            src = _encode_like_a_browser(_pad_like_a_recording(clip), root, name)
         except (subprocess.SubprocessError, OSError, sf.LibsndfileError) as exc:
             return _failed(f"không mã hoá được câu #{i} ({type(exc).__name__})")
 

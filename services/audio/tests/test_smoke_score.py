@@ -124,14 +124,26 @@ def test_high_cross_median_fails_criterion_d_a(smoke: ModuleType) -> None:
     assert "chéo" in message
 
 
-def test_a_cross_pair_with_alignment_ok_fails_criterion_d_a(smoke: ModuleType) -> None:
+def test_a_cross_pair_with_alignment_ok_is_reported_but_does_not_fail(smoke: ModuleType) -> None:
+    """03-11 (Liam duyệt): D-a nới còn trung vị chéo < 0.6; cặp căn ok chỉ để theo dõi."""
     cross = _cross_rows(smoke)
     cross[3] = cross[3]._replace(align_ok=True)
 
     message, code = smoke.verdict(_self_rows(smoke), cross)
 
-    assert code == 1
-    assert "căn" in message
+    assert (message, code) == ("SCORE OK", 0)
+    assert any("#3->#4" in line for line in smoke._summary(_self_rows(smoke), cross))
+
+
+def test_the_learner_clip_is_padded_with_silence_like_a_real_recording(smoke: ModuleType) -> None:
+    clip = np.ones(1600, dtype=np.float32)
+
+    padded = smoke._pad_like_a_recording(clip)
+
+    pad = int(smoke.RECORDING_PAD_S * 16000)
+    assert padded.size == clip.size + 2 * pad
+    assert not padded[:pad].any() and not padded[-pad:].any()
+    assert (padded[pad:-pad] == clip).all()
 
 
 def test_reasons_are_joined_when_several_checks_fail(smoke: ModuleType) -> None:
