@@ -48,7 +48,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 ### Ghi âm (REC) — M3, F2
 
-- [x] **REC-01**: Câu mẫu phát xong tự chuyển "Lượt của bạn" với countdown = độ dài câu × 1.5 và thanh mức âm; `Space` hoặc im lặng 1 giây dừng sớm
+- [x] **REC-01**: Câu mẫu phát xong tự chuyển "Lượt của bạn" với thanh mức âm; chỉ dừng khi bấm "Dừng ghi" hoặc `Space` (trần 60 s). Đổi 2026-10-10 (Liam): bỏ countdown × 1.5 và dừng khi im lặng 1 giây
 - [x] **REC-02**: Backend chuẩn hoá bản ghi (webm từ Chrome, mp4 từ Safari) về WAV 16 kHz mono
 - [x] **REC-03**: Không thu được tiếng → hiện trạng thái riêng và cho ghi lại; lỗi backend → toast kèm nút thử lại, không mất bản ghi vừa thu
 - [x] **REC-04**: Bản ghi không được lưu lâu dài (chỉ giữ features), trừ khi Liam đánh dấu "lưu clip này cho eval"

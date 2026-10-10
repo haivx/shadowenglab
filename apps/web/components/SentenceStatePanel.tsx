@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LevelMeter } from "@/components/LevelMeter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,6 @@ interface PlayingPanelProps {
 interface RecordingPanelProps {
   variant: "recording";
   sentence: string;
-  /** Tổng thời gian ghi (ms) = recordDelay của machine; đếm ngược tính từ lúc panel mount. */
-  durationMs: number;
   /** 0..10 vạch sáng của LevelMeter. */
   bars: number;
 }
@@ -130,29 +128,26 @@ function PlayingPanel({
   );
 }
 
-/** Tần suất cập nhật số đếm ngược: 0.1 s khớp độ phân giải `s.s` của chip. */
-const COUNTDOWN_TICK_MS = 100;
+/** Tần suất cập nhật số giây đã ghi: 0.1 s khớp độ phân giải `s.s` của chip. */
+const ELAPSED_TICK_MS = 100;
 
-function RecordingPanel({ sentence, durationMs, bars }: RecordingPanelProps) {
-  const [remainingMs, setRemainingMs] = useState(durationMs);
-  const startedAtRef = useRef<number | null>(null);
+function RecordingPanel({ sentence, bars }: RecordingPanelProps) {
+  const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Panel chỉ mount khi machine vào `recording`, cùng lúc hẹn giờ `recordDelay` bắt đầu,
-  // nên mốc thời gian lấy lúc mount trùng với lúc tự dừng.
+  // Ghi đến khi người dùng dừng (Liam 2026-10-10), nên chip đếm lên từ lúc panel mount.
   useEffect(() => {
-    startedAtRef.current = performance.now();
+    const startedAt = performance.now();
     const timer = window.setInterval(() => {
-      const startedAt = startedAtRef.current ?? performance.now();
-      setRemainingMs(Math.max(0, durationMs - (performance.now() - startedAt)));
-    }, COUNTDOWN_TICK_MS);
+      setElapsedMs(performance.now() - startedAt);
+    }, ELAPSED_TICK_MS);
     return () => window.clearInterval(timer);
-  }, [durationMs]);
+  }, []);
 
-  const seconds = (remainingMs / 1000).toFixed(1);
+  const seconds = (elapsedMs / 1000).toFixed(1);
 
   return (
     <section className="flex flex-col gap-[18px] rounded-lg border-2 border-recording bg-card p-[23px]">
-      {/* Chỉ báo `Đang ghi` một lần cho trình đọc màn hình; số đếm ngược đổi mỗi 0.1 s nên không đặt live. */}
+      {/* Chỉ báo `Đang ghi` một lần cho trình đọc màn hình; số giây đổi mỗi 0.1 s nên không đặt live. */}
       <span role="status" className="sr-only">
         Đang ghi
       </span>
@@ -161,14 +156,14 @@ function RecordingPanel({ sentence, durationMs, bars }: RecordingPanelProps) {
         className="inline-flex h-[30px] items-center gap-2 self-start rounded-[15px] bg-recording px-3 text-[13px] font-semibold text-white [font-variant-numeric:tabular-nums]"
       >
         <span className="size-2 rounded-full bg-white" />
-        Đang ghi · còn {seconds}s
+        Đang ghi · {seconds}s
       </span>
       <p className="m-0 text-center text-[26px] font-medium leading-[1.3]">
         {sentence}
       </p>
       <LevelMeter bars={bars} />
       <span className="text-center text-[13px] text-muted-foreground">
-        <Kbd>Space</Kbd> hoặc im lặng 1 giây để dừng sớm
+        <Kbd>Space</Kbd> hoặc Dừng ghi để kết thúc
       </span>
     </section>
   );

@@ -143,14 +143,9 @@ const machineSetup = setup({
     }),
   },
   delays: {
-    recordDelay: ({ context }) => {
-      const sentenceMs =
-        context.segmentDurationsMs[context.segmentIndex] ?? MAX_RECORD_MS;
-      return Math.min(
-        MAX_RECORD_MS,
-        Math.round(sentenceMs * context.recordFactor),
-      );
-    },
+    // Chỉ người dùng dừng ghi (nút "Dừng ghi" hoặc Space, Liam 2026-10-10); hẹn giờ này chỉ là trần
+    // an toàn khớp giới hạn backend. recordFactor tạm không dùng (flows.md F2).
+    recordDelay: MAX_RECORD_MS,
   },
   guards: {
     canNext: ({ context }) => context.segmentIndex < context.segmentCount - 1,
@@ -402,7 +397,6 @@ export const playerMachine = machineSetup.createMachine({
       },
       on: {
         STOP: { actions: "stopRecorder" },
-        SILENCE: { actions: "stopRecorder" },
         LEVEL: { actions: "setLevel" },
         STOPPED: { target: "scoring", actions: "storeRecording" },
         RECORD_FAILED: { target: "error", actions: "micFailed" },

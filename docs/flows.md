@@ -61,7 +61,7 @@
 
 1. S3 mở ở câu đầu tiên chưa tập. Bố cục: video + thanh điều khiển (trái), danh sách câu (phải), vùng câu hiện tại + kết quả (dưới video).
 2. **Nghe:** `Space` phát câu mẫu (đã đệm 100–200ms), lặp theo cài đặt (×1/×2/×3), tốc độ theo cài đặt.
-3. **Nói:** phát xong → tự chuyển "Lượt của bạn", countdown = độ dài câu × 1.5. Thanh mức âm cho biết micro đang thu. `Space` hoặc im lặng 1 giây → dừng sớm.
+3. **Nói:** phát xong → tự chuyển "Lượt của bạn", chip đếm số giây đã ghi. Thanh mức âm cho biết micro đang thu. Chỉ dừng khi người dùng bấm "Dừng ghi" hoặc `Space`; không tự dừng theo độ dài câu hay khi im lặng (Liam, 2026-10-10). Trần an toàn 60 giây khớp giới hạn backend. Cài đặt "Thời gian ghi" (`recordFactor`) tạm không có tác dụng.
 4. **Chấm:** trạng thái "Đang chấm" (≤ 3 giây) → S4 mở ra trong vùng câu hiện tại:
     - Hàng chip từng từ (xanh / vàng / đỏ / xám = bản gốc không đủ rõ). Click chip → popover: "bản gốc /ən/ · bạn /ænd/" + nút nghe riêng từ đó ở cả hai bản.
     - 3 chỉ số: Tốc độ · Độ lên xuống · Khớp giai điệu.

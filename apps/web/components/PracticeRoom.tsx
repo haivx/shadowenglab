@@ -487,14 +487,6 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
   // Câu thường chỉ hiện khi chưa có kết quả nào để xem; lỗi tải lượt cũ thì giữ câu cùng thông báo.
   const showPlainSentence = viewed.kind === "none" || storedFailed;
 
-  // Cùng công thức với `recordDelay` của machine, dùng cho số đếm ngược.
-  const recordDurationMs = Math.min(
-    60_000,
-    Math.round(
-      (context.segmentDurationsMs[index] ?? 60_000) * context.recordFactor,
-    ),
-  );
-
   const listening = top === "playing" || top === "previewing";
 
   return (
@@ -571,7 +563,6 @@ function LoadedRoom({ lesson, progress, settings }: LoadedRoomProps) {
             <SentenceStatePanel
               variant="recording"
               sentence={segment.text}
-              durationMs={recordDurationMs}
               bars={context.level.bars}
             />
           ) : top === "scoring" ? (
