@@ -4,7 +4,7 @@ Ngày: 2026-10-10 · Trạng thái: Chấp nhận · Người quyết: Liam
 
 ## Bối cảnh
 
-Phase 3 (P2) thêm lớp chấm đầu tiên: sau mỗi lượt ghi, người học nhận ba chỉ số ngữ điệu, contour so với bản gốc và gợi ý bám issue đo được. Liam chốt các quyết định ở Discuss (`03-CONTEXT.md` D-01..D-13), ở checkpoint contract (`03-01-SUMMARY.md` mục A–K, "approved" ngày 2026-10-09, chọn C1 và D-a) và ở smoke trên dữ liệu thật của 03-11 (2026-10-10). Theo CLAUDE.md, quyết định kỹ thuật mới phải có ADR trong cùng PR. ADR này gom chúng lại để Phase 4 (eval), Phase 5 (chấm âm, thay bộ căn) và Phase 8 (hiệu chỉnh điểm) đọc một chỗ.
+Phase 3 (P2) thêm lớp chấm đầu tiên: sau mỗi lượt ghi, người học nhận ba chỉ số ngữ điệu, contour so với bản gốc và gợi ý bám issue đo được. Liam chốt các quyết định ở Discuss (`03-CONTEXT.md` D-01..D-13), ở UAT ngày 2026-10-10 (D-14 sửa, D-15b, D-16: gợi ý phong phú hơn, xem mục 10), ở checkpoint contract (`03-01-SUMMARY.md` mục A–K, "approved" ngày 2026-10-09, chọn C1 và D-a) và ở smoke trên dữ liệu thật của 03-11 (2026-10-10). Theo CLAUDE.md, quyết định kỹ thuật mới phải có ADR trong cùng PR. ADR này gom chúng lại để Phase 4 (eval), Phase 5 (chấm âm, thay bộ căn) và Phase 8 (hiệu chỉnh điểm) đọc một chỗ.
 
 Mọi con số dưới đây lấy từ code đã merge và từ các SUMMARY, không chép lại từ plan.
 
@@ -68,6 +68,18 @@ Mọi con số dưới đây lấy từ code đã merge và từ các SUMMARY, k
 ### 9. Khoảng trống UI-SPEC đã được Liam xác nhận (03-01 mục J)
 
 P3-G2, G3, G4, G5, G7, G9, G13, G15, G16, G17, G21 được chấp nhận như đề xuất trong `03-UI-SPEC.md`. P3-G18 (câu chữ của tip) được review trong PR của phase.
+
+### 10. Gợi ý và câu nhận xét sau UAT (D-14 sửa, D-15b, D-16; 03-12)
+
+UAT của Liam: chỉ có một câu FLAT_PITCH cố định, "điểm thấp thì phải có nhận xét". Không đổi contract, ngưỡng, rule, model, `SCORER_VERSION` hay `THRESHOLDS_VERSION`; không có issue mới, nên precision vẫn đứng trước recall.
+
+- **Cách nói theo lượt (D-16).** Mỗi mã có 3 cách nói đã duyệt (FLAT_PITCH 4; FINAL_CONTOUR 3 cho hướng xuống, 3 cho hướng lên theo dấu `refSlope`; PITCH_DEVIATION 3 cho cao hơn, 3 cho thấp hơn theo dấu `meanDiffSt`). Tip đầu của mã dùng cách nói `(segmentIndex + attempt − 1) mod n`: cùng câu cùng lượt luôn ra cùng chữ, lượt sau của cùng câu đổi chữ khi n > 1. Tip thứ hai của cùng mã dịch một nấc (`+ hạng`) để hai tip cùng mã trong một lượt không giống nhau. Nấc dịch này là lựa chọn của Claude, chờ Liam duyệt ở PR (P3-G18).
+- **Số đo chỉ lấy từ `issue.data`.** `{pct}` = `pitchRange × 100` làm tròn nửa lên tới bội của 5; `{ms}` = `userMs` làm tròn nửa lên; `{st}` = `|meanDiffSt|` làm tròn nửa lên tới 0.5, in `3` hoặc `3.5` (dấu chấm như `Đang ghi · 3.1s` ở design). Làm tròn nửa lên, không dùng `round()` của Python (làm tròn về số chẵn: 12.5 % phải hiện 15 %). Số không hữu hạn, chuỗi hay bool thì không dựng tip (T-03-25). Từ chèn vào template qua đối số `str.format` sau khi bỏ mọi `*` và từ rỗng bị loại, nên từ không thể mở hoặc đóng dấu đánh dấu hay bị đọc lại như placeholder (T-03-24).
+- **Chọn tip hai lượt (D-14 sửa).** Lượt 1: mỗi mã một tip theo PRIORITY (STRESS_MISMATCH > FINAL_CONTOUR > EXTRA_PAUSE > PITCH_DEVIATION > FLAT_PITCH), lấy issue lệch nhiều nhất còn dựng được câu. Lượt 2, chỉ khi chưa đủ 3 tip: EXTRA_PAUSE rồi PITCH_DEVIATION được thêm issue lệch nhiều nhất kế tiếp mà từ của nó chưa được tip nào gọi tên ("từ được gọi tên" = `wordIndex`, hoặc từ cuối câu với FINAL_CONTOUR). Tối đa 2 tip một mã và 3 tip tổng; STRESS_MISMATCH, FINAL_CONTOUR, FLAT_PITCH không bao giờ có tip thứ hai. Thứ tự trả về: PRIORITY, rồi hạng trong mã. `issueRef` là chỉ số trong danh sách `issues` chưa lọc; `issues` vẫn liệt kê đủ.
+- **Màu gạch chân STRESS_MISMATCH.** Một cách nói nhắc từ của bản gốc hai lần. Dấu đánh dấu thứ hai luôn là từ của người học (`--you`), mọi dấu khác là từ của bản gốc (`--original`); `markedWordTone` ở web dựa vào bất biến này, được test ở backend cho mọi cách nói.
+- **Nhận xét theo chỉ số (D-15b), ở client.** Khi không có issue và có chỉ số tốc độ / độ lên xuống / giai điệu hiển thị < 80 (làm tròn đúng như ScoreHero), khối nhận xét hiện tối đa 2 câu, chỉ số thấp nhất trước, hòa thì theo thứ tự giai điệu, độ lên xuống, tốc độ; mỗi câu là một trong 3 cách nói chọn theo cùng công thức `(segmentIndex + attempt − 1) mod 3`, `{v}` là số nguyên đang hiển thị. Câu khen D-15 giờ cần không issue và cả overall lẫn ba chỉ số hiển thị ≥ 80. Có issue mà không dựng được tip thì giữ D-15 (khen hoặc dòng trung tính), không ghi chú theo chỉ số. `tips` vẫn rỗng, không tô từ, không nhãn `AI`.
+- **Chữ chỉ dựng một lần.** Tip được dựng lúc chấm (số lượt do transaction cấp, C1) và lưu trong `result_json`; ghi chú theo chỉ số dựng ở client từ `segmentIndex`/`attempt` và điểm đã lưu. Mở lại lượt cũ qua `GET …/attempts/{n}` ra đúng chữ lúc chấm, kể cả sau này đổi lời văn (T-03-27).
+- **Eval.** `make eval` vẫn là stub; thay đổi này không đổi model, ngưỡng hay rule nên không có bảng metric cần dán.
 
 ## Hệ quả
 
