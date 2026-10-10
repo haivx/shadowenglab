@@ -53,6 +53,12 @@ const METRIC_ORDER: readonly MetricKey[] = [
   "speed",
 ];
 const METRIC_NOTE_MAX = 2;
+
+/** Chỉ số cách nói `n mod 3` với kiểu hẹp 0 | 1 | 2 để tra tuple mà không cần `!`. */
+function noteVariant(n: number): 0 | 1 | 2 {
+  const rest = ((n % 3) + 3) % 3;
+  return rest === 0 ? 0 : rest === 1 ? 1 : 2;
+}
 const METRIC_NOTE_BELOW = 80;
 
 /**
@@ -76,10 +82,10 @@ export function resultNote(result: ResultNoteInput): ResultNote | null {
       .sort((a, b) => a.shown - b.shown || a.order - b.order)
       .slice(0, METRIC_NOTE_MAX);
     if (low.length > 0) {
-      const variant = (result.segmentIndex + result.attempt - 1) % 3;
+      const variant = noteVariant(result.segmentIndex + result.attempt - 1);
       const text = low
         .map((metric) =>
-          METRIC_NOTES[metric.key][variant]!.replace(
+          METRIC_NOTES[metric.key][variant].replace(
             "{v}",
             String(metric.shown),
           ),

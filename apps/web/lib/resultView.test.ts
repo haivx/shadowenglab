@@ -66,9 +66,11 @@ const SPEED = [
     `Nhại sát theo bản gốc, gần như cùng lúc, để tốc độ khớp hơn; hiện khớp ${v}%.`,
 ];
 
-/** Cách nói thứ `i` của một bộ ghi chú; `!` an toàn vì chỉ số luôn trong 0..2. */
+/** Cách nói thứ `i` của một bộ ghi chú, đã điền số `v`. */
 function at(set: Array<(v: number) => string>, i: number, v: number): string {
-  return set[i]!(v);
+  const make = set[i];
+  if (!make) throw new Error(`không có cách nói ${i}`);
+  return make(v);
 }
 
 describe("resultNote (D-15)", () => {
