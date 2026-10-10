@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitTipMarkup } from "./tipMarkup";
+import { markedWordTone, splitTipMarkup } from "./tipMarkup";
 
 describe("splitTipMarkup", () => {
   it("tách hai từ được đánh dấu và đánh số theo thứ tự", () => {
@@ -44,5 +44,41 @@ describe("splitTipMarkup", () => {
 
   it("chuỗi rỗng không có đoạn nào", () => {
     expect(splitTipMarkup("")).toEqual([]);
+  });
+});
+
+describe("splitTipMarkup với cách nói nhắc từ gốc hai lần", () => {
+  it("câu STRESS_MISMATCH thứ hai cho ba từ đánh dấu: gốc, bạn, gốc", () => {
+    const text =
+      "Bản gốc nhấn mạnh nhất ở *expect*, bạn lại nhấn *honestly*. Đọc *expect* to, dài và cao hơn một chút.";
+    const words = splitTipMarkup(text).flatMap((segment) =>
+      segment.kind === "word" ? [[segment.ordinal, segment.value]] : [],
+    );
+    expect(words).toEqual([
+      [0, "expect"],
+      [1, "honestly"],
+      [2, "expect"],
+    ]);
+  });
+});
+
+describe("markedWordTone", () => {
+  it("STRESS_MISMATCH: từ thứ hai là của bạn, mọi từ khác là của bản gốc", () => {
+    expect(markedWordTone("STRESS_MISMATCH", 0)).toBe("original");
+    expect(markedWordTone("STRESS_MISMATCH", 1)).toBe("you");
+    expect(markedWordTone("STRESS_MISMATCH", 2)).toBe("original");
+  });
+
+  it("mã khác hoặc không rõ mã thì trung tính", () => {
+    for (const code of [
+      "EXTRA_PAUSE",
+      "PITCH_DEVIATION",
+      "FINAL_CONTOUR",
+      "FLAT_PITCH",
+      undefined,
+    ] as const) {
+      expect(markedWordTone(code, 0)).toBe("neutral");
+      expect(markedWordTone(code, 1)).toBe("neutral");
+    }
   });
 });
