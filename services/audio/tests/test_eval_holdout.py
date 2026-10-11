@@ -27,7 +27,7 @@ from eval_synth import (
 )
 from synth import synth_sentence
 
-from audio_service.config import get_settings
+from audio_service.config import REPO_ROOT, get_settings
 from audio_service.contracts_gen import EvalCase
 
 LOG_KEYS = {
@@ -44,6 +44,11 @@ LOG_KEYS = {
 @pytest.fixture
 def analyze(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return load_eval("analyze", monkeypatch)
+
+
+@pytest.fixture
+def tag_clips(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    return load_eval("tag_clips", monkeypatch)
 
 
 @pytest.fixture
@@ -336,3 +341,315 @@ def test_a_corrupt_log_line_raises_a_log_error_naming_the_line_number(
 
     with pytest.raises(holdout.HoldoutLogError, match="dòng 2"):
         holdout.read_log(path)
+
+
+# --- đóng băng nhãn từ lần mở đầu (D-09, D-12) --------------------------------------------------
+
+
+def _opened_once(data_dir: Path, tmp_path: Path, analyze: ModuleType) -> dict[str, Any]:
+    """Bài 3 câu; c0001 tuning (câu 0), c0002 held-out sạch (câu 1); đã mở held-out một lần."""
+    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS, DEFAULT_WORDS])
+    tuning_stem = write_clip(data_dir, LESSON_ID, 0, 1, _flat(DEFAULT_WORDS))
+    held_stem = write_clip(data_dir, LESSON_ID, 1, 1, _natural_ref(DEFAULT_WORDS, seed=2))
+    write_cases(
+        tmp_path / "cases.jsonl",
+        [
+            case_dict(
+                lesson, 0, case_id="c0001", kind="error", error_type="flat", clip=tuning_stem
+            ),
+            case_dict(lesson, 1, case_id="c0002", kind="correct", split="heldout", clip=held_stem),
+        ],
+    )
+    assert _run(analyze, data_dir, tmp_path, "--holdout") == 0
+    assert len(_log(tmp_path)) == 1
+    return lesson
+
+
+def _rows(tmp_path: Path) -> list[dict[str, Any]]:
+    text = (tmp_path / "cases.jsonl").read_text("utf-8")
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def test_editing_a_heldout_label_after_the_first_opening_exits_two_naming_the_case_and_d09(
+    analyze: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _opened_once(data_dir, tmp_path, analyze)
+    rows = _rows(tmp_path)
+    rows[1]["note"] = "sửa nhãn sau khi thấy kết quả"
+    write_cases(tmp_path / "cases.jsonl", rows)
+    report_before = (tmp_path / "report.md").read_bytes()
+    capsys.readouterr()
+
+    code = _run(analyze, data_dir, tmp_path, "--holdout")
+
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "c0002" in err and "D-09" in err
+    assert len(_log(tmp_path)) == 1, "không chấm thì không thêm dòng log"
+    assert (tmp_path / "report.md").read_bytes() == report_before
+
+
+@pytest.mark.parametrize(("case_id", "new_split"), [("c0001", "heldout"), ("c0002", "tuning")])
+def test_changing_the_split_of_a_case_in_the_first_log_line_exits_two_naming_it(
+    analyze: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    case_id: str,
+    new_split: str,
+) -> None:
+    _opened_once(data_dir, tmp_path, analyze)
+    rows = _rows(tmp_path)
+    for row in rows:
+        if row["caseId"] == case_id:
+            row["split"] = new_split
+    write_cases(tmp_path / "cases.jsonl", rows)
+    capsys.readouterr()
+
+    code = _run(analyze, data_dir, tmp_path, "--holdout")
+
+    assert code == 2
+    assert case_id in capsys.readouterr().err
+    assert len(_log(tmp_path)) == 1
+
+
+def test_deleting_a_case_that_was_in_the_first_log_line_exits_two_naming_it(
+    analyze: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _opened_once(data_dir, tmp_path, analyze)
+    write_cases(tmp_path / "cases.jsonl", _rows(tmp_path)[:1])
+    capsys.readouterr()
+
+    code = _run(analyze, data_dir, tmp_path, "--holdout")
+
+    assert code == 2
+    assert "c0002" in capsys.readouterr().err
+
+
+def test_a_new_heldout_case_is_scored_and_listed_as_added_after_the_first_opening(
+    analyze: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    lesson = _opened_once(data_dir, tmp_path, analyze)
+    new_stem = write_clip(data_dir, LESSON_ID, 2, 1, _natural_ref(DEFAULT_WORDS, seed=3))
+    rows = _rows(tmp_path)
+    rows.append(
+        case_dict(lesson, 2, case_id="c0003", kind="correct", split="heldout", clip=new_stem)
+    )
+    write_cases(tmp_path / "cases.jsonl", rows)
+
+    code = _run(analyze, data_dir, tmp_path, "--holdout")
+
+    assert code == 0
+    assert len(_log(tmp_path)) == 2
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    assert "đã chấm 3 clip" in report  # c0001, c0002, c0003
+    section = report[report.index("Case held-out thêm sau lần mở đầu") :]
+    assert "c0003" in section.split("\n## ")[0]
+
+
+def test_editing_a_tuning_case_after_the_opening_still_runs_normally(
+    analyze: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    _opened_once(data_dir, tmp_path, analyze)
+    rows = _rows(tmp_path)
+    rows[0]["note"] = "ghi chú thêm sau"
+    rows[0]["alsoPresent"] = [{"errorType": "extra_pause", "wordIndex": 2}]
+    write_cases(tmp_path / "cases.jsonl", rows)
+
+    code = _run(analyze, data_dir, tmp_path, "--holdout")
+
+    assert code in (0, 1)
+    assert len(_log(tmp_path)) == 2
+
+
+def test_the_report_says_no_case_was_added_after_the_first_opening_when_none_was(
+    analyze: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    _opened_once(data_dir, tmp_path, analyze)
+
+    assert _run(analyze, data_dir, tmp_path, "--holdout") == 0
+
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    section = report[report.index("Case held-out thêm sau lần mở đầu") :]
+    assert "không có" in section.split("\n## ")[0]
+
+
+# --- evalkit.holdout.check_frozen: hàm thuần -----------------------------------------------------
+
+
+def _log_with(holdout: ModuleType, tmp_path: Path, cases: list[EvalCase]) -> list[Any]:
+    path = tmp_path / "holdout_log.jsonl"
+    holdout.append_entry(
+        path, holdout.make_entry(cases, opened_at="2026-10-12T01:00:00Z", git_sha="a")
+    )
+    return holdout.read_log(path)
+
+
+def test_check_frozen_accepts_an_empty_log_and_returns_nothing(holdout: ModuleType) -> None:
+    assert holdout.check_frozen([_case("c0001")], []) == []
+
+
+def test_check_frozen_lists_heldout_cases_that_are_not_in_the_first_line(
+    holdout: ModuleType, tmp_path: Path
+) -> None:
+    log = _log_with(holdout, tmp_path, [_case("c0001"), _case("c0002", split="tuning")])
+    now = [
+        _case("c0001"),
+        _case("c0002", split="tuning"),
+        _case("c0003"),
+        _case("c0004", split="tuning"),
+    ]
+
+    assert holdout.check_frozen(now, log) == ["c0003"]
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        pytest.param(lambda c: c.model_copy(update={"note": "sửa"}), id="note"),
+        pytest.param(lambda c: c.model_copy(update={"word_index": 3}), id="wordIndex"),
+        pytest.param(lambda c: c.model_copy(update={"clip": "x_0001_01"}), id="clip"),
+        pytest.param(
+            lambda c: c.model_copy(
+                update={"also_present": [{"error_type": "flat", "word_index": None}]}
+            ),
+            id="alsoPresent",
+        ),
+    ],
+)
+def test_check_frozen_rejects_any_edit_to_a_heldout_label_naming_case_and_d09(
+    holdout: ModuleType, tmp_path: Path, edit: Any
+) -> None:
+    log = _log_with(holdout, tmp_path, [_case("c0001")])
+
+    with pytest.raises(holdout.HoldoutViolation) as raised:
+        holdout.check_frozen([edit(_case("c0001"))], log)
+
+    assert "c0001" in str(raised.value) and "D-09" in str(raised.value)
+
+
+def test_check_frozen_rejects_a_changed_or_vanished_split(
+    holdout: ModuleType, tmp_path: Path
+) -> None:
+    log = _log_with(holdout, tmp_path, [_case("c0001", split="tuning"), _case("c0002")])
+
+    with pytest.raises(holdout.HoldoutViolation, match="c0001"):
+        holdout.check_frozen([_case("c0001", split="heldout"), _case("c0002")], log)
+    with pytest.raises(holdout.HoldoutViolation, match="c0002"):
+        holdout.check_frozen([_case("c0001", split="tuning")], log)
+
+
+# --- tag_clips.py also (D-09) ------------------------------------------------------------------
+
+
+def _tag(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, *args: str, log: bool = True
+) -> int:
+    argv = ["also", "--cases", str(tmp_path / "cases.jsonl"), "--data-dir", str(data_dir)]
+    if log:
+        argv += ["--holdout-log", str(tmp_path / "holdout_log.jsonl")]
+    return int(tag_clips.main([*argv, *args]))
+
+
+def _two_cases(data_dir: Path, tmp_path: Path) -> None:
+    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS])
+    write_cases(
+        tmp_path / "cases.jsonl",
+        [
+            case_dict(lesson, 0, case_id="c0001", kind="error", error_type="flat"),
+            case_dict(lesson, 1, case_id="c0002", kind="correct", split="heldout"),
+        ],
+    )
+
+
+def _open_log(holdout: ModuleType, tmp_path: Path) -> None:
+    cases = [_case("c0001", split="tuning"), _case("c0002")]
+    holdout.append_entry(
+        tmp_path / "holdout_log.jsonl",
+        holdout.make_entry(cases, opened_at="2026-10-12T01:00:00Z", git_sha="a"),
+    )
+
+
+def test_also_adds_one_entry_to_a_tuning_case_even_after_the_opening_and_never_twice(
+    tag_clips: ModuleType, holdout: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    _two_cases(data_dir, tmp_path)
+    _open_log(holdout, tmp_path)
+    args = ("--case", "c0001", "--error", "extra_pause", "--word", "2")
+
+    assert _tag(tag_clips, data_dir, tmp_path, *args) == 0
+    assert _tag(tag_clips, data_dir, tmp_path, *args) == 0
+
+    row = _rows(tmp_path)[0]
+    assert row["alsoPresent"] == [{"errorType": "extra_pause", "wordIndex": 2}]
+    assert "null" not in (tmp_path / "cases.jsonl").read_text("utf-8")
+    EvalCase.model_validate(row)
+
+
+def test_also_on_a_heldout_case_works_while_the_log_is_empty(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    _two_cases(data_dir, tmp_path)
+
+    code = _tag(tag_clips, data_dir, tmp_path, "--case", "c0002", "--error", "flat")
+
+    assert code == 0
+    assert _rows(tmp_path)[1]["alsoPresent"] == [{"errorType": "flat"}]
+
+
+def test_also_refuses_a_heldout_case_once_the_log_has_a_line_and_leaves_the_file_alone(
+    tag_clips: ModuleType,
+    holdout: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _two_cases(data_dir, tmp_path)
+    _open_log(holdout, tmp_path)
+    before = (tmp_path / "cases.jsonl").read_bytes()
+
+    code = _tag(tag_clips, data_dir, tmp_path, "--case", "c0002", "--error", "flat")
+
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "D-09" in err and "c0002" in err
+    assert (tmp_path / "cases.jsonl").read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(("--case", "c0001", "--error", "flat", "--word", "2"), id="sentence+word"),
+        pytest.param(("--case", "c0001", "--error", "pitch_off"), id="word-level without word"),
+        pytest.param(("--case", "c0001", "--error", "pitch_off", "--word", "99"), id="word range"),
+        pytest.param(("--case", "c9999", "--error", "flat"), id="unknown case"),
+    ],
+)
+def test_also_rejects_a_bad_entry_with_exit_two_and_writes_nothing(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, args: tuple[str, ...]
+) -> None:
+    _two_cases(data_dir, tmp_path)
+    before = (tmp_path / "cases.jsonl").read_bytes()
+
+    assert _tag(tag_clips, data_dir, tmp_path, *args) == 2
+    assert (tmp_path / "cases.jsonl").read_bytes() == before
+
+
+# --- Makefile ----------------------------------------------------------------------------------
+
+
+def test_the_makefile_has_the_holdout_variable_the_holdout_branch_and_the_sweep_target() -> None:
+    text = (Path(REPO_ROOT) / "Makefile").read_text(encoding="utf-8")
+    phony = next(line for line in text.splitlines() if line.startswith(".PHONY:"))
+
+    assert "HOLDOUT ?=" in text
+    assert "$(if $(filter 1,$(HOLDOUT)),--holdout)" in text
+    assert "eval-sweep" in phony.split()
+    assert "\neval-sweep:\n" in text
+    assert "eval/sweep.py $(if $(PARAM),--param $(PARAM))" in text
