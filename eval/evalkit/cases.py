@@ -8,6 +8,9 @@ hoặc số dòng để Liam sửa; script gọi sẽ thoát 2 (không bỏ qua 
 from __future__ import annotations
 
 import hashlib
+import json
+import math
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -24,6 +27,9 @@ WORD_LEVEL_TYPES = frozenset(
 )
 SENTENCE_LEVEL_TYPES = frozenset({"flat", "final_rise"})
 TEXT_HASH_LEN = 16
+# D-12 / 04-01 mục D1: phần case held-out mong muốn của mỗi tầng (và ngưỡng split câu mới, D2).
+HELDOUT_SHARE = 0.30
+SPLITS = ("tuning", "heldout")
 
 
 class CaseError(ValueError):
@@ -113,3 +119,129 @@ def select_split(cases: Sequence[EvalCase], *, include_heldout: bool = False) ->
         )
     wanted = {"tuning", "heldout"} if include_heldout else {"tuning"}
     return [case for case in cases if case.split in wanted]
+
+
+# --- ghi case và chốt split (04-04, D-02, D-12) ------------------------------------------------
+
+
+def dump_case(case: EvalCase) -> str:
+    """Một dòng JSONL của case: camelCase, optional là vắng mặt (không bao giờ null), thứ tự trường
+    theo model."""
+    payload = case.model_dump(mode="json", by_alias=True, exclude_none=True)
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def write_cases(path: Path, cases: Sequence[EvalCase]) -> None:
+    """Ghi `path` atomic: validate trước, ghi `<tên>.part` rồi `os.replace` (T-04-10)."""
+    validate_cases(cases)
+    part = path.with_suffix(path.suffix + ".part")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        part.write_text("".join(dump_case(case) + "\n" for case in cases), encoding="utf-8")
+        os.replace(part, path)
+    finally:
+        part.unlink(missing_ok=True)
+
+
+def next_case_id(cases: Sequence[EvalCase]) -> str:
+    """`c` + 4 chữ số, lớn nhất đang có + 1 (`c0001` khi chưa có case; 04-01 mục A3)."""
+    numbers = [
+        int(case.case_id[1:])
+        for case in cases
+        if case.case_id.startswith("c") and case.case_id[1:].isdigit()
+    ]
+    return f"c{(max(numbers) if numbers else 0) + 1:04d}"
+
+
+def stamp_for(segment: Segment) -> dict[str, int | str]:
+    """4 trường dấu nhận diện câu của `segment` (camelCase như trong file, 04-01 mục A3, D-05)."""
+    return {
+        "segStartMs": round(segment.start * 1000),
+        "segEndMs": round(segment.end * 1000),
+        "segEndExtraMs": segment.end_extra_ms,
+        "segTextHash": text_hash(segment.text),
+    }
+
+
+def split_fraction(lesson_id: str, index: int) -> float:
+    """Vị trí của câu trong [0, 1): 16 hex đầu của sha256 `"{lessonId}:{segmentIndex}"` / 16**16."""
+    digest = hashlib.sha256(f"{lesson_id}:{index}".encode()).hexdigest()[:16]
+    return int(digest, 16) / 16**16
+
+
+def stratum(case: EvalCase) -> str:
+    """Tầng của case khi chia split: errorType, hoặc `correct` (D-12)."""
+    return error_type_of(case) or "correct"
+
+
+Sentence = tuple[str, int]
+
+
+def assign_splits(cases: Sequence[EvalCase]) -> dict[Sentence, str]:
+    """Split cho mọi câu còn case chưa có split, theo 04-01 mục D1 (D-12). Hàm thuần.
+
+    Câu đã có split ở ít nhất một case thì mọi case của câu nhận split đó. Các câu còn lại duyệt
+    theo `split_fraction` tăng dần (hoà thì theo bài, số câu); câu vào held-out nếu với MỌI tầng
+    của nó, số case held-out của tầng sau khi thêm không vượt `ceil(0.30 * tổng case của tầng)`.
+    Kết quả không phụ thuộc thứ tự `cases`. Trả về các câu CẦN GÁN; câu đã có split ở mọi case
+    không nằm trong kết quả, và split đã ghi không bao giờ bị đổi.
+    """
+    fixed: dict[Sentence, str] = {}
+    members: dict[Sentence, list[EvalCase]] = {}
+    for case in cases:
+        key = (case.lesson_id, case.segment_index)
+        members.setdefault(key, []).append(case)
+        if case.split is not None:
+            side = str(case.split)
+            if fixed.setdefault(key, side) != side:
+                raise CaseError(f"câu {key[0]}#{key[1]} có case thuộc hai split khác nhau")
+
+    totals: dict[str, int] = {}
+    held: dict[str, int] = {}
+    for case in cases:
+        totals[stratum(case)] = totals.get(stratum(case), 0) + 1
+    for key, side in fixed.items():
+        if side == "heldout":
+            for case in members[key]:
+                held[stratum(case)] = held.get(stratum(case), 0) + 1
+
+    assigned: dict[Sentence, str] = {}
+    pending = [key for key in members if key not in fixed]
+    for key in sorted(pending, key=lambda k: (split_fraction(*k), k)):
+        need: dict[str, int] = {}
+        for case in members[key]:
+            need[stratum(case)] = need.get(stratum(case), 0) + 1
+        fits = all(
+            held.get(name, 0) + count <= math.ceil(HELDOUT_SHARE * totals[name])
+            for name, count in need.items()
+        )
+        assigned[key] = "heldout" if fits else "tuning"
+        if fits:
+            for name, count in need.items():
+                held[name] = held.get(name, 0) + count
+    for key, side in fixed.items():
+        if any(case.split is None for case in members[key]):
+            assigned[key] = side
+    return assigned
+
+
+def split_for_new_case(cases: Sequence[EvalCase], lesson_id: str, index: int) -> str | None:
+    """Split cho case mới viết (04-01 mục D2): câu đã có split -> split đó; nếu bộ case đã chốt
+    split thì câu mới nhận `heldout` khi `split_fraction < 0.30`, ngược lại `tuning`; chưa chốt gì
+    -> None (để trống, chờ `split`)."""
+    for case in cases:
+        if case.lesson_id == lesson_id and case.segment_index == index and case.split is not None:
+            return str(case.split)
+    if not any(case.split is not None for case in cases):
+        return None
+    return "heldout" if split_fraction(lesson_id, index) < HELDOUT_SHARE else "tuning"
+
+
+def with_splits(cases: Sequence[EvalCase], sides: dict[Sentence, str]) -> list[EvalCase]:
+    """Điền split theo `sides` cho case chưa có; case đã có split được giữ nguyên."""
+    return [
+        case
+        if case.split is not None or (case.lesson_id, case.segment_index) not in sides
+        else case.model_copy(update={"split": sides[(case.lesson_id, case.segment_index)]})
+        for case in cases
+    ]

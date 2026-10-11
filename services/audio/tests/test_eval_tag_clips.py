@@ -192,7 +192,7 @@ def test_a_case_written_with_add_split_and_tag_is_counted_by_analyze(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    sentences = [DEFAULT_WORDS, OTHER_WORDS]
+    sentences = [DEFAULT_WORDS, DEFAULT_WORDS]  # cùng giọng: clip phẳng đúng với cả hai phía
     write_ready_lesson(data_dir, sentences)
     for segment in ("0", "1"):
         assert _run(tag_clips, data_dir, tmp_path, "add", "--lesson", LESSON_ID, "--segment",
