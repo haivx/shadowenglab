@@ -1,21 +1,24 @@
 """Chấm lại bộ eval nội bộ và sinh `eval/report.md` (Phase 4, EVL-02).
 
     uv run --project services/audio --frozen python eval/analyze.py \
-        [--cases eval/cases.jsonl] [--report eval/report.md] [--data-dir PATH]
+        [--cases eval/cases.jsonl] [--report eval/report.md] [--data-dir PATH] \
+        [--holdout [--holdout-log eval/holdout_log.jsonl]]
 
-(`make eval` gọi đúng lệnh này.) Nạp `eval/cases.jsonl` bằng pydantic `EvalCase`, chấm lại từng WAV
-đã lưu trong `DATA_DIR/eval_clips` bằng scorer HIỆN TẠI (D-06: gọi hàm Python, không HTTP, không đọc
-`result_json` cũ), đếm TP/FP theo bảng D-10 đã duyệt ở 04-01 rồi ghi bảng rule x P/R/n/CI Wilson
-95 % (D-14, D-20).
+(`make eval` gọi lệnh này; `make eval HOLDOUT=1` thêm `--holdout`.) Nạp `eval/cases.jsonl` bằng
+pydantic `EvalCase`, chấm lại từng WAV đã lưu trong `DATA_DIR/eval_clips` bằng scorer HIỆN TẠI
+(D-06: gọi hàm Python, không HTTP, không đọc `result_json` cũ), đếm TP/FP theo bảng D-10 đã duyệt ở
+04-01 rồi ghi bảng rule x P/R/n/CI Wilson 95 % (D-14, D-20).
 
-Chỉ case `split = tuning` được nạp và chấm; WAV của case held-out không bao giờ được đọc ở đây
-(D-16). Case thiếu `split` làm script thoát 2 (D-12).
+Mặc định chỉ case `split = tuning` được nạp và chấm; WAV của case held-out không được đọc và
+`holdout_log.jsonl` không bị chạm (D-16). Chỉ `--holdout` mới chấm cả held-out: mỗi lần chấm xong
+(mã 0 hoặc 1) thêm đúng một dòng log rồi mới ghi report (report in cả log), và nhãn held-out phải
+còn nguyên so với dòng log đầu (D-09). Case thiếu `split` làm script thoát 2 (D-12).
 
 Thoát 0 và in `EVAL OK` ở dòng cuối (kèm cảnh báo khi mốc tự so có issue). Thoát 1 chỉ khi chạy có
-held-out và `verdict` thấy rule đang bật FAIL hoặc mốc tự so có issue (D-21; chưa nối ở plan này,
-chạy hiện chỉ tuning). Thoát 2: tham số sai, thiếu file, case sai bất biến, lệch dấu
-nhận diện câu (D-05), bài không còn, thiếu WAV hoặc sidecar không khớp; khi đó `report.md` không bị
-ghi đè (ghi `.part` rồi `os.replace`, chỉ sau khi mọi bước thành công).
+held-out và `verdict` thấy rule đang bật FAIL hoặc mốc tự so có issue (D-21). Thoát 2: tham số sai,
+thiếu file, case sai bất biến, lệch dấu nhận diện câu (D-05), bài không còn, thiếu WAV, sidecar
+không khớp hoặc log held-out hỏng; khi đó `report.md` không bị ghi đè (ghi `.part` rồi
+`os.replace`, chỉ sau khi mọi bước thành công) và log không thêm dòng.
 
 CHỈ ĐỌC DATA_DIR (T-04-04): `ref_prosody_for_segment(..., write_cache=False)`, không `mkdir`, không
 SQLite; file tạm nằm trong thư mục tạm của hệ thống và bị xoá trong `finally`.
@@ -93,6 +96,16 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--cases", type=Path, help="cases.jsonl (mặc định: eval/cases.jsonl)")
     parser.add_argument("--report", type=Path, help="report.md (mặc định: eval/report.md)")
     parser.add_argument("--data-dir", type=Path, help="DATA_DIR (mặc định: theo cấu hình app)")
+    parser.add_argument(
+        "--holdout",
+        action="store_true",
+        help="mở và chấm held-out (D-16): thêm một dòng vào holdout_log.jsonl, áp gate D-21",
+    )
+    parser.add_argument(
+        "--holdout-log",
+        type=Path,
+        help="holdout_log.jsonl (mặc định: eval/holdout_log.jsonl)",
+    )
     return parser.parse_args(argv)
 
 
@@ -124,6 +137,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     # Import sau khi đặt biến môi trường: get_settings() phân giải DATA_DIR một lần.
     from evalkit import cases as cases_mod
     from evalkit import counting, rescore
+    from evalkit import holdout as holdout_mod
     from evalkit import report as report_mod
 
     from audio_service import config
@@ -143,19 +157,23 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     report_path = (
         args.report if args.report is not None else config.REPO_ROOT / "eval" / "report.md"
     )
+    log_path = args.holdout_log if args.holdout_log is not None else holdout_mod.HOLDOUT_LOG_PATH
+    opened = args.holdout
 
     try:
         every_case = cases_mod.load_cases(cases_path)
         cases_mod.validate_cases(every_case)
-        tuning = cases_mod.select_split(every_case)
-        lessons = rescore.load_lessons(tuning)
-        rescore.check_identity(tuning, lessons)
+        if opened:
+            holdout_mod.read_log(log_path)  # log hỏng thì thoát 2 trước khi chấm (T-04-16)
+        scoring = cases_mod.select_split(every_case, include_heldout=opened)
+        lessons = rescore.load_lessons(scoring)
+        rescore.check_identity(scoring, lessons)
 
         clips_root = rescore.clips_root()
         ref_cache: rescore.RefCache = {}
         observations: list[counting.Observation] = []
         untagged = 0
-        for case in tuning:
+        for case in scoring:
             if case.clip is None:
                 untagged += 1
                 continue
@@ -164,32 +182,52 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         n_clips = len(observations)
 
         # Mốc tự so (D-18a): mọi câu có case trong tập đang chấm, kể cả case chưa gắn clip.
-        keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in tuning]
+        keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in scoring]
         for item in rescore.self_compare_inputs(lessons, keys, root, ref_cache):
             score = None
             if item.user is not None:
                 score = score_prosody(item.ref.features, item.user, item.ref.words)
             observations.append(counting.self_observation(item, score))
-    except (cases_mod.CaseError, rescore.DataError) as exc:
+    except (cases_mod.CaseError, rescore.DataError, holdout_mod.HoldoutLogError) as exc:
         return _usage_error(str(exc))
 
-    tallies = counting.tally(observations)
+    by_split = {
+        side: counting.tally([obs for obs in observations if obs.split == side])
+        for side in (("tuning", "heldout") if opened else ("tuning",))
+    }
+    tallies = by_split["tuning"]
+    generated_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    git_sha = report_mod.git_sha(config.REPO_ROOT)
+    enabled = enabled_codes()
+    self_compare = counting.self_rows(observations)
+    message, exit_code = verdict(by_split, self_compare, enabled, holdout_included=opened)
+
+    log_entries: list[holdout_mod.HoldoutEntry] | None = None
+    if opened:
+        # Ghi log TRƯỚC report để report in cả dòng vừa thêm (D-16); lỗi dữ liệu đã thoát 2 ở trên.
+        entry = holdout_mod.make_entry(every_case, opened_at=generated_at, git_sha=git_sha)
+        try:
+            holdout_mod.append_entry(log_path, entry)
+            log_entries = holdout_mod.read_log(log_path)
+        except (OSError, holdout_mod.HoldoutLogError) as exc:
+            return _usage_error(f"không ghi được {log_path.name}: {type(exc).__name__}")
+    mode = (
+        f"tuning + held-out (lần mở thứ {len(log_entries)})"
+        if log_entries is not None
+        else "tuning (held-out khoá, D-16)"
+    )
     info = report_mod.RunInfo(
-        mode="tuning",
+        mode=mode,
         thresholds_version=THRESHOLDS_VERSION,
         scorer_version=SCORER_VERSION,
         feat_version=FEAT_VERSION,
-        git_sha=report_mod.git_sha(config.REPO_ROOT),
-        generated_at=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        git_sha=git_sha,
+        generated_at=generated_at,
         n_cases=len(every_case),
         n_scored=n_clips,
         n_untagged=untagged,
     )
     scored_ids = {obs.case_id for obs in observations if obs.case_id is not None}
-    enabled = enabled_codes()
-    self_compare = counting.self_rows(observations)
-    # Held-out chưa được nạp ở đây (04-06 nối `--holdout`): gate chạy ở chế độ chỉ tuning.
-    message, exit_code = verdict({"tuning": tallies}, self_compare, enabled, holdout_included=False)
     text = report_mod.render_report(
         info,
         tallies,
@@ -198,14 +236,22 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         coverage=counting.coverage_rows(every_case, scored_ids),
         self_compare=self_compare,
         enabled=enabled,
+        heldout=by_split.get("heldout"),
+        gate_message=message if opened else None,
+        holdout_log=log_entries,
     )
     write_report(report_path, text)
 
-    total = counting.pooled(tallies, enabled)
+    total = counting.pooled(counting.tally(observations), enabled)
+    names = "tuning + held-out" if opened else "tuning"
     print(
-        f"{n_clips} clip tuning đã chấm, {untagged} case chưa gắn clip, "
+        f"{n_clips} clip {names} đã chấm, {untagged} case chưa gắn clip, "
         f"{len(observations) - n_clips} câu tự so; TP {total.tp}, FP {total.fp}"
     )
+    if not opened:
+        times = holdout_mod.count_openings(log_path)
+        if times:
+            print(f"held-out đã mở {times} lần (log: {log_path.name}); lần này giữ khoá")
     print(message)
     return exit_code
 

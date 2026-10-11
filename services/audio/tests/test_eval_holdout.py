@@ -18,7 +18,6 @@ import pytest
 from eval_synth import (
     DEFAULT_WORDS,
     LESSON_ID,
-    OTHER_WORDS,
     case_dict,
     load_eval,
     load_evalkit,
@@ -111,7 +110,7 @@ def _two_sentence_cases(
 ) -> dict[str, Any]:
     """Câu 0: case lỗi `flat` (tuning, clip phẳng). Câu 1: case `correct` held-out; clip là
     `heldout_audio` (None = trỏ tới WAV không tồn tại)."""
-    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, OTHER_WORDS])
+    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS])
     tuning_stem = write_clip(data_dir, LESSON_ID, 0, 1, _flat(DEFAULT_WORDS))
     if heldout_audio is None:
         held_stem = f"{LESSON_ID}_0001_01"  # không có WAV nào
@@ -154,7 +153,7 @@ def test_holdout_run_with_a_failing_rule_exits_one_and_appends_one_seven_key_log
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(OTHER_WORDS))
+    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(DEFAULT_WORDS))
 
     code = _run(analyze, data_dir, tmp_path, "--holdout")
 
@@ -173,11 +172,11 @@ def test_holdout_run_with_a_failing_rule_exits_one_and_appends_one_seven_key_log
 def test_a_clean_holdout_run_exits_zero_and_adds_a_second_log_line_listed_in_the_report(
     analyze: ModuleType, data_dir: Path, tmp_path: Path
 ) -> None:
-    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(OTHER_WORDS))
+    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(DEFAULT_WORDS))
     assert _run(analyze, data_dir, tmp_path, "--holdout") == 1
 
     # Cùng nhãn, clip held-out đổi thành đúng tín hiệu bản gốc: sạch (digest không phụ thuộc WAV).
-    write_clip(data_dir, LESSON_ID, 1, 1, _natural_ref(OTHER_WORDS, seed=2))
+    write_clip(data_dir, LESSON_ID, 1, 1, _natural_ref(DEFAULT_WORDS, seed=2))
     code = _run(analyze, data_dir, tmp_path, "--holdout")
 
     assert code == 0
@@ -193,7 +192,7 @@ def test_a_clean_holdout_run_exits_zero_and_adds_a_second_log_line_listed_in_the
 def test_the_report_shows_heldout_precision_recall_n_and_status_for_each_rule(
     analyze: ModuleType, data_dir: Path, tmp_path: Path
 ) -> None:
-    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(OTHER_WORDS))
+    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_flat(DEFAULT_WORDS))
 
     assert _run(analyze, data_dir, tmp_path, "--holdout") == 1
 
@@ -212,7 +211,7 @@ def test_the_report_shows_heldout_precision_recall_n_and_status_for_each_rule(
 def test_the_self_compare_baseline_includes_the_heldout_sentence_only_with_the_flag(
     analyze: ModuleType, data_dir: Path, tmp_path: Path
 ) -> None:
-    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_natural_ref(OTHER_WORDS, seed=2))
+    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_natural_ref(DEFAULT_WORDS, seed=2))
 
     assert _run(analyze, data_dir, tmp_path) == 0
     plain = (tmp_path / "report.md").read_text(encoding="utf-8")
@@ -236,7 +235,7 @@ def test_a_tuning_run_after_an_opening_leaves_the_log_alone_and_says_how_often_i
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_natural_ref(OTHER_WORDS, seed=2))
+    _two_sentence_cases(data_dir, tmp_path, heldout_audio=_natural_ref(DEFAULT_WORDS, seed=2))
     assert _run(analyze, data_dir, tmp_path, "--holdout") == 0
     before = (tmp_path / "holdout_log.jsonl").read_bytes()
     capsys.readouterr()

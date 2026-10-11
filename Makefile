@@ -6,6 +6,8 @@ URL ?= $(shell cat scripts/smoke_video.url 2>/dev/null)
 START ?=
 END ?=
 BUDGET ?=
+# 1 = mở held-out (D-16, có log); 04-12 đổi mặc định thành 1.
+HOLDOUT ?=
 # Bản GSD mà .planning/ được viết cho; `make gsd` cài lại đúng bản này vào .claude/ (không commit).
 GSD_VERSION ?= 1.16.0
 
@@ -46,8 +48,9 @@ lint:
 	cd services/audio && uv run --frozen ruff format --check --config pyproject.toml . ../../scripts ../../eval
 
 # Chấm lại bộ eval tuning bằng scorer hiện tại → eval/report.md (D-06, D-16; chỉ đọc DATA_DIR).
+# HOLDOUT=1 mở held-out: thêm một dòng vào eval/holdout_log.jsonl (commit) và áp gate D-21.
 eval:
-	uv run --project services/audio --frozen python eval/analyze.py
+	uv run --project services/audio --frozen python eval/analyze.py $(if $(filter 1,$(HOLDOUT)),--holdout)
 
 # Ghép clip đã lưu bằng "Lưu clip cho eval" với case đã viết trước (Phase 4, D-01); hỏi từng clip. Các lệnh khác: eval/tag_clips.py words|add|split|check.
 eval-tag:
