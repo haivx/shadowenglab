@@ -34,13 +34,37 @@ from typing import TYPE_CHECKING
 from evalkit.counting import Observation, RuleTally, tally, wilson
 
 if TYPE_CHECKING:
+    from numpy import ndarray
+
+    from audio_service.scoring.align import Aligner, Alignment
     from audio_service.scoring.scorer import ProsodyScore
 
 MIN_PRECISION = 0.95  # D-13: biên 95 % ở tuning cho kỳ vọng held-out >= 90 %
 
 # tham số -> (mã rule đo, lưới). Lưới đúng 04-01 mục G.
 SWEEP_GRID: dict[str, tuple[str, tuple[float, ...]]] = {
+    "STRESS_MARGIN_Z": ("STRESS_MISMATCH", (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.2)),
+    "PAUSE_USER_MS": ("EXTRA_PAUSE", (150, 200, 250, 300, 350, 400)),
+    "PAUSE_REF_MS": ("EXTRA_PAUSE", (60, 80, 100, 120, 150)),
+    "FINAL_SLOPE_MIN_ST_S": ("FINAL_CONTOUR", (3, 4, 5, 6, 7, 8, 10)),
     "FLAT_RATIO": ("FLAT_PITCH", (0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70)),
+    "FLAT_REF_MIN_STD_ST": ("FLAT_PITCH", (1.0, 1.5, 2.0, 2.5, 3.0)),
+    "PITCH_DEVIATION_ST": ("PITCH_DEVIATION", (2.0, 2.5, 3.0, 3.5, 4.0, 5.0)),
+    "PD_SIGN_CONSISTENCY": ("PITCH_DEVIATION", (0.6, 0.7, 0.8, 0.9)),
+    # căn thời gian (D-11b, D-17): đo gộp ba rule theo từ, vì `alignment.ok` mở/khoá chúng
+    "ALIGN_COST_MAX": ("WORD_RULES", (0.90, 1.00, 1.10, 1.20, 1.30)),
+}
+
+# Mã giả WORD_RULES: ba rule chỉ chạy khi căn đáng tin (`word_issues_allowed = alignment.ok`).
+WORD_RULES = ("STRESS_MISMATCH", "EXTRA_PAUSE", "PITCH_DEVIATION")
+
+# Ghi chú cho tham số mà module khác ngoài `thresholds` và `rules.engine` cũng bind (04-01 mục G).
+SHARED_NOTES = {
+    "audio_service.scoring.metrics": "cũng đổi metrics.speed (điểm tổng)",
+    "audio_service.scoring.align": "đổi alignment.ok cho mọi rule theo từ",
+    "audio_service.scoring.prominence": (
+        "cũng đổi prominence.pause_entries (mục pauses, không vào điểm tổng)"
+    ),
 }
 
 
@@ -84,11 +108,13 @@ def propose(
     return best.value
 
 
-def _make_row(
+def make_row(
     value: float, tallies: dict[str, RuleTally], code: str, align_fail_rate: float | None
 ) -> SweepRow:
-    entry = tallies[code]
-    tp, fp = entry.tp, entry.fp
+    """Dòng của một giá trị: lấy tally của `code`, hoặc cộng ba rule theo từ khi `WORD_RULES`."""
+    entries = [tallies[name] for name in (WORD_RULES if code == "WORD_RULES" else (code,))]
+    tp = sum(entry.tp for entry in entries)
+    fp = sum(entry.fp for entry in entries)
     n = tp + fp
     return SweepRow(
         value=value,
@@ -96,10 +122,18 @@ def _make_row(
         fp=fp,
         precision=tp / n if n else None,
         ci=wilson(tp, n),
-        found=entry.found,
-        expected=entry.expected,
+        found=sum(entry.found for entry in entries),
+        expected=sum(entry.expected for entry in entries),
         align_fail_rate=align_fail_rate,
     )
+
+
+def align_fail_rate(observations: Sequence[Observation]) -> float | None:
+    """Tỉ lệ căn không đáng tin (`alignment.ok` = False) trong các lần chấm có tiếng (D-11b)."""
+    voiced = [obs for obs in observations if obs.voiced]
+    if not voiced:
+        return None
+    return sum(1 for obs in voiced if not obs.align_ok) / len(voiced)
 
 
 def _fmt_value(value: float) -> str:
@@ -110,14 +144,18 @@ def _fmt_ratio(value: float | None) -> str:
     return f"{value:.2f}" if value is not None else "—"
 
 
-def _fmt_row(row: SweepRow, current: float) -> str:
+def _fmt_row(row: SweepRow, current: float, *, show_align: bool = False) -> str:
     mark = "*" if row.value == current else ""
     ci = f"[{row.ci[0]:.2f}, {row.ci[1]:.2f}]" if row.ci is not None else "—"
     recall = f"{_fmt_ratio(row.recall)} ({row.found}/{row.expected})" if row.expected > 0 else "—"
-    return (
+    line = (
         f"| {_fmt_value(row.value)}{mark} | {row.tp} | {row.fp} | {_fmt_ratio(row.precision)} "
         f"| {ci} | {recall} | {row.tp + row.fp} |"
     )
+    if not show_align:
+        return line
+    rate = f"{row.align_fail_rate * 100:.0f} %" if row.align_fail_rate is not None else "—"
+    return f"{line} {rate} |"
 
 
 def _proposal_line(name: str, proposal: float | None, min_precision: float) -> str:
@@ -156,8 +194,39 @@ def _usage_error(message: str) -> int:
 class _Subject:
     """Một đầu vào chấm lại: tính feature một lần, chấm nhiều lần ở các giá trị khác nhau."""
 
-    score: Callable[[], ProsodyScore | None]
+    score: Callable[[Aligner], ProsodyScore | None]
     observe: Callable[[ProsodyScore | None], Observation]
+    mfccs: tuple[ndarray, ndarray] | None  # (bản gốc, người học) để căn; None = không có tiếng
+
+
+def _fixed_aligner(alignment: Alignment) -> Aligner:
+    """Aligner trả lại một Alignment đã tính: tham số không phải ALIGN_* không đổi phép căn."""
+
+    def aligner(ref_mfcc: ndarray, user_mfcc: ndarray) -> Alignment:
+        return alignment
+
+    return aligner
+
+
+def _header(name: str, code: str, current: float, notes: Sequence[str]) -> str:
+    shown = "+".join(WORD_RULES) + " gộp" if code == "WORD_RULES" else code
+    line = f"## {name} (rule {shown}; hiện tại {_fmt_value(current)})"
+    return f"{line} — {'; '.join(notes)}" if notes else line
+
+
+# Hai module luôn bind mọi ngưỡng: không cần ghi chú.
+_QUIET_MODULES = ("audio_service.scoring.thresholds", "audio_service.rules.engine")
+
+
+def _notes(name: str) -> list[str]:
+    """Ghi chú cho module ngoài `thresholds` và `rules.engine` cũng bind `name`."""
+    from evalkit.overrides import bound_in
+
+    return [
+        SHARED_NOTES.get(module, f"cũng đổi {module}")
+        for module in bound_in(name)
+        if module in SHARED_NOTES or module not in _QUIET_MODULES
+    ]
 
 
 def _run(args: argparse.Namespace, root: Path) -> int:
@@ -185,6 +254,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     from evalkit.overrides import override_thresholds
 
     from audio_service import config
+    from audio_service.scoring import align as align_module
     from audio_service.scoring import thresholds
     from audio_service.scoring.scorer import score_prosody
 
@@ -212,41 +282,80 @@ def _run(args: argparse.Namespace, root: Path) -> int:
             clip = rescore.load_clip(case, lessons[case.lesson_id], clips_root, ref_cache)
             subjects.append(
                 _Subject(
-                    score=lambda clip=clip: rescore.score_clip(clip),
+                    score=lambda aligner, clip=clip: rescore.score_clip(clip, aligner=aligner),
                     observe=lambda score, case=case, clip=clip: observation_from(case, clip, score),
+                    mfccs=(clip.ref.features.mfcc, clip.user.mfcc)
+                    if clip.user is not None
+                    else None,
                 )
             )
         keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in tuning]
         for item in rescore.self_compare_inputs(lessons, keys, root, ref_cache):
             subjects.append(
                 _Subject(
-                    score=lambda item=item: (
-                        score_prosody(item.ref.features, item.user, item.ref.words)
+                    score=lambda aligner, item=item: (
+                        score_prosody(item.ref.features, item.user, item.ref.words, aligner=aligner)
                         if item.user is not None
                         else None
                     ),
                     observe=lambda score, item=item: self_observation(item, score),
+                    mfccs=(item.ref.features.mfcc, item.user.mfcc)
+                    if item.user is not None
+                    else None,
                 )
             )
     except (cases_mod.CaseError, rescore.DataError) as exc:
         return _usage_error(str(exc))
 
+    # Căn tính một lần ở giá trị hiện tại, dùng lại cho mọi tham số không phải ALIGN_*.
+    fixed: dict[int, Aligner] = {}
+    summary: list[str] = []
     for name in params:
         code, grid = SWEEP_GRID[name]
         current = getattr(thresholds, name)
+        sweeps_alignment = name.startswith("ALIGN_")
+        if not sweeps_alignment and not fixed:
+            fixed = {
+                position: _fixed_aligner(align_module.align(*subject.mfccs))
+                for position, subject in enumerate(subjects)
+                if subject.mfccs is not None
+            }
         rows: list[SweepRow] = []
         for value in grid:
             with override_thresholds(**{name: value}):
-                observations = [subject.observe(subject.score()) for subject in subjects]
-            tallies = tally(observations)
-            rows.append(_make_row(value, tallies, code, None))
-        print(f"## {name} (rule {code}; hiện tại {_fmt_value(current)})")
-        print("| Giá trị | TP | FP | P | CI95 | R (k/N) | n |")
-        print("|---|---|---|---|---|---|---|")
+                observations = [
+                    subject.observe(
+                        subject.score(
+                            align_module.align
+                            if sweeps_alignment
+                            else fixed.get(position, align_module.align)
+                        )
+                    )
+                    for position, subject in enumerate(subjects)
+                ]
+            rows.append(make_row(value, tally(observations), code, align_fail_rate(observations)))
+        proposal = propose(rows, current, args.min_precision)
+        print(_header(name, code, current, _notes(name)))
+        print(
+            "| Giá trị | TP | FP | P | CI95 | R (k/N) | n |"
+            + (" Căn thất bại |" if sweeps_alignment else "")
+        )
+        print("|---|---|---|---|---|---|---|" + ("---|" if sweeps_alignment else ""))
         for row in rows:
-            print(_fmt_row(row, current))
-        print(_proposal_line(name, propose(rows, current, args.min_precision), args.min_precision))
+            print(_fmt_row(row, current, show_align=sweeps_alignment))
+        print(_proposal_line(name, proposal, args.min_precision))
         print()
+        summary.append(
+            f"- {name}: "
+            + (
+                f"{_fmt_value(proposal)} (hiện tại {_fmt_value(current)})"
+                if proposal is not None
+                else f"không có giá trị đạt {args.min_precision * 100:g} %"
+            )
+        )
+    print("## Tóm tắt đề xuất")
+    print("\n".join(summary))
+    print("Sweep chỉ in bảng; Liam chọn giá trị và tự sửa thresholds.py (D-13).")
     return 0
 
 
