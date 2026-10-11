@@ -107,7 +107,8 @@ def test_with_every_flag_on_no_rule_is_marked_off(
 
     assert _run(analyze, data_dir, tmp_path) == 0
 
-    assert "TẮT" not in (tmp_path / "report.md").read_text(encoding="utf-8")
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    assert "| TẮT (D-15)" not in report  # không ô bảng nào; chú giải có chữ TẮT thì được
 
 
 # --- trạng thái D-14 và gate D-21: hàm thuần ----------------------------------------------------

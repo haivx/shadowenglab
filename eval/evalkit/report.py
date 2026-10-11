@@ -15,15 +15,20 @@ from pathlib import Path
 from evalkit.counting import (
     LAYER_C_CODES,
     POOLED,
+    TUNING_MARGIN,
     CoverageRow,
     FpRow,
     RuleTally,
     SelfRow,
+    pooled,
+    rule_status,
     wilson,
 )
 
 HELDOUT_LOCKED = "khoá (D-16)"
 RULE_OFF = "TẮT (D-15)"
+MARGIN_MARK = "✓ ≥95 %"
+GATE_NOT_APPLIED = "gate: không áp dụng (chỉ tuning)"
 GIT_TIMEOUT_S = 10.0
 
 
@@ -88,19 +93,44 @@ def _cell(text: object) -> str:
     return str(text).replace("|", "/").replace("\n", " ")
 
 
-def _summary_table(tallies: Mapping[str, RuleTally], enabled: Sequence[str]) -> list[str]:
+def _tuning_cell(tally: RuleTally) -> str:
+    """Ô precision tuning, thêm dấu biên khi P >= TUNING_MARGIN với n >= 1 (D-13)."""
+    n = tally.tp + tally.fp
+    cell = _precision_cell(tally)
+    if n >= 1 and tally.tp / n >= TUNING_MARGIN:
+        return f"{cell} {MARGIN_MARK}"
+    return cell
+
+
+def _summary_table(
+    tallies: Mapping[str, RuleTally],
+    enabled: Sequence[str],
+    heldout: Mapping[str, RuleTally] | None,
+) -> list[str]:
+    """Bảng rule x P/R tuning, ô held-out và cột trạng thái (04-01 F1, F2).
+
+    Rule tắt hiện `TẮT (D-15)` ở mọi ô; dòng gộp chỉ cộng rule đang bật. Không có số held-out thì
+    ô held-out ghi "khoá" và trạng thái là "—".
+    """
     lines = [
-        "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out |",
-        "|---|---|---|---|---|---|",
+        "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out | Trạng thái |",
+        "|---|---|---|---|---|---|---|",
     ]
     for code in (*LAYER_C_CODES, POOLED):
         if code in LAYER_C_CODES and code not in enabled:
-            lines.append(f"| {code} | " + " | ".join([RULE_OFF] * 5) + " |")
+            lines.append(f"| {code} | " + " | ".join([RULE_OFF] * 6) + " |")
             continue
-        row = tallies.get(code, RuleTally())
+        if code == POOLED:
+            row = pooled(tallies, enabled)
+            held = pooled(heldout, enabled) if heldout is not None else None
+        else:
+            row = tallies.get(code, RuleTally())
+            held = heldout.get(code, RuleTally()) if heldout is not None else None
+        held_cell = HELDOUT_LOCKED if held is None else _precision_cell(held)
+        status = "—" if held is None else rule_status(held, True)
         lines.append(
-            f"| {code} | {row.tp} | {row.fp} | {_precision_cell(row)} | "
-            f"{_recall_cell(row)} | {HELDOUT_LOCKED} |"
+            f"| {code} | {row.tp} | {row.fp} | {_tuning_cell(row)} | "
+            f"{_recall_cell(row)} | {held_cell} | {status} |"
         )
     return lines
 
@@ -205,11 +235,15 @@ def render_report(
     coverage: Sequence[CoverageRow] = (),
     self_compare: Sequence[SelfRow] = (),
     enabled: Sequence[str] | None = None,
+    heldout: Mapping[str, RuleTally] | None = None,
+    gate_message: str | None = None,
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
 
     `enabled`: mã các rule đang bật; mặc định `enabled_codes()` của engine (D-15). Rule tắt hiện
-    `TẮT (D-15)` thay cho số.
+    `TẮT (D-15)` thay cho số. `heldout`: số held-out theo mã (chỉ khi chạy có held-out); thiếu thì
+    cột trạng thái là "—". `gate_message`: kết quả `analyze.verdict` khi chạy có held-out; thiếu thì
+    dòng gate ghi "không áp dụng (chỉ tuning)".
     """
     if enabled is None:
         from audio_service.rules.engine import enabled_codes
@@ -227,10 +261,15 @@ def render_report(
         "",
         "## Tóm tắt theo rule (tuning)",
         "",
-        "P = TP / (TP + FP); R = số case có TP / số case có mã chính này; "
-        "khoảng tin cậy Wilson 95 %.",
+        GATE_NOT_APPLIED if gate_message is None else f"gate: {gate_message}",
         "",
-        *_summary_table(tallies, enabled),
+        "P = TP / (TP + FP); R = số case có TP / số case có mã chính này; "
+        "khoảng tin cậy Wilson 95 %. "
+        f"`{MARGIN_MARK}`: P tuning >= {TUNING_MARGIN:.2f} với n >= 1 (biên an toàn, D-13). "
+        "Trạng thái held-out: PASS, FAIL, CHƯA ĐỦ MẪU (n < 5 không bao giờ là PASS, D-14), "
+        "TẮT (D-15).",
+        "",
+        *_summary_table(tallies, enabled, heldout),
         "",
         *_fp_section(fps),
         *_failure_section(failures or {}),
