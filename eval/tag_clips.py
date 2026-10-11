@@ -4,10 +4,14 @@
 
 Lệnh (cờ chung: `--cases eval/cases.jsonl`, `--data-dir PATH`):
 
+- `words [--lesson L [--segment N]]`: xem bài, câu và chỉ số từ (từ trùng chữ được đánh dấu).
 - `add --lesson L --segment N --error TYPE [--word I] | --correct [--note ...]`: ghi thêm một case
   VÀO KỊCH BẢN, trước khi nói (D-02). Dấu nhận diện câu lấy từ bài thật (D-05).
 - `split [--dry-run]`: chốt `tuning` / `heldout` một lần (D-12); chạy lại không đổi gì đã ghi.
-- `tag [--yes]`: ghép clip đã lưu bằng nút "Lưu clip cho eval" với case đang chờ (D-01).
+- `tag [--yes]`: ghép clip đã lưu bằng nút "Lưu clip cho eval" với case đang chờ (D-01). Hỏi từng
+  clip (số, Enter = case chờ đầu, `s` bỏ qua, `q` dừng); `--yes` luôn lấy case chờ đầu theo file.
+- `check [--min-error N] [--min-per-type N] [--min-correct N] [--min-retest N]`: kiểm mọi case và
+  in bảng phủ errorType x split; thiếu ngưỡng nào thì thoát 1.
 
 Chỉ ghi `eval/cases.jsonl` (hoặc file `--cases`), atomic; DATA_DIR chỉ được đọc. Không bao giờ in
 điểm hay issue của hệ thống và không suy nhãn từ output của hệ thống (D-01). Không có UI nào được
@@ -20,13 +24,14 @@ từ, dấu nhận diện lệch, clip hoặc sidecar lạ).
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 ERROR_TYPES = (
     "wrong_stress",
@@ -68,6 +73,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     tag = commands.add_parser("tag", parents=[common], help="ghép clip đã lưu với case đang chờ")
     tag.add_argument("--yes", action="store_true", help="lấy case chờ đầu tiên, không hỏi")
+
+    words = commands.add_parser("words", parents=[common], help="xem bài, câu và chỉ số từ")
+    words.add_argument("--lesson", help="id bài; bỏ trống để liệt kê các bài ready")
+    words.add_argument("--segment", type=int, help="số thứ tự câu: liệt kê từng từ của câu")
+
+    check = commands.add_parser("check", parents=[common], help="kiểm case và in bảng phủ")
+    check.add_argument("--min-error", type=int, default=0, help="số clip lỗi đã gắn tối thiểu")
+    check.add_argument("--min-per-type", type=int, default=0, help="số clip đã gắn mỗi errorType")
+    check.add_argument("--min-correct", type=int, default=0, help="số clip `correct` đã gắn")
+    check.add_argument("--min-retest", type=int, default=0, help="số nhóm retest (>= 2 clip)")
     return parser
 
 
@@ -230,8 +245,6 @@ def _cmd_split(kit: _Toolkit, args: argparse.Namespace, path: Path) -> int:
 
 def _sidecar(wav: Path, stem: str, kit: _Toolkit) -> dict[str, Any] | None:
     """Sidecar cùng tên; thiếu hoặc hỏng -> None (báo và bỏ qua clip). Lệch stem -> DataError."""
-    import json
-
     try:
         data = json.loads(wav.with_suffix(".json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -254,15 +267,47 @@ def _pending(cases: Sequence[Any], lesson_id: str, index: int) -> list[int]:
     ]
 
 
+Choice = int | Literal["skip", "quit"]
+
+
+def _choose(
+    kit: _Toolkit,
+    ask: Ask,
+    stem: str,
+    cases: Sequence[Any],
+    waiting: Sequence[int],
+    words: Sequence[str],
+) -> Choice:
+    """Hỏi Liam clip này thuộc case chờ nào: số, Enter (= 1), `s` bỏ qua, `q` dừng.
+
+    Chỉ hiện chữ của câu, loại lỗi, vị trí từ và ghi chú đã viết trước khi nói; không có điểm hay
+    issue của hệ thống (D-01).
+    """
+    print(f"clip {stem} (lượt {int(stem[32:])}): {' '.join(words)}")
+    for number, position in enumerate(waiting, start=1):
+        case = cases[position]
+        note = f"  ghi chú: {case.note}" if case.note else ""
+        print(f"  {number}. {case.case_id}  {_describe(kit, case, words)}{note}")
+    while True:
+        try:
+            answer = ask("Chọn case (Enter = 1, s = bỏ qua, q = dừng): ").strip().lower()
+        except EOFError:
+            return "quit"
+        if answer == "":
+            return waiting[0]
+        if answer in ("s", "q"):
+            return "skip" if answer == "s" else "quit"
+        if answer.isdigit() and 1 <= int(answer) <= len(waiting):
+            return waiting[int(answer) - 1]
+        print(f"không hiểu {answer!r}: nhập số từ 1 đến {len(waiting)}, Enter, s hoặc q")
+
+
 def _cmd_tag(kit: _Toolkit, args: argparse.Namespace, path: Path, ask: Ask) -> int:
     cases = _load(kit, path)
     clips = kit.rescore.clips_root()
     if not clips.is_dir():
         print(f"chưa có thư mục eval_clips trong DATA_DIR ({clips.name})")
         return 0
-    if not args.yes:
-        print("tag cần --yes (chế độ hỏi từng clip chưa có ở bước này)", file=sys.stderr)
-        return 2
 
     base = clips.resolve()
     attached = 0
@@ -287,7 +332,12 @@ def _cmd_tag(kit: _Toolkit, args: argparse.Namespace, path: Path, ask: Ask) -> i
             raise kit.rescore.DataError(
                 f"clip {stem}: câu đã đổi so với lúc thu (D-05); không gắn nhãn cho clip này"
             )
-        chosen = waiting[0]
+        words = [word.text for word in segment.words]
+        chosen: Choice = waiting[0] if args.yes else _choose(kit, ask, stem, cases, waiting, words)
+        if chosen == "quit":
+            break
+        if chosen == "skip":
+            continue
         mismatch = kit.cases.stamp_mismatch(cases[chosen], segment)
         if mismatch is not None:
             raise kit.rescore.DataError(
@@ -299,9 +349,115 @@ def _cmd_tag(kit: _Toolkit, args: argparse.Namespace, path: Path, ask: Ask) -> i
         ]
         kit.cases.write_cases(path, cases)
         attached += 1
-        words = [word.text for word in segment.words]
         print(f"{stem} -> {cases[chosen].case_id} ({_describe(kit, cases[chosen], words)})")
     print(f"đã gắn {attached} clip")
+    return 0
+
+
+# --- words -------------------------------------------------------------------------------------
+
+
+def _cmd_words(kit: _Toolkit, args: argparse.Namespace) -> int:
+    if args.lesson is None:
+        ready = [lesson for lesson in kit.store.iter_lessons() if lesson.status == "ready"]
+        if not ready:
+            print("chưa có bài nào ở trạng thái ready trong DATA_DIR")
+            return 0
+        rows = [(lesson.id, lesson.title, f"{len(lesson.segments)} câu") for lesson in ready]
+        print(_table(("id", "tiêu đề", "số câu"), rows))
+        return 0
+
+    lesson = _lesson(kit, args.lesson, args.segment)
+    if args.segment is None:
+        for segment in lesson.segments:
+            count = len(segment.words)
+            short = f"  [dưới {kit.min_words} từ]" if count < kit.min_words else ""
+            span = f"{segment.start:.2f}–{segment.end:.2f}"
+            print(f"#{segment.index}  {span}  ({count} từ)  {segment.text}{short}")
+        return 0
+
+    texts = [word.text for word in lesson.segments[args.segment].words]
+    for position, text in enumerate(texts):
+        repeated = "  ← trùng chữ với từ khác" if texts.count(text) > 1 else ""
+        print(f"{position}: {text}{repeated}")
+    return 0
+
+
+# --- check -------------------------------------------------------------------------------------
+
+
+def _coverage_table(kit: _Toolkit, cases: Sequence[Any]) -> str:
+    """Bảng errorType x split; mỗi ô là `tổng/đã gắn clip`."""
+    counts: dict[tuple[str, str], list[int]] = {}
+    for case in cases:
+        cell = counts.setdefault((kit.cases.stratum(case), str(case.split or "none")), [0, 0])
+        cell[0] += 1
+        cell[1] += 1 if case.clip is not None else 0
+    rows = []
+    for name in (*ERROR_TYPES, "correct"):
+        cells = [counts.get((name, side), [0, 0]) for side in ("tuning", "heldout", "none")]
+        total = sum(cell[0] for cell in cells)
+        rows.append((name, *(f"{cell[0]}/{cell[1]}" for cell in cells), total))
+    return _table(("tầng", "tuning", "heldout", "chưa chốt", "tổng"), rows)
+
+
+def _retest_groups(cases: Sequence[Any]) -> int:
+    """Nhóm (bài, câu, kind, errorType, wordIndex) có >= 2 clip đã gắn (04-01 mục J)."""
+    sizes: dict[tuple[Any, ...], int] = {}
+    for case in cases:
+        if case.clip is not None:
+            error_type = case.error_type.root if case.error_type is not None else None
+            key = (case.lesson_id, case.segment_index, case.kind, error_type, case.word_index)
+            sizes[key] = sizes.get(key, 0) + 1
+    return sum(1 for size in sizes.values() if size >= 2)
+
+
+def _cmd_check(kit: _Toolkit, args: argparse.Namespace, path: Path) -> int:
+    cases = _load(kit, path)
+    lessons = kit.rescore.load_lessons(cases)
+    kit.rescore.check_identity(cases, lessons)
+    for case in cases:
+        count = len(lessons[case.lesson_id].segments[case.segment_index].words)
+        if count < kit.min_words:
+            raise kit.cases.CaseError(
+                f"{case.case_id}: câu chỉ có {count} từ, cần >= {kit.min_words} (D-11)"
+            )
+
+    attached = {case.clip for case in cases if case.clip is not None}
+    clips = kit.rescore.clips_root()
+    stems = {wav.stem for wav in clips.glob("*.wav")} if clips.is_dir() else set()
+    groups = _retest_groups(cases)
+
+    print(f"{len(cases)} case hợp lệ (ô = tổng/đã gắn clip)")
+    print(_coverage_table(kit, cases))
+    print(f"clip chưa gắn: {len(stems - attached)}")
+    print(f"nhóm retest: {groups}")
+
+    tagged = [case for case in cases if case.clip is not None]
+    per_type = {name: 0 for name in ERROR_TYPES}
+    for case in tagged:
+        if case.kind == "error":
+            per_type[kit.cases.error_type_of(case) or ""] += 1
+    n_errors = sum(per_type.values())
+    n_correct = len(tagged) - n_errors
+    missing = []
+    if n_errors < args.min_error:
+        missing.append(f"clip lỗi đã gắn: {n_errors} < {args.min_error}")
+    missing += [
+        f"clip {name} đã gắn: {count} < {args.min_per_type}"
+        for name, count in per_type.items()
+        if count < args.min_per_type
+    ]
+    if n_correct < args.min_correct:
+        missing.append(f"clip correct đã gắn: {n_correct} < {args.min_correct}")
+    if groups < args.min_retest:
+        missing.append(f"nhóm retest: {groups} < {args.min_retest}")
+    if missing:
+        print("CHƯA ĐỦ PHỦ:")
+        for line in missing:
+            print(f"  - {line}")
+        return 1
+    print("CHECK OK")
     return 0
 
 
@@ -325,6 +481,10 @@ def _run(args: argparse.Namespace, root: Path, ask: Ask) -> int:
             return _cmd_add(kit, args, path)
         if args.command == "split":
             return _cmd_split(kit, args, path)
+        if args.command == "words":
+            return _cmd_words(kit, args)
+        if args.command == "check":
+            return _cmd_check(kit, args, path)
         return _cmd_tag(kit, args, path, ask)
     except (kit.cases.CaseError, kit.rescore.DataError) as exc:
         print(str(exc), file=sys.stderr)
