@@ -38,7 +38,7 @@ covered_files:
   - "services/audio/src/audio_service/rules/engine.py"
   - "services/audio/src/audio_service/rules/tips.py"
   - "services/audio/src/audio_service/scoring/scorer.py"
-covered_digest: "v3:sha256:b476cf810e163ebd4c6845b20bb86663d18e9f84dfa376dc08a820b2e68d50b9"
+covered_digest: "v3:sha256:c1c2a93af0ac74976c7f21254a18344ec63dd5c4584cb3e1a7d3682ac3c7208a"
 behavior_unverified: 1
 overrides_applied: 0
 behavior_unverified_items:

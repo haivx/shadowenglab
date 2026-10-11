@@ -116,8 +116,8 @@ Tất cả system dependency đã đủ.
 ```
 check                                 status  detail
 ------------------------------------  ------  ------
-mlx-community/whisper-large-v3-turbo  OK      đã tải/có trong cache: /Users/xuanhai/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/snapshots/a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb
-facebook/wav2vec2-lv-60-espeak-cv-ft  OK      đã tải/có trong cache: /Users/xuanhai/.cache/huggingface/hub/models--facebook--wav2vec2-lv-60-espeak-cv-ft/snapshots/ae45363bf3413b374fecd9dc8bc1df0e24c3b7f4
+mlx-community/whisper-large-v3-turbo  OK      đã tải/có trong cache: ~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/snapshots/a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb
+facebook/wav2vec2-lv-60-espeak-cv-ft  OK      đã tải/có trong cache: ~/.cache/huggingface/hub/models--facebook--wav2vec2-lv-60-espeak-cv-ft/snapshots/ae45363bf3413b374fecd9dc8bc1df0e24c3b7f4
 demucs htdemucs                       OK      đã tải/có trong cache HF (adefossez/HTDemucs)
 parselmouth                           OK      praat-parselmouth 0.4.7 chạy được
 ffmpeg                                OK      ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers

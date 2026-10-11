@@ -75,7 +75,7 @@ No fix touched `packages/contracts`, the SQLite schema, scoring thresholds or mo
 
 ## Verification
 
-Verification ran in the **main checkout** (`/Users/xuanhai/Documents/shadowenglab`) after the review-fix branch was fast-forwarded into `gsd/phase-01-p0-n-n-t-ng` and the temporary worktree was removed, so the numbers are reproducible from the tree you are looking at. Per-finding checks (targeted pytest/vitest, ruff, prettier, eslint, `tsc --noEmit` for `apps/web`) ran earlier inside the worktree.
+Verification ran in the **main checkout** (`.`) after the review-fix branch was fast-forwarded into `gsd/phase-01-p0-n-n-t-ng` and the temporary worktree was removed, so the numbers are reproducible from the tree you are looking at. Per-finding checks (targeted pytest/vitest, ruff, prettier, eslint, `tsc --noEmit` for `apps/web`) ran earlier inside the worktree.
 
 - `make test`: exit 0. Contracts drift gate passed; `packages/contracts` vitest 58 passed; `apps/web` vitest 174 passed (14 files); pytest 846 passed, 1 warning (starlette `httpx` deprecation, pre-existing).
 - `make lint`: exit 0. eslint, prettier, contracts `tsc`, `ruff check`, `ruff format --check` all clean. Note `make lint` does not run `tsc` on `apps/web`; I ran `pnpm exec tsc --noEmit` there separately in the worktree and it was clean.

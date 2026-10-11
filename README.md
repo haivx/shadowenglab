@@ -1,5 +1,7 @@
 # ShadowEngLab
 
+> **English summary.** A local-first web app for practising English shadowing (US accent) on any YouTube video. Paste a link and the app separates the voice from background music (Demucs), transcribes it (mlx-whisper), splits it into sentences and precomputes the speaker's features. You then practise sentence by sentence. Each attempt is scored against **the original speaker's own audio**, not a dictionary or a "standard" pronunciation. It shows speed, pitch range, melody match, stress and pauses, plus tips tied to measured issues. Precision comes before recall: when the system is not sure, it reports nothing. An LLM may only rephrase tips from the JSON list of issues. It never hears audio and never scores. A small online eval app lets native listeners check the scores (human review). Stack: Next.js 14 + TypeScript + XState, FastAPI + Python 3.11, SQLite, Zod contracts shared with pydantic. Planned and executed with [GSD](https://github.com/open-gsd/gsd-core) and Claude Code.
+
 Web app luyện shadowing tiếng Anh từ bất kỳ video YouTube nào, chạy local. Điểm số so sánh trực tiếp giọng của người học với **audio của chính người nói trong video** (âm, ngữ điệu, trọng âm, ngắt nghỉ), không so với từ điển. Đi kèm một app eval nhỏ để người nghe bản xứ kiểm chứng điểm của hệ thống bằng human review.
 
 > Trạng thái: đã xong 3/8 phase: nền tảng (monorepo, contract, pipeline audio), tạo bài từ YouTube và trình phát theo câu có ghi âm, chấm ngữ điệu (tốc độ, độ lên xuống, khớp giai điệu) kèm gợi ý sửa. Tiếp theo: eval nội bộ để hiệu chỉnh ngưỡng (Phase 4), rồi chấm âm. Build được điều phối bằng [GSD](https://github.com/open-gsd/gsd-core), xem [`docs/gsd/kickoff.md`](docs/gsd/kickoff.md).
@@ -51,6 +53,16 @@ Yêu cầu: macOS Apple Silicon (mlx-whisper), Node ≥ 22.13, pnpm 11.9, uv, ff
 
 Không có API key vẫn chạy được (xem `.env.example`).
 
+### Phát triển tiếp với GSD sau khi clone
+
+Kế hoạch, roadmap và trạng thái nằm trong `.planning/` (có commit). Bộ công cụ GSD trong `.claude/` (agents, commands, workflows, hooks) thì không commit, vì cài lại được đúng bản đã dùng:
+
+```bash
+make gsd        # npx @opengsd/gsd-core@$(GSD_VERSION) --claude --local, cài vào .claude/
+```
+
+Rồi mở Claude Code trong repo và chạy `/gsd-progress` để xem đang ở phase nào. Trước khi push, chạy `make relpaths` để đổi đường dẫn tuyệt đối của máy local mà GSD ghi vào `.planning/` thành đường dẫn tương đối.
+
 ## Lệnh
 
 | Lệnh | Việc |
@@ -63,3 +75,9 @@ Không có API key vẫn chạy được (xem `.env.example`).
 | `make smoke` | Chạy pipeline tạo bài trên `scripts/smoke_video.url` (hoặc `URL=`; tuỳ chọn `START=`, `END=`, `BUDGET=`) |
 | `make contracts` | Sinh lại JSON Schema và pydantic từ Zod |
 | `make dev-eval` | Khung app eval (localhost:3001) |
+| `make gsd` | Cài lại GSD (bản `GSD_VERSION`) vào `.claude/` sau khi clone |
+| `make relpaths` | Đổi đường dẫn tuyệt đối trong `.planning/` thành tương đối |
+
+## License
+
+[MIT](LICENSE)

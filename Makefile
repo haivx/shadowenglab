@@ -6,8 +6,10 @@ URL ?= $(shell cat scripts/smoke_video.url 2>/dev/null)
 START ?=
 END ?=
 BUDGET ?=
+# Bản GSD mà .planning/ được viết cho; `make gsd` cài lại đúng bản này vào .claude/ (không commit).
+GSD_VERSION ?= 1.16.0
 
-.PHONY: setup dev dev-api dev-web dev-eval test lint eval smoke smoke-jobs smoke-score contracts contracts-check
+.PHONY: setup dev dev-api dev-web dev-eval test lint eval smoke smoke-jobs smoke-score contracts contracts-check gsd relpaths
 
 # Kiểm tra system dependency (chỉ hướng dẫn, D-25), cài từ lockfile đã duyệt, tải/kiểm tra model.
 setup:
@@ -64,3 +66,11 @@ contracts:
 
 contracts-check:
 	sh scripts/contracts_check.sh
+
+# Cài lại bộ GSD (agents, commands, workflows, hooks) vào .claude/ sau khi clone. .claude/ chỉ commit CLAUDE.md.
+gsd:
+	npx -y @opengsd/gsd-core@$(GSD_VERSION) --claude --local
+
+# Đổi đường dẫn tuyệt đối của máy local trong .planning/ thành đường dẫn tương đối. Chạy trước khi push.
+relpaths:
+	sh scripts/relativize_paths.sh

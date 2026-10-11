@@ -56,6 +56,8 @@ make smoke-jobs # 2 bài tạo liên tiếp qua API thật, không key: kiểm t
 make smoke-score # chấm tự so + chéo câu trên một bài thật (chỉ đọc DATA_DIR), in timingMs; tuỳ chọn LESSON= (Phase 3)
 make contracts # sinh lại JSON Schema + pydantic từ Zod (packages/contracts)
 make dev-eval  # khung app eval (localhost:3001)
+make gsd       # cài lại GSD (bản GSD_VERSION) vào .claude/ sau khi clone; .claude/ chỉ commit CLAUDE.md
+make relpaths  # đổi đường dẫn tuyệt đối trong .planning/ thành tương đối; chạy trước khi push
 ```
 
 (Cập nhật mục này khi đổi Makefile.)

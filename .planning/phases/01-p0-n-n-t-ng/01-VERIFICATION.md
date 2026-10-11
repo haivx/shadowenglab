@@ -40,7 +40,7 @@ covered_files:
   - "services/audio/src/audio_service/main.py"
   - "services/audio/src/audio_service/routers/lesson.py"
   - "services/audio/tests/test_contracts_roundtrip.py"
-covered_digest: "v3:sha256:84814c20f016204eb19b7631efa5ad61353125c2d32b0f748e5c7fff1e8cc38e"
+covered_digest: "v3:sha256:25b97b10316c32a84c6b9d4e8181aa947de6d7ff92144411c254c9caa1f3ccc6"
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:

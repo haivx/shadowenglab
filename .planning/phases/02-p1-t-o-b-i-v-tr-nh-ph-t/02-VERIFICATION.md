@@ -57,7 +57,7 @@ covered_files:
   - "services/audio/src/audio_service/routers/attempts.py"
   - "services/audio/src/audio_service/routers/lesson.py"
   - "services/audio/src/audio_service/routers/segments.py"
-covered_digest: "v3:sha256:d2150fa8befa1740e5685fcec67f6ae1289233f3493d34ca5c840394b4ca0bc9"
+covered_digest: "v3:sha256:f8aae2e8419a502c66794df35178db4fbaab8adf4fa0dc408af569191a1114d1"
 behavior_unverified: 0
 overrides_applied: 0
 deferred:

@@ -37,5 +37,8 @@ eval/manifest.json
 .DS_Store
 .idea/
 .vscode/
-.claude/settings.local.json
+
+# GSD: cài lại bằng `make gsd`, chỉ commit hướng dẫn dự án
+.claude/*
+!.claude/CLAUDE.md
 .mypy_cache/
