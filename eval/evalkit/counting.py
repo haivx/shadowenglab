@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from audio_service.contracts_gen import EvalCase
     from audio_service.scoring.scorer import ProsodyScore
-    from evalkit.rescore import ClipInput
+    from evalkit.rescore import ClipInput, SelfInput
 
 # Thứ tự `run_rules` (nền của issueRef).
 LAYER_C_CODES = ("STRESS_MISMATCH", "FINAL_CONTOUR", "EXTRA_PAUSE", "PITCH_DEVIATION", "FLAT_PITCH")
@@ -136,6 +136,19 @@ class CoverageRow:
     scored: int
 
 
+@dataclass(frozen=True)
+class SelfRow:
+    """Một câu của mốc tự so: điểm, số issue và mã issue (phải là 0 issue, D-18a)."""
+
+    lesson_id: str
+    segment_index: int
+    split: str
+    voiced: bool
+    overall: float
+    n_issues: int
+    codes: tuple[str, ...]
+
+
 def observation_from(
     case: EvalCase, clip: ClipInput, score: ProsodyScore | None, *, split: str | None = None
 ) -> Observation:
@@ -157,6 +170,44 @@ def observation_from(
         voiced=score is not None,
         overall=score.overall if score is not None else 0.0,
     )
+
+
+def self_observation(item: SelfInput, score: ProsodyScore | None) -> Observation:
+    """Mốc tự so (D-18a) thành Observation: không có case, mọi issue sẽ là FP."""
+    return Observation(
+        source="self",
+        split=item.split,
+        lesson_id=item.lesson_id,
+        segment_index=item.segment_index,
+        case_id=None,
+        clip=None,
+        error_type=None,
+        word_index=None,
+        also_present=(),
+        words=tuple(word.text for word in item.ref.words),
+        issues=tuple(score.issues) if score is not None else (),
+        align_ok=score.alignment.ok if score is not None else False,
+        voiced=score is not None,
+        overall=score.overall if score is not None else 0.0,
+    )
+
+
+def self_rows(observations: Sequence[Observation]) -> list[SelfRow]:
+    """Một dòng mỗi câu tự so, sắp theo (bài, câu)."""
+    rows = [
+        SelfRow(
+            lesson_id=obs.lesson_id,
+            segment_index=obs.segment_index,
+            split=obs.split or "?",
+            voiced=obs.voiced,
+            overall=obs.overall,
+            n_issues=len(obs.issues),
+            codes=tuple(str(issue["code"]) for issue in obs.issues),
+        )
+        for obs in observations
+        if obs.source == "self"
+    ]
+    return sorted(rows, key=lambda row: (row.lesson_id, row.segment_index))
 
 
 def _matches(

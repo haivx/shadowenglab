@@ -12,7 +12,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from evalkit.counting import LAYER_C_CODES, POOLED, CoverageRow, FpRow, RuleTally, wilson
+from evalkit.counting import (
+    LAYER_C_CODES,
+    POOLED,
+    CoverageRow,
+    FpRow,
+    RuleTally,
+    SelfRow,
+    wilson,
+)
 
 HELDOUT_LOCKED = "khoá (D-16)"
 GIT_TIMEOUT_S = 10.0
@@ -136,6 +144,38 @@ def _failure_section(failures: Mapping[tuple[str, str], tuple[int, int]]) -> lis
     return [*lines, ""]
 
 
+def _self_section(rows: Sequence[SelfRow]) -> list[str]:
+    lines = [
+        "## Mốc tự so (D-18a)",
+        "",
+        "Mỗi câu có case: lát vocal của chính bản gốc, đệm lặng, mã hoá webm/opus rồi chuẩn hoá "
+        "như một lượt tải lên. Mọi issue ở đây là FP.",
+        "",
+    ]
+    if not rows:
+        return [*lines, "Chưa có câu nào.", ""]
+    overalls = sorted(row.overall for row in rows)
+    middle = len(overalls) // 2
+    median = (
+        overalls[middle] if len(overalls) % 2 else (overalls[middle - 1] + overalls[middle]) / 2
+    )
+    lines += [
+        f"tự so: {len(rows)} câu, trung vị overall {median:.3f}, "
+        f"tổng issue {sum(row.n_issues for row in rows)}",
+        "",
+        "| bài | câu | split | overall | số issue | mã issue |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        overall = f"{row.overall:.3f}" if row.voiced else "không có tiếng"
+        codes = ", ".join(row.codes) if row.codes else "—"
+        lines.append(
+            f"| {_cell(row.lesson_id)} | {row.segment_index} | {_cell(row.split)} | "
+            f"{overall} | {row.n_issues} | {codes} |"
+        )
+    return [*lines, ""]
+
+
 def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
     lines = ["## Phủ", "", "Số case theo errorType x split (held-out chỉ đếm, không chấm).", ""]
     if not coverage:
@@ -159,6 +199,7 @@ def render_report(
     fps: Sequence[FpRow] = (),
     failures: Mapping[tuple[str, str], tuple[int, int]] | None = None,
     coverage: Sequence[CoverageRow] = (),
+    self_compare: Sequence[SelfRow] = (),
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ."""
     lines = [
@@ -180,6 +221,7 @@ def render_report(
         "",
         *_fp_section(fps),
         *_failure_section(failures or {}),
+        *_self_section(self_compare),
         *_coverage_section(coverage),
     ]
     return "\n".join(lines)

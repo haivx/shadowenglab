@@ -73,6 +73,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
 
     from audio_service import config
     from audio_service.scoring.features import FEAT_VERSION
+    from audio_service.scoring.scorer import score_prosody
     from audio_service.scoring.thresholds import SCORER_VERSION, THRESHOLDS_VERSION
 
     config.get_settings.cache_clear()
@@ -104,6 +105,15 @@ def _run(args: argparse.Namespace, root: Path) -> int:
                 continue
             clip = rescore.load_clip(case, lessons[case.lesson_id], clips_root, ref_cache)
             observations.append(counting.observation_from(case, clip, rescore.score_clip(clip)))
+        n_clips = len(observations)
+
+        # Mốc tự so (D-18a): mọi câu có case trong tập đang chấm, kể cả case chưa gắn clip.
+        keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in tuning]
+        for item in rescore.self_compare_inputs(lessons, keys, root, ref_cache):
+            score = None
+            if item.user is not None:
+                score = score_prosody(item.ref.features, item.user, item.ref.words)
+            observations.append(counting.self_observation(item, score))
     except (cases_mod.CaseError, rescore.DataError) as exc:
         return _usage_error(str(exc))
 
@@ -116,7 +126,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         git_sha=report_mod.git_sha(config.REPO_ROOT),
         generated_at=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         n_cases=len(every_case),
-        n_scored=len(observations),
+        n_scored=n_clips,
         n_untagged=untagged,
     )
     scored_ids = {obs.case_id for obs in observations if obs.case_id is not None}
@@ -126,13 +136,14 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         fps=counting.fp_rows(observations),
         failures=counting.align_failures(observations),
         coverage=counting.coverage_rows(every_case, scored_ids),
+        self_compare=counting.self_rows(observations),
     )
     write_report(report_path, text)
 
     pooled = tallies[counting.POOLED]
     print(
-        f"{len(observations)} clip tuning đã chấm, {untagged} case chưa gắn clip; "
-        f"TP {pooled.tp}, FP {pooled.fp}"
+        f"{n_clips} clip tuning đã chấm, {untagged} case chưa gắn clip, "
+        f"{len(observations) - n_clips} câu tự so; TP {pooled.tp}, FP {pooled.fp}"
     )
     print("EVAL OK")
     return 0

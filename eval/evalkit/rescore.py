@@ -11,18 +11,24 @@ chấm nhiều lần với aligner nhớ đệm mà không sửa file này.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import subprocess
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 import soundfile as sf
+from numpy import ndarray
 
 from audio_service import config
 from audio_service.config import InvalidIdError
 from audio_service.contracts_gen import EvalCase, Lesson
-from audio_service.lesson import audio_io, pipeline, store, vad
+from audio_service.lesson import audio_io, features, pipeline, store, vad
+from audio_service.scoring import ref_cache as disk_ref_cache
 from audio_service.scoring.align import Aligner, align
 from audio_service.scoring.features import ProsodyFeatures, prepare_features
 from audio_service.scoring.scorer import ProsodyScore, score_prosody
@@ -141,15 +147,21 @@ def load_clip(
     mono = audio_io.to_mono_16k(audio, sample_rate)
     user = prepare_features(mono) if vad.is_voiced(mono) else None
 
-    key = (lesson.id, case.segment_index)
+    ref = _ref_for(lesson, case.segment_index, ref_cache, case.case_id)
+    return ClipInput(case=case, ref=ref, user=user, words=[word.text for word in ref.words])
+
+
+def _ref_for(lesson: Lesson, index: int, ref_cache: RefCache, label: str) -> pipeline.RefProsody:
+    """Feature bản gốc của câu, tính một lần (chỉ đọc, `write_cache=False`); lỗi -> DataError."""
+    key = (lesson.id, index)
     ref = ref_cache.get(key)
     if ref is None:
         try:
-            ref = pipeline.ref_prosody_for_segment(lesson, case.segment_index, write_cache=False)
+            ref = pipeline.ref_prosody_for_segment(lesson, index, write_cache=False)
         except pipeline.StepError as exc:  # gồm RefAudioMissing
-            raise DataError(f"{case.case_id}: {exc.message}") from None
+            raise DataError(f"{label}: {exc.message}") from None
         ref_cache[key] = ref
-    return ClipInput(case=case, ref=ref, user=user, words=[word.text for word in ref.words])
+    return ref
 
 
 def score_clip(clip: ClipInput, *, aligner: Aligner = align) -> ProsodyScore | None:
@@ -157,3 +169,84 @@ def score_clip(clip: ClipInput, *, aligner: Aligner = align) -> ProsodyScore | N
     if clip.user is None:
         return None
     return score_prosody(clip.ref.features, clip.user, clip.ref.words, aligner=aligner)
+
+
+# --- mốc tự so (D-18a) -------------------------------------------------------------------------
+
+_SMOKE_MODULE = "smoke_score_for_eval"
+
+
+def _smoke_helpers() -> ModuleType:
+    """Nạp `scripts/smoke_score.py` một lần để dùng ĐÚNG các hàm đệm, mã hoá và chuẩn hoá của smoke.
+
+    Không chép lại `_encode_like_a_browser` / `_normalize_like_an_upload`: hai bản lệch nhau thì
+    mốc tự so không còn đo cùng đường với lượt tải lên thật.
+    """
+    module = sys.modules.get(_SMOKE_MODULE)
+    if module is not None:
+        return module
+    path = config.REPO_ROOT / "scripts" / "smoke_score.py"
+    spec = importlib.util.spec_from_file_location(_SMOKE_MODULE, path)
+    if spec is None or spec.loader is None:
+        raise DataError("không nạp được scripts/smoke_score.py cho mốc tự so")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[_SMOKE_MODULE] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@dataclass(frozen=True)
+class SelfInput:
+    """Một câu của mốc tự so: bản gốc và "người học" = chính lát vocal đã mã hoá rồi chuẩn hoá."""
+
+    lesson_id: str
+    segment_index: int
+    split: str
+    ref: pipeline.RefProsody
+    user: ProsodyFeatures | None
+
+
+def self_compare_inputs(
+    lessons: dict[str, Lesson],
+    keys: Sequence[tuple[str, int, str]],
+    workdir: Path,
+    ref_cache: RefCache,
+) -> list[SelfInput]:
+    """Mốc tự so cho mỗi (lessonId, segmentIndex, split) trong `keys` (theo thứ tự đã sắp).
+
+    "Người học" là lát vocal của câu, đệm lặng, mã hoá webm/opus vào `workdir` rồi chuẩn hoá như
+    một lượt tải lên. Cửa sổ lát tính y như `smoke_score._run`. Mỗi bài đọc stem một lần.
+    """
+    smoke = _smoke_helpers()
+    inputs: list[SelfInput] = []
+    vocals_by_lesson: dict[str, tuple[ndarray, float, float]] = {}
+    for lesson_id, index, split in sorted(set(keys)):
+        lesson = lessons[lesson_id]
+        label = f"mốc tự so {lesson_id}#{index}"
+        if lesson_id not in vocals_by_lesson:
+            try:
+                vocals16, base = pipeline.load_range_vocals16(lesson)
+            except pipeline.StepError as exc:
+                raise DataError(f"{label}: {exc.message}") from None
+            vocals_by_lesson[lesson_id] = (vocals16, base, pipeline._stem_span(lesson)[3])
+        vocals16, base, stop = vocals_by_lesson[lesson_id]
+        ref = _ref_for(lesson, index, ref_cache, label)
+
+        seg = lesson.segments[index]
+        window = disk_ref_cache.read_feature_window(lesson.id, index) or features.segment_window(
+            seg.start, seg.end, lesson.pad_ms, seg.end_extra_ms, lo=base, hi=stop
+        )
+        clip = audio_io.slice_seconds(
+            vocals16, audio_io.TARGET_SR, window[0] - base, window[1] - base
+        )
+        name = f"{lesson_id[-6:]}_{index:04d}"
+        try:
+            src = smoke._encode_like_a_browser(smoke._pad_like_a_recording(clip), workdir, name)
+            mono = smoke._normalize_like_an_upload(src, workdir, name)
+        except (subprocess.SubprocessError, OSError, ValueError, sf.LibsndfileError) as exc:
+            raise DataError(
+                f"{label}: không mã hoá/chuẩn hoá được ({type(exc).__name__})"
+            ) from None
+        user = prepare_features(mono) if vad.is_voiced(mono) else None
+        inputs.append(SelfInput(lesson_id, index, split, ref, user))
+    return inputs
