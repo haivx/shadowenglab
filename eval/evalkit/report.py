@@ -23,6 +23,7 @@ from evalkit.counting import (
 )
 
 HELDOUT_LOCKED = "khoá (D-16)"
+RULE_OFF = "TẮT (D-15)"
 GIT_TIMEOUT_S = 10.0
 
 
@@ -87,12 +88,15 @@ def _cell(text: object) -> str:
     return str(text).replace("|", "/").replace("\n", " ")
 
 
-def _summary_table(tallies: Mapping[str, RuleTally]) -> list[str]:
+def _summary_table(tallies: Mapping[str, RuleTally], enabled: Sequence[str]) -> list[str]:
     lines = [
         "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out |",
         "|---|---|---|---|---|---|",
     ]
     for code in (*LAYER_C_CODES, POOLED):
+        if code in LAYER_C_CODES and code not in enabled:
+            lines.append(f"| {code} | " + " | ".join([RULE_OFF] * 5) + " |")
+            continue
         row = tallies.get(code, RuleTally())
         lines.append(
             f"| {code} | {row.tp} | {row.fp} | {_precision_cell(row)} | "
@@ -200,8 +204,17 @@ def render_report(
     failures: Mapping[tuple[str, str], tuple[int, int]] | None = None,
     coverage: Sequence[CoverageRow] = (),
     self_compare: Sequence[SelfRow] = (),
+    enabled: Sequence[str] | None = None,
 ) -> str:
-    """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ."""
+    """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
+
+    `enabled`: mã các rule đang bật; mặc định `enabled_codes()` của engine (D-15). Rule tắt hiện
+    `TẮT (D-15)` thay cho số.
+    """
+    if enabled is None:
+        from audio_service.rules.engine import enabled_codes
+
+        enabled = enabled_codes()
     lines = [
         "# Báo cáo eval nội bộ (Phase 4)",
         "",
@@ -217,7 +230,7 @@ def render_report(
         "P = TP / (TP + FP); R = số case có TP / số case có mã chính này; "
         "khoảng tin cậy Wilson 95 %.",
         "",
-        *_summary_table(tallies),
+        *_summary_table(tallies, enabled),
         "",
         *_fp_section(fps),
         *_failure_section(failures or {}),
