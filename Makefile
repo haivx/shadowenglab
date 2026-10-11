@@ -42,12 +42,12 @@ lint:
 	pnpm exec eslint .
 	pnpm exec prettier --check .
 	pnpm --filter @shadowenglab/contracts exec tsc --noEmit -p tsconfig.json
-	cd services/audio && uv run --frozen ruff check --config pyproject.toml . ../../scripts
-	cd services/audio && uv run --frozen ruff format --check --config pyproject.toml . ../../scripts
+	cd services/audio && uv run --frozen ruff check --config pyproject.toml . ../../scripts ../../eval
+	cd services/audio && uv run --frozen ruff format --check --config pyproject.toml . ../../scripts ../../eval
 
-# Stub: Phase 4 (EVL-02) hiện thực eval/analyze.py.
+# Chấm lại bộ eval tuning bằng scorer hiện tại → eval/report.md (D-06, D-16; chỉ đọc DATA_DIR).
 eval:
-	@echo "make eval: stub — Phase 4 (EVL-02) sẽ chạy eval/analyze.py → eval/report.md"
+	uv run --project services/audio --frozen python eval/analyze.py
 
 # Chạy pipeline tạo bài trên video smoke (hoặc URL=...). START/END/BUDGET là tuỳ chọn.
 smoke:
