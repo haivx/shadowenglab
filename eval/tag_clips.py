@@ -7,6 +7,9 @@ Lệnh (cờ chung: `--cases eval/cases.jsonl`, `--data-dir PATH`):
 - `words [--lesson L [--segment N]]`: xem bài, câu và chỉ số từ (từ trùng chữ được đánh dấu).
 - `add --lesson L --segment N --error TYPE [--word I] | --correct [--note ...]`: ghi thêm một case
   VÀO KỊCH BẢN, trước khi nói (D-02). Dấu nhận diện câu lấy từ bài thật (D-05).
+- `also --case C --error TYPE [--word I] [--holdout-log PATH]`: thêm một mục `alsoPresent` (lỗi có
+  thật Liam nghe thấy ngoài kịch bản, D-09) vào case có sẵn. Case tuning: bất kỳ lúc nào; case
+  held-out: chỉ khi `eval/holdout_log.jsonl` chưa có dòng nào, sau lần mở đầu thì thoát 2.
 - `split [--dry-run]`: chốt `tuning` / `heldout` một lần (D-12); chạy lại không đổi gì đã ghi.
 - `tag [--yes]`: ghép clip đã lưu bằng nút "Lưu clip cho eval" với case đang chờ (D-01). Hỏi từng
   clip (số, Enter = case chờ đầu, `s` bỏ qua, `q` dừng); `--yes` luôn lấy case chờ đầu theo file.
@@ -68,6 +71,16 @@ def _build_parser() -> argparse.ArgumentParser:
     add.add_argument("--word", type=int, help="chỉ số từ (bắt buộc với lỗi theo từ)")
     add.add_argument("--note", help="ghi chú tự do")
 
+    also = commands.add_parser(
+        "also", parents=[common], help="thêm alsoPresent (lỗi có thật ngoài kịch bản) vào một case"
+    )
+    also.add_argument("--case", required=True, help="caseId, ví dụ c0003")
+    also.add_argument("--error", required=True, choices=ERROR_TYPES, help="loại lỗi nghe thấy thêm")
+    also.add_argument("--word", type=int, help="chỉ số từ (bắt buộc với lỗi theo từ)")
+    also.add_argument(
+        "--holdout-log", type=Path, help="holdout_log.jsonl (mặc định: eval/holdout_log.jsonl)"
+    )
+
     split = commands.add_parser("split", parents=[common], help="chốt tuning/held-out một lần")
     split.add_argument("--dry-run", action="store_true", help="chỉ in, không ghi")
 
@@ -90,7 +103,7 @@ class _Toolkit:
     """Các module cần DATA_DIR đã đặt xong: nạp sau khi biến môi trường được đặt (như analyze)."""
 
     def __init__(self) -> None:
-        from evalkit import cases, rescore
+        from evalkit import cases, holdout, rescore
 
         from audio_service import config
         from audio_service.lesson import store
@@ -98,6 +111,7 @@ class _Toolkit:
 
         config.get_settings.cache_clear()
         self.cases = cases
+        self.holdout = holdout
         self.rescore = rescore
         self.config = config
         self.store = store
@@ -146,6 +160,23 @@ def _describe(kit: _Toolkit, case: Any, words: Sequence[str] | None = None) -> s
 # --- add ---------------------------------------------------------------------------------------
 
 
+def _check_error_word(kit: _Toolkit, error: str, word: int | None, words: Sequence[str]) -> None:
+    """errorType và `--word` phải khớp nhau và khớp câu (04-01 mục A5, B1-a); dùng cho add, also."""
+    if error in kit.cases.WORD_LEVEL_TYPES and word is None:
+        raise kit.cases.CaseError(f"errorType {error} bắt buộc có --word")
+    if error in kit.cases.SENTENCE_LEVEL_TYPES and word is not None:
+        raise kit.cases.CaseError(f"errorType {error} ở mức câu, không có --word")
+    if word is None:
+        return
+    if word >= len(words):
+        raise kit.cases.CaseError(f"--word {word} ngoài câu ({len(words)} từ)")
+    if error == "wrong_stress" and words.count(words[word]) > 1:
+        raise kit.cases.CaseError(
+            f'wrong_stress: chữ "{words[word]}" xuất hiện hơn một lần trong câu; '
+            "không đối chiếu được từ bị nhấn sai theo chữ (B1-a)"
+        )
+
+
 def _build_case(kit: _Toolkit, args: argparse.Namespace, existing: Sequence[Any]) -> Any:
     from audio_service.contracts_gen import EvalCase
 
@@ -165,18 +196,7 @@ def _build_case(kit: _Toolkit, args: argparse.Namespace, existing: Sequence[Any]
         )
 
     if args.error is not None:
-        if args.error in kit.cases.WORD_LEVEL_TYPES and args.word is None:
-            raise kit.cases.CaseError(f"errorType {args.error} bắt buộc có --word")
-        if args.error in kit.cases.SENTENCE_LEVEL_TYPES and args.word is not None:
-            raise kit.cases.CaseError(f"errorType {args.error} ở mức câu, không có --word")
-    if args.word is not None:
-        if args.word >= len(words):
-            raise kit.cases.CaseError(f"--word {args.word} ngoài câu ({len(words)} từ)")
-        if args.error == "wrong_stress" and words.count(words[args.word]) > 1:
-            raise kit.cases.CaseError(
-                f'wrong_stress: chữ "{words[args.word]}" xuất hiện hơn một lần trong câu; '
-                "không đối chiếu được từ bị nhấn sai theo chữ (B1-a)"
-            )
+        _check_error_word(kit, args.error, args.word, words)
 
     row: dict[str, Any] = {
         "caseId": kit.cases.next_case_id(existing),
@@ -200,6 +220,52 @@ def _cmd_add(kit: _Toolkit, args: argparse.Namespace, path: Path) -> int:
     case = _build_case(kit, args, existing)
     kit.cases.write_cases(path, [*existing, case])
     print(kit.cases.dump_case(case))
+    return 0
+
+
+# --- also (D-09) -------------------------------------------------------------------------------
+
+
+def _cmd_also(kit: _Toolkit, args: argparse.Namespace, path: Path) -> int:
+    """Thêm một mục `alsoPresent` (lỗi có thật ngoài kịch bản) vào một case có sẵn (D-09).
+
+    Case tuning: bất kỳ lúc nào. Case held-out: chỉ khi `holdout_log.jsonl` chưa có dòng nào; sau
+    lần mở đầu nhãn held-out bị đóng băng nên công cụ từ chối thay vì bỏ qua.
+    """
+    from audio_service.contracts_gen import EvalAlsoPresent
+
+    if args.word is not None and args.word < 0:
+        raise kit.cases.CaseError("--word phải >= 0")
+    cases = _load(kit, path)
+    position = next((i for i, case in enumerate(cases) if case.case_id == args.case), None)
+    if position is None:
+        raise kit.cases.CaseError(f"không có case {args.case} trong {path.name}")
+    case = cases[position]
+    log_path = args.holdout_log if args.holdout_log is not None else kit.holdout.HOLDOUT_LOG_PATH
+    if case.split == "heldout" and kit.holdout.is_opened(log_path):
+        raise kit.cases.CaseError(
+            f"{case.case_id}: case held-out đã bị đóng băng từ lần mở đầu, không thêm "
+            "alsoPresent được nữa (D-09)"
+        )
+
+    segment = _lesson(kit, case.lesson_id, case.segment_index).segments[case.segment_index]
+    mismatch = kit.cases.stamp_mismatch(case, segment)
+    if mismatch is not None:
+        raise kit.rescore.DataError(
+            f"{case.case_id}: câu đã đổi so với lúc viết case ({mismatch}) (D-05)"
+        )
+    _check_error_word(kit, args.error, args.word, [word.text for word in segment.words])
+
+    entry = EvalAlsoPresent.model_validate(
+        {"errorType": args.error, **({} if args.word is None else {"wordIndex": args.word})}
+    )
+    existing = list(case.also_present or [])
+    if any((item.error_type.root, item.word_index) == (args.error, args.word) for item in existing):
+        print(f"{case.case_id} đã có alsoPresent này; không thêm")
+        return 0
+    updated = case.model_copy(update={"also_present": [*existing, entry]})
+    kit.cases.write_cases(path, [*cases[:position], updated, *cases[position + 1 :]])
+    print(kit.cases.dump_case(updated))
     return 0
 
 
@@ -479,6 +545,8 @@ def _run(args: argparse.Namespace, root: Path, ask: Ask) -> int:
     try:
         if args.command == "add":
             return _cmd_add(kit, args, path)
+        if args.command == "also":
+            return _cmd_also(kit, args, path)
         if args.command == "split":
             return _cmd_split(kit, args, path)
         if args.command == "words":
@@ -486,7 +554,7 @@ def _run(args: argparse.Namespace, root: Path, ask: Ask) -> int:
         if args.command == "check":
             return _cmd_check(kit, args, path)
         return _cmd_tag(kit, args, path, ask)
-    except (kit.cases.CaseError, kit.rescore.DataError) as exc:
+    except (kit.cases.CaseError, kit.rescore.DataError, kit.holdout.HoldoutLogError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 

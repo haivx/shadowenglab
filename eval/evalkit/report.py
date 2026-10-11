@@ -24,6 +24,7 @@ from evalkit.counting import (
     rule_status,
     wilson,
 )
+from evalkit.holdout import HoldoutEntry
 
 HELDOUT_LOCKED = "khoá (D-16)"
 RULE_OFF = "TẮT (D-15)"
@@ -34,7 +35,7 @@ GIT_TIMEOUT_S = 10.0
 
 @dataclass(frozen=True)
 class RunInfo:
-    """Định danh một lần chạy: chế độ, versions, git, số case."""
+    """Định danh một lần chạy: chế độ (chuỗi hiển thị nguyên văn), versions, git, số case."""
 
     mode: str
     thresholds_version: str
@@ -113,12 +114,13 @@ def _summary_table(
     ô held-out ghi "khoá" và trạng thái là "—".
     """
     lines = [
-        "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out | Trạng thái |",
-        "|---|---|---|---|---|---|---|",
+        "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out P [CI95] (n) "
+        "| Held-out R (k/N) [CI95] | Trạng thái |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for code in (*LAYER_C_CODES, POOLED):
         if code in LAYER_C_CODES and code not in enabled:
-            lines.append(f"| {code} | " + " | ".join([RULE_OFF] * 6) + " |")
+            lines.append(f"| {code} | " + " | ".join([RULE_OFF] * 7) + " |")
             continue
         if code == POOLED:
             row = pooled(tallies, enabled)
@@ -127,10 +129,11 @@ def _summary_table(
             row = tallies.get(code, RuleTally())
             held = heldout.get(code, RuleTally()) if heldout is not None else None
         held_cell = HELDOUT_LOCKED if held is None else _precision_cell(held)
+        held_recall = HELDOUT_LOCKED if held is None else _recall_cell(held)
         status = "—" if held is None else rule_status(held, True)
         lines.append(
             f"| {code} | {row.tp} | {row.fp} | {_tuning_cell(row)} | "
-            f"{_recall_cell(row)} | {held_cell} | {status} |"
+            f"{_recall_cell(row)} | {held_cell} | {held_recall} | {status} |"
         )
     return lines
 
@@ -211,7 +214,12 @@ def _self_section(rows: Sequence[SelfRow]) -> list[str]:
 
 
 def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
-    lines = ["## Phủ", "", "Số case theo errorType x split (held-out chỉ đếm, không chấm).", ""]
+    lines = [
+        "## Phủ",
+        "",
+        "Số case theo errorType x split (held-out chỉ được chấm khi mở bằng `--holdout`).",
+        "",
+    ]
     if not coverage:
         return [*lines, "Chưa có case nào.", ""]
     lines += [
@@ -226,6 +234,34 @@ def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
     return [*lines, ""]
 
 
+def _holdout_log_section(
+    entries: Sequence[HoldoutEntry], added_after_first: Sequence[str] | None
+) -> list[str]:
+    """Toàn bộ log mở held-out, đúng thứ tự trong file (D-16), và các case held-out thêm sau lần
+    mở đầu (D-09, D-12) khi đã biết."""
+    lines = [
+        "## Nhật ký mở held-out (D-16)",
+        "",
+        "Mỗi lần `make eval HOLDOUT=1` chấm xong thêm một dòng vào `eval/holdout_log.jsonl` "
+        "(commit, chỉ thêm). Nhãn held-out bị đóng băng theo dòng đầu (D-09).",
+        "",
+        "| openedAt | thresholdsVersion | scorerVersion | featVersion | gitSha "
+        "| số case held-out |",
+        "|---|---|---|---|---|---|",
+    ]
+    for entry in entries:
+        lines.append(
+            f"| {_cell(entry.opened_at)} | {_cell(entry.thresholds_version)} | "
+            f"{_cell(entry.scorer_version)} | {_cell(entry.feat_version)} | "
+            f"{_cell(entry.git_sha)} | {len(entry.digests)} |"
+        )
+    lines.append("")
+    if added_after_first is not None:
+        listed = ", ".join(_cell(case_id) for case_id in added_after_first) or "không có"
+        lines += ["### Case held-out thêm sau lần mở đầu", "", listed, ""]
+    return lines
+
+
 def render_report(
     info: RunInfo,
     tallies: Mapping[str, RuleTally],
@@ -237,13 +273,17 @@ def render_report(
     enabled: Sequence[str] | None = None,
     heldout: Mapping[str, RuleTally] | None = None,
     gate_message: str | None = None,
+    holdout_log: Sequence[HoldoutEntry] | None = None,
+    added_after_first: Sequence[str] | None = None,
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
 
     `enabled`: mã các rule đang bật; mặc định `enabled_codes()` của engine (D-15). Rule tắt hiện
     `TẮT (D-15)` thay cho số. `heldout`: số held-out theo mã (chỉ khi chạy có held-out); thiếu thì
     cột trạng thái là "—". `gate_message`: kết quả `analyze.verdict` khi chạy có held-out; thiếu thì
-    dòng gate ghi "không áp dụng (chỉ tuning)".
+    dòng gate ghi "không áp dụng (chỉ tuning)". `holdout_log`: toàn bộ log mở held-out, chỉ có khi
+    chạy `--holdout` (D-16); thiếu thì không in mục nhật ký. `added_after_first`: caseId held-out
+    không có ở dòng log đầu (mục con "thêm sau lần mở đầu", rỗng thì ghi "không có").
     """
     if enabled is None:
         from audio_service.rules.engine import enabled_codes
@@ -252,14 +292,14 @@ def render_report(
     lines = [
         "# Báo cáo eval nội bộ (Phase 4)",
         "",
-        f"- Chế độ: {info.mode} (held-out khoá, D-16)",
+        f"- Chế độ: {info.mode}",
         f"- THRESHOLDS_VERSION `{info.thresholds_version}` · SCORER_VERSION "
         f"`{info.scorer_version}` · FEAT_VERSION `{info.feat_version}`",
         f"- Git: `{info.git_sha}` · sinh lúc {info.generated_at}",
-        f"- Case: {info.n_cases} trong file; tuning đã chấm {info.n_scored}, "
+        f"- Case: {info.n_cases} trong file; đã chấm {info.n_scored} clip, "
         f"chưa gắn clip {info.n_untagged}",
         "",
-        "## Tóm tắt theo rule (tuning)",
+        "## Tóm tắt theo rule",
         "",
         GATE_NOT_APPLIED if gate_message is None else f"gate: {gate_message}",
         "",
@@ -276,4 +316,6 @@ def render_report(
         *_self_section(self_compare),
         *_coverage_section(coverage),
     ]
+    if holdout_log is not None:
+        lines += _holdout_log_section(holdout_log, added_after_first)
     return "\n".join(lines)
