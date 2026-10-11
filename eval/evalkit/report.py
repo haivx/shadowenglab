@@ -234,8 +234,11 @@ def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
     return [*lines, ""]
 
 
-def _holdout_log_section(entries: Sequence[HoldoutEntry]) -> list[str]:
-    """Toàn bộ log mở held-out, đúng thứ tự trong file (D-16)."""
+def _holdout_log_section(
+    entries: Sequence[HoldoutEntry], added_after_first: Sequence[str] | None
+) -> list[str]:
+    """Toàn bộ log mở held-out, đúng thứ tự trong file (D-16), và các case held-out thêm sau lần
+    mở đầu (D-09, D-12) khi đã biết."""
     lines = [
         "## Nhật ký mở held-out (D-16)",
         "",
@@ -252,7 +255,11 @@ def _holdout_log_section(entries: Sequence[HoldoutEntry]) -> list[str]:
             f"{_cell(entry.scorer_version)} | {_cell(entry.feat_version)} | "
             f"{_cell(entry.git_sha)} | {len(entry.digests)} |"
         )
-    return [*lines, ""]
+    lines.append("")
+    if added_after_first is not None:
+        listed = ", ".join(_cell(case_id) for case_id in added_after_first) or "không có"
+        lines += ["### Case held-out thêm sau lần mở đầu", "", listed, ""]
+    return lines
 
 
 def render_report(
@@ -267,6 +274,7 @@ def render_report(
     heldout: Mapping[str, RuleTally] | None = None,
     gate_message: str | None = None,
     holdout_log: Sequence[HoldoutEntry] | None = None,
+    added_after_first: Sequence[str] | None = None,
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
 
@@ -274,7 +282,8 @@ def render_report(
     `TẮT (D-15)` thay cho số. `heldout`: số held-out theo mã (chỉ khi chạy có held-out); thiếu thì
     cột trạng thái là "—". `gate_message`: kết quả `analyze.verdict` khi chạy có held-out; thiếu thì
     dòng gate ghi "không áp dụng (chỉ tuning)". `holdout_log`: toàn bộ log mở held-out, chỉ có khi
-    chạy `--holdout` (D-16); thiếu thì không in mục nhật ký.
+    chạy `--holdout` (D-16); thiếu thì không in mục nhật ký. `added_after_first`: caseId held-out
+    không có ở dòng log đầu (mục con "thêm sau lần mở đầu", rỗng thì ghi "không có").
     """
     if enabled is None:
         from audio_service.rules.engine import enabled_codes
@@ -308,5 +317,5 @@ def render_report(
         *_coverage_section(coverage),
     ]
     if holdout_log is not None:
-        lines += _holdout_log_section(holdout_log)
+        lines += _holdout_log_section(holdout_log, added_after_first)
     return "\n".join(lines)

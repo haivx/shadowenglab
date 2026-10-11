@@ -29,6 +29,10 @@ class HoldoutLogError(Exception):
     """Log mở held-out hỏng (dòng không phải JSON hay thiếu khoá); thoát 2."""
 
 
+class HoldoutViolation(Exception):
+    """Nhãn hoặc split đã đóng băng ở lần mở đầu bị đổi (D-09); thoát 2, không chấm."""
+
+
 @dataclass(frozen=True)
 class HoldoutEntry:
     """Một lần mở held-out: lúc nào, bản nào, và nhãn lúc đó (04-01 mục E2)."""
@@ -159,3 +163,38 @@ def append_entry(path: Path, entry: HoldoutEntry) -> None:
         os.replace(part, path)
     finally:
         part.unlink(missing_ok=True)
+
+
+def check_frozen(cases: Sequence[EvalCase], log: Sequence[HoldoutEntry]) -> list[str]:
+    """So nhãn hiện tại với dòng log ĐẦU (04-01 mục E3, D-09, D-12).
+
+    Log rỗng -> `[]` (chưa mở lần nào, mọi thứ còn sửa được). Ngược lại: case có ở `splits` của dòng
+    đầu mà biến mất hoặc đổi split, hoặc case có ở `digests` mà digest khác -> `HoldoutViolation`
+    nêu caseId và D-09. Trả về caseId của các case held-out KHÔNG có ở dòng đầu (thêm sau lần mở
+    đầu); những case này vẫn được chấm nhưng report đánh dấu riêng.
+    """
+    if not log:
+        return []
+    first = log[0]
+    current = {case.case_id: case for case in cases}
+    for case_id, side in sorted(first.splits.items()):
+        case = current.get(case_id)
+        if case is None:
+            raise HoldoutViolation(
+                f"{case_id}: có ở lần mở held-out đầu ({side}) nhưng không còn trong cases.jsonl; "
+                "không được xoá case sau lần mở đầu (D-09)"
+            )
+        if str(case.split) != side:
+            raise HoldoutViolation(
+                f"{case_id}: split đổi từ {side} sang {case.split} sau lần mở held-out đầu (D-09)"
+            )
+    for case_id, digest in sorted(first.digests.items()):
+        case = current.get(case_id)
+        if case is None or case_digest(case) != digest:
+            raise HoldoutViolation(
+                f"{case_id}: nhãn held-out đã đổi sau lần mở đầu (D-09); "
+                "khôi phục đúng nhãn cũ rồi chạy lại"
+            )
+    return [
+        case.case_id for case in cases if case.split == HELDOUT and case.case_id not in first.splits
+    ]

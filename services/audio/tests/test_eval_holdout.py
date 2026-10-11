@@ -28,7 +28,7 @@ from eval_synth import (
 from synth import synth_sentence
 
 from audio_service.config import REPO_ROOT, get_settings
-from audio_service.contracts_gen import EvalCase
+from audio_service.contracts_gen import EvalAlsoPresent, EvalCase
 
 LOG_KEYS = {
     "openedAt",
@@ -517,7 +517,7 @@ def test_check_frozen_lists_heldout_cases_that_are_not_in_the_first_line(
         pytest.param(lambda c: c.model_copy(update={"clip": "x_0001_01"}), id="clip"),
         pytest.param(
             lambda c: c.model_copy(
-                update={"also_present": [{"error_type": "flat", "word_index": None}]}
+                update={"also_present": [EvalAlsoPresent.model_validate({"errorType": "flat"})]}
             ),
             id="alsoPresent",
         ),

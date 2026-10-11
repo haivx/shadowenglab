@@ -11,7 +11,7 @@ HOLDOUT ?=
 # Bản GSD mà .planning/ được viết cho; `make gsd` cài lại đúng bản này vào .claude/ (không commit).
 GSD_VERSION ?= 1.16.0
 
-.PHONY: setup dev dev-api dev-web dev-eval test lint eval eval-tag smoke smoke-jobs smoke-score contracts contracts-check gsd relpaths
+.PHONY: setup dev dev-api dev-web dev-eval test lint eval eval-tag eval-sweep smoke smoke-jobs smoke-score contracts contracts-check gsd relpaths
 
 # Kiểm tra system dependency (chỉ hướng dẫn, D-25), cài từ lockfile đã duyệt, tải/kiểm tra model.
 setup:
@@ -55,6 +55,11 @@ eval:
 # Ghép clip đã lưu bằng "Lưu clip cho eval" với case đã viết trước (Phase 4, D-01); hỏi từng clip. Các lệnh khác: eval/tag_clips.py words|add|split|check.
 eval-tag:
 	uv run --project services/audio --frozen python eval/tag_clips.py tag
+
+# Quét từng ngưỡng trên tập tuning và in đề xuất (D-13): không đọc held-out, không ghi thresholds.py.
+# Liam chọn giá trị rồi tự sửa thresholds.py. PARAM= là tuỳ chọn (một tên tham số); bỏ trống = cả lưới.
+eval-sweep:
+	uv run --project services/audio --frozen python eval/sweep.py $(if $(PARAM),--param $(PARAM))
 
 # Chạy pipeline tạo bài trên video smoke (hoặc URL=...). START/END/BUDGET là tuỳ chọn.
 smoke:

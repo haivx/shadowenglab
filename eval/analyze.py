@@ -163,8 +163,11 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     try:
         every_case = cases_mod.load_cases(cases_path)
         cases_mod.validate_cases(every_case)
+        added_later: list[str] = []
         if opened:
-            holdout_mod.read_log(log_path)  # log hỏng thì thoát 2 trước khi chấm (T-04-16)
+            # Log hỏng (T-04-16) hoặc nhãn đã đóng băng bị đổi (T-04-14, D-09): thoát 2 TRƯỚC khi
+            # chấm, không ghi log, không ghi report.
+            added_later = holdout_mod.check_frozen(every_case, holdout_mod.read_log(log_path))
         scoring = cases_mod.select_split(every_case, include_heldout=opened)
         lessons = rescore.load_lessons(scoring)
         rescore.check_identity(scoring, lessons)
@@ -188,7 +191,12 @@ def _run(args: argparse.Namespace, root: Path) -> int:
             if item.user is not None:
                 score = score_prosody(item.ref.features, item.user, item.ref.words)
             observations.append(counting.self_observation(item, score))
-    except (cases_mod.CaseError, rescore.DataError, holdout_mod.HoldoutLogError) as exc:
+    except (
+        cases_mod.CaseError,
+        rescore.DataError,
+        holdout_mod.HoldoutLogError,
+        holdout_mod.HoldoutViolation,
+    ) as exc:
         return _usage_error(str(exc))
 
     by_split = {
@@ -239,6 +247,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         heldout=by_split.get("heldout"),
         gate_message=message if opened else None,
         holdout_log=log_entries,
+        added_after_first=added_later if opened else None,
     )
     write_report(report_path, text)
 
