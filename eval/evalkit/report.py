@@ -26,11 +26,13 @@ from evalkit.counting import (
 )
 from evalkit.holdout import HoldoutEntry
 from evalkit.stats import (
+    CROSS_MEDIAN_RISK,
     RETEST_METRICS,
     RETEST_MIN_GROUPS_FOR_ICC,
     Determinism,
     RetestGroup,
     RetestSummary,
+    TotalsReport,
 )
 
 HELDOUT_LOCKED = "khoá (D-16)"
@@ -285,6 +287,55 @@ def _retest_section(retest: RetestSummary, determinism: Determinism | None) -> l
     return lines
 
 
+SOURCE_LABELS = {"self": "tự so", "correct": "correct", "error": "lỗi"}
+CROSS_SENTENCES_NEEDED = "cần ≥ 2 câu"
+CROSS_RISK = "rủi ro D-a"
+
+
+def _totals_section(totals: TotalsReport) -> list[str]:
+    lines = [
+        "## Điểm tổng (D-17, chỉ đo)",
+        "",
+        "Chỉ đo: công thức D-04 giữ nguyên, trọng số không đổi; Phase 8 hiệu chỉnh. "
+        "Cặp chéo = bản ghi (mốc tự so) của câu i chấm với bản gốc của câu kế tiếp trong bài "
+        f"(vòng); trung vị chéo >= {CROSS_MEDIAN_RISK} là `{CROSS_RISK}` (03-01 mục D-a).",
+        "",
+        "| bài | số cặp chéo | trung vị chéo | căn ok | ghi chú |",
+        "|---|---|---|---|---|",
+    ]
+    for row in totals.cross:
+        if row.n_sentences < 2:
+            lines.append(f"| {_cell(row.lesson_id)} | 0 | — | — | {CROSS_SENTENCES_NEEDED} |")
+        elif row.median is None:
+            lines.append(f"| {_cell(row.lesson_id)} | 0 | — | — | không có cặp chéo nào |")
+        else:
+            share = 100.0 * row.align_ok / row.n_pairs
+            lines.append(
+                f"| {_cell(row.lesson_id)} | {row.n_pairs} | {row.median:.3f} | "
+                f"{row.align_ok}/{row.n_pairs} ({share:.0f} %) | "
+                f"{CROSS_RISK if row.risky else ''} |"
+            )
+    lines += [
+        "",
+        "Phân bố overall theo nguồn (n, trung vị, p25, p75; clip không có tiếng bị bỏ):",
+        "",
+        "| bài | nguồn | n | trung vị | p25 | p75 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for dist in totals.distribution:
+        if dist.summary is None:
+            lines.append(
+                f"| {_cell(dist.lesson_id)} | {SOURCE_LABELS[dist.source]} | 0 | — | — | — |"
+            )
+            continue
+        n, median, p25, p75 = dist.summary
+        lines.append(
+            f"| {_cell(dist.lesson_id)} | {SOURCE_LABELS[dist.source]} | {n} | {median:.3f} | "
+            f"{p25:.3f} | {p75:.3f} |"
+        )
+    return [*lines, ""]
+
+
 def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
     lines = [
         "## Phủ",
@@ -349,6 +400,7 @@ def render_report(
     added_after_first: Sequence[str] | None = None,
     retest: RetestSummary | None = None,
     determinism: Determinism | None = None,
+    totals: TotalsReport | None = None,
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
 
@@ -359,7 +411,7 @@ def render_report(
     chạy `--holdout` (D-16); thiếu thì không in mục nhật ký. `added_after_first`: caseId held-out
     không có ở dòng log đầu (mục con "thêm sau lần mở đầu", rỗng thì ghi "không có"). `retest` và
     `determinism` (04-07, D-19): mục "Test-retest" và dòng "Tất định"; thiếu `retest` thì không in
-    mục.
+    mục. `totals` (04-07, D-17): mục "Điểm tổng (D-17, chỉ đo)", thiếu thì không in.
     """
     if enabled is None:
         from audio_service.rules.engine import enabled_codes
@@ -393,6 +445,8 @@ def render_report(
     ]
     if retest is not None:
         lines += _retest_section(retest, determinism)
+    if totals is not None:
+        lines += _totals_section(totals)
     lines += _coverage_section(coverage)
     if holdout_log is not None:
         lines += _holdout_log_section(holdout_log, added_after_first)

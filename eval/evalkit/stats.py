@@ -153,12 +153,40 @@ def build_retest(clips: Iterable[ScoredClip]) -> RetestSummary:
             )
         )
     mean_jaccard = math.fsum(row.jaccard for row in rows) / len(rows) if rows else None
+    icc = icc1([row.overalls for row in rows]) if len(rows) >= RETEST_MIN_GROUPS_FOR_ICC else None
     return RetestSummary(
         groups=tuple(rows),
         pooled={metric: pooled_sd(values[metric]) for metric in RETEST_METRICS},
         mean_jaccard=mean_jaccard,
-        icc=None,
+        icc=icc,
     )
+
+
+def icc1(groups: Sequence[Sequence[float]]) -> float | None:
+    """ICC(1,1) một chiều cho nhóm không cân (04-01 mục J).
+
+    MSB = SSB / (g - 1), MSW = SSW / (N - g), n0 = (N - sum(n_i^2) / N) / (g - 1) và
+    ICC = (MSB - MSW) / (MSB + (n0 - 1) * MSW). None khi g < 2, N - g < 1 (mọi nhóm một phần tử)
+    hoặc mẫu số 0.
+    """
+    g = len(groups)
+    total = sum(len(group) for group in groups)
+    if g < 2 or total - g < 1:
+        return None
+    grand = math.fsum(value for group in groups for value in group) / total
+    ssb = 0.0
+    ssw = 0.0
+    for group in groups:
+        mean = math.fsum(group) / len(group)
+        ssb += len(group) * (mean - grand) ** 2
+        ssw += math.fsum((value - mean) ** 2 for value in group)
+    msb = ssb / (g - 1)
+    msw = ssw / (total - g)
+    n0 = (total - sum(len(group) ** 2 for group in groups) / total) / (g - 1)
+    denominator = msb + (n0 - 1.0) * msw
+    if denominator == 0.0:
+        return None
+    return (msb - msw) / denominator
 
 
 # --- kiểm tất định -----------------------------------------------------------------------------
@@ -189,3 +217,111 @@ class Determinism:
     @property
     def ok(self) -> bool:
         return not self.failed
+
+
+# --- đo điểm tổng (D-17, chỉ đo) ----------------------------------------------------------------
+
+# Trung vị overall chéo câu từ ngưỡng này trở lên là rủi ro D-a (03-01 mục D-a); cùng giá trị với
+# `CROSS_MEDIAN_MAX` của scripts/smoke_score.py (có test so khớp hai bên).
+CROSS_MEDIAN_RISK = 0.6
+DIST_SOURCES = ("self", "correct", "error")
+
+
+def distribution(values: Iterable[float]) -> tuple[int, float, float, float] | None:
+    """(n, trung vị, p25, p75) với phân vị nội suy tuyến tính; rỗng -> None."""
+    ordered = sorted(values)
+    n = len(ordered)
+    if n == 0:
+        return None
+
+    def quantile(q: float) -> float:
+        position = (n - 1) * q
+        low = math.floor(position)
+        high = math.ceil(position)
+        return ordered[low] + (ordered[high] - ordered[low]) * (position - low)
+
+    return n, quantile(0.5), quantile(0.25), quantile(0.75)
+
+
+@dataclass(frozen=True)
+class CrossPair:
+    """Bản ghi (tự so) của câu `segment_index` chấm với bản gốc của câu `other_index` (cùng bài)."""
+
+    lesson_id: str
+    segment_index: int
+    other_index: int
+    overall: float
+    align_ok: bool
+
+
+@dataclass(frozen=True)
+class CrossRow:
+    """Một bài: số câu có mốc tự so, số cặp chéo, trung vị overall chéo, số cặp căn ok."""
+
+    lesson_id: str
+    n_sentences: int
+    n_pairs: int
+    median: float | None
+    align_ok: int
+
+    @property
+    def risky(self) -> bool:
+        """Trung vị chéo >= `CROSS_MEDIAN_RISK` (rủi ro D-a)."""
+        return self.median is not None and self.median >= CROSS_MEDIAN_RISK
+
+
+def cross_rows(sentences: Mapping[str, int], pairs: Iterable[CrossPair]) -> list[CrossRow]:
+    """Một dòng mỗi bài trong `sentences` (lessonId -> số câu có mốc tự so), sắp theo bài."""
+    by_lesson: dict[str, list[CrossPair]] = {}
+    for pair in pairs:
+        by_lesson.setdefault(pair.lesson_id, []).append(pair)
+    rows: list[CrossRow] = []
+    for lesson_id in sorted(sentences):
+        group = by_lesson.get(lesson_id, [])
+        summary = distribution(pair.overall for pair in group)
+        rows.append(
+            CrossRow(
+                lesson_id=lesson_id,
+                n_sentences=sentences[lesson_id],
+                n_pairs=len(group),
+                median=summary[1] if summary is not None else None,
+                align_ok=sum(1 for pair in group if pair.align_ok),
+            )
+        )
+    return rows
+
+
+@dataclass(frozen=True)
+class DistRow:
+    """Phân bố overall của một (bài, nguồn): `summary` = (n, trung vị, p25, p75) hoặc None."""
+
+    lesson_id: str
+    source: str
+    summary: tuple[int, float, float, float] | None
+
+
+def distribution_rows(observations: Iterable[Any]) -> list[DistRow]:
+    """Phân bố overall theo bài x nguồn (self, correct, error); clip không có tiếng bị bỏ.
+
+    Mỗi bài xuất hiện trong `observations` có đủ ba hàng; nguồn chưa có clip nào thì `summary` là
+    None.
+    """
+    values: dict[tuple[str, str], list[float]] = {}
+    lessons: set[str] = set()
+    for obs in observations:
+        lessons.add(obs.lesson_id)
+        if obs.voiced and obs.source in DIST_SOURCES:
+            values.setdefault((obs.lesson_id, obs.source), []).append(float(obs.overall))
+    return [
+        DistRow(lesson_id, source, distribution(values.get((lesson_id, source), [])))
+        for lesson_id in sorted(lessons)
+        for source in DIST_SOURCES
+    ]
+
+
+@dataclass(frozen=True)
+class TotalsReport:
+    """Mục "Điểm tổng (D-17, chỉ đo)": cặp chéo câu theo bài và phân bố overall theo nguồn."""
+
+    cross: tuple[CrossRow, ...]
+    distribution: tuple[DistRow, ...]
