@@ -8,11 +8,11 @@ phải do một lần chạy analyze tạo ra ở đúng git sha và versions gh
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from evalkit.counting import LAYER_C_CODES, POOLED, RuleTally, wilson
+from evalkit.counting import LAYER_C_CODES, POOLED, CoverageRow, FpRow, RuleTally, wilson
 
 HELDOUT_LOCKED = "khoá (D-16)"
 GIT_TIMEOUT_S = 10.0
@@ -74,6 +74,11 @@ def _recall_cell(tally: RuleTally) -> str:
     return f"{rate:.2f} ({tally.found}/{tally.expected}) {span}"
 
 
+def _cell(text: object) -> str:
+    """Một ô bảng markdown: không xuống dòng, không dấu `|`."""
+    return str(text).replace("|", "/").replace("\n", " ")
+
+
 def _summary_table(tallies: Mapping[str, RuleTally]) -> list[str]:
     lines = [
         "| Rule | TP | FP | Tuning P [CI95] (n) | Tuning R (k/N) [CI95] | Held-out |",
@@ -88,8 +93,74 @@ def _summary_table(tallies: Mapping[str, RuleTally]) -> list[str]:
     return lines
 
 
-def render_report(info: RunInfo, tallies: Mapping[str, RuleTally]) -> str:
-    """Nội dung `report.md`: tiêu đề, versions/git/chế độ, bảng tóm tắt rule x P/R/n/CI Wilson."""
+def _fp_section(fps: Sequence[FpRow]) -> list[str]:
+    lines = [
+        "## Danh sách FP",
+        "",
+        "Nghe lại từng dòng; nếu lỗi có thật, ghi `alsoPresent` cho case "
+        "(chỉ clip tuning hoặc trước lần mở held-out đầu, D-09).",
+        "",
+    ]
+    if not fps:
+        return [*lines, "Không có FP.", ""]
+    lines += [
+        "| split | caseId | clip | khai báo | mã issue | wordIndex | từ |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in fps:
+        at = "—" if row.word_index is None else row.word_index
+        text = row.word_text if row.word_text is not None else "—"
+        lines.append(
+            f"| {_cell(row.split)} | {_cell(row.case_id)} | {_cell(row.clip)} | "
+            f"{_cell(row.declared)} | {row.code} | {at} | {_cell(text)} |"
+        )
+    return [*lines, ""]
+
+
+def _failure_section(failures: Mapping[tuple[str, str], tuple[int, int]]) -> list[str]:
+    lines = [
+        "## Tỉ lệ căn thất bại (D-11b)",
+        "",
+        "Căn thời gian không đạt (`alignment.ok` sai, hoặc clip không có tiếng) làm rule theo từ "
+        "không chạy: case lỗi theo từ thành FN. Theo bài x errorType.",
+        "",
+    ]
+    if not failures:
+        return [*lines, "Chưa có clip nào được chấm.", ""]
+    lines += ["| bài | errorType | thất bại/tổng | % |", "|---|---|---|---|"]
+    for (lesson_id, label), (failed, total) in sorted(failures.items()):
+        lines.append(
+            f"| {_cell(lesson_id)} | {_cell(label)} | {failed}/{total} | "
+            f"{100.0 * failed / total:.0f} % |"
+        )
+    return [*lines, ""]
+
+
+def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
+    lines = ["## Phủ", "", "Số case theo errorType x split (held-out chỉ đếm, không chấm).", ""]
+    if not coverage:
+        return [*lines, "Chưa có case nào.", ""]
+    lines += [
+        "| errorType | split | tổng | đã gắn clip | đã chấm |",
+        "|---|---|---|---|---|",
+    ]
+    for row in coverage:
+        lines.append(
+            f"| {_cell(row.label)} | {_cell(row.split)} | {row.total} | {row.tagged} | "
+            f"{row.scored} |"
+        )
+    return [*lines, ""]
+
+
+def render_report(
+    info: RunInfo,
+    tallies: Mapping[str, RuleTally],
+    *,
+    fps: Sequence[FpRow] = (),
+    failures: Mapping[tuple[str, str], tuple[int, int]] | None = None,
+    coverage: Sequence[CoverageRow] = (),
+) -> str:
+    """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ."""
     lines = [
         "# Báo cáo eval nội bộ (Phase 4)",
         "",
@@ -107,5 +178,8 @@ def render_report(info: RunInfo, tallies: Mapping[str, RuleTally]) -> str:
         "",
         *_summary_table(tallies),
         "",
+        *_fp_section(fps),
+        *_failure_section(failures or {}),
+        *_coverage_section(coverage),
     ]
     return "\n".join(lines)

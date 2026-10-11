@@ -119,7 +119,15 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         n_scored=len(observations),
         n_untagged=untagged,
     )
-    write_report(report_path, report_mod.render_report(info, tallies))
+    scored_ids = {obs.case_id for obs in observations if obs.case_id is not None}
+    text = report_mod.render_report(
+        info,
+        tallies,
+        fps=counting.fp_rows(observations),
+        failures=counting.align_failures(observations),
+        coverage=counting.coverage_rows(every_case, scored_ids),
+    )
+    write_report(report_path, text)
 
     pooled = tallies[counting.POOLED]
     print(

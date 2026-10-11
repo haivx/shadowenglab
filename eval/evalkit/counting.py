@@ -1,7 +1,15 @@
 """Đếm TP/FP/FN theo bảng mã D-10 đã duyệt ở 04-01 và khoảng tin cậy Wilson (04-02, EVL-02).
 
-Lát tracer: chỉ mã chính của errorType khớp mới là TP, mọi issue còn lại là FP. Task 2 hoàn thiện
-vị trí, mã phụ, `alsoPresent` và các nguồn âm tính (D-07, D-08, D-09, D-11b, D-18).
+Nguồn sự thật của cách đếm là `04-01-SUMMARY.md` ("Quyết định đã chốt", mục B-C), không phải plan
+này. Tóm tắt (w = wordIndex đã khai báo):
+
+- TP: issue mang mã chính của errorType, đúng vị trí (D-08; EXTRA_PAUSE cho lệch +-1 từ). Mỗi case
+  tối đa một TP: ứng viên gần w nhất, hoà thì chỉ số từ nhỏ hơn (C1); ứng viên còn lại là FP.
+- Mã phụ của errorType (`CODE_TABLE`) và issue khớp `alsoPresent` là trung tính (C2, D-09).
+- Mọi issue còn lại là FP, kể cả đúng mã sai từ (C3). Mọi issue trên clip `weak_form`/`final_drop`
+  (D-07), clip `correct` (D-18b) và mốc tự so (D-18a) là FP.
+- Recall của rule = số case có TP / số case có mã chính đó (C4). Clip không issue, không có tiếng
+  hay căn thất bại là FN (D-11b).
 
 Hàm thuần: Observation vào, kết quả ra; không đọc file.
 """
@@ -22,17 +30,46 @@ if TYPE_CHECKING:
 # Thứ tự `run_rules` (nền của issueRef).
 LAYER_C_CODES = ("STRESS_MISMATCH", "FINAL_CONTOUR", "EXTRA_PAUSE", "PITCH_DEVIATION", "FLAT_PITCH")
 POOLED = "GỘP"
-
-_PRIMARY = {
-    "wrong_stress": "STRESS_MISMATCH",
-    "flat": "FLAT_PITCH",
-    "extra_pause": "EXTRA_PAUSE",
-    "final_rise": "FINAL_CONTOUR",
-    "pitch_off": "PITCH_DEVIATION",
-}
+ERROR_TYPE_ORDER = (
+    "wrong_stress",
+    "flat",
+    "extra_pause",
+    "final_rise",
+    "pitch_off",
+    "weak_form",
+    "final_drop",
+)
+NEGATIVE_SOURCES = ("correct", "self")
 
 Source = Literal["error", "correct", "self"]
 Outcome = Literal["tp", "fp", "secondary", "also"]
+Location = Literal["word", "word_pm1", "user_word", "sentence", "any_word", "last_word"]
+
+
+@dataclass(frozen=True)
+class Expectation:
+    """Mã Lớp C mong đợi của một errorType: mã chính + vị trí, và các mã phụ (mã, vị trí).
+
+    `location`: `word` = wordIndex bằng w; `word_pm1` = lệch không quá 1 từ (D-08); `user_word` =
+    `data.userWord` đúng là chữ của từ w (B1-a); `sentence` = cả câu. Vị trí của mã phụ còn có
+    `any_word` (bất kỳ từ) và `last_word` (từ cuối).
+    """
+
+    primary: str | None
+    location: Location | None
+    secondary: tuple[tuple[str, Location], ...]
+
+
+CODE_TABLE: dict[str, Expectation] = {
+    "wrong_stress": Expectation("STRESS_MISMATCH", "user_word", (("PITCH_DEVIATION", "word"),)),
+    "pitch_off": Expectation("PITCH_DEVIATION", "word", (("STRESS_MISMATCH", "user_word"),)),
+    "extra_pause": Expectation("EXTRA_PAUSE", "word_pm1", ()),
+    "flat": Expectation("FLAT_PITCH", "sentence", (("PITCH_DEVIATION", "any_word"),)),
+    "final_rise": Expectation("FINAL_CONTOUR", "sentence", (("PITCH_DEVIATION", "last_word"),)),
+    # Lớp A, Phase 5: chưa có mã chính, mọi issue Lớp C trên các clip này là FP (D-07).
+    "weak_form": Expectation(None, None, ()),
+    "final_drop": Expectation(None, None, ()),
+}
 
 
 @dataclass(frozen=True)
@@ -75,6 +112,30 @@ class RuleTally:
     found: int = 0
 
 
+@dataclass(frozen=True)
+class FpRow:
+    """Một FP để Liam nghe lại (D-09): case, clip, điều đã khai báo, issue bị báo."""
+
+    split: str
+    case_id: str
+    clip: str
+    declared: str
+    code: str
+    word_index: int | None
+    word_text: str | None
+
+
+@dataclass(frozen=True)
+class CoverageRow:
+    """Số case của một (errorType hoặc `correct`) x split: tổng / đã gắn clip / đã chấm."""
+
+    label: str
+    split: str
+    total: int
+    tagged: int
+    scored: int
+
+
 def observation_from(
     case: EvalCase, clip: ClipInput, score: ProsodyScore | None, *, split: str | None = None
 ) -> Observation:
@@ -98,23 +159,104 @@ def observation_from(
     )
 
 
+def _matches(
+    location: Location | None,
+    issue: dict[str, Any],
+    word_index: int | None,
+    words: Sequence[str],
+) -> bool:
+    """Issue ở đúng vị trí `location` so với từ khai báo `word_index` (None = không ràng buộc)."""
+    if location is None:
+        return False
+    if location in ("sentence", "any_word"):
+        return True
+    at = issue.get("wordIndex")
+    if location == "last_word":
+        return at is not None and at == len(words) - 1
+    if word_index is None:
+        return True
+    if location == "word":
+        return at == word_index
+    if location == "word_pm1":
+        return at is not None and abs(at - word_index) <= 1
+    if location == "user_word":
+        user_word = (issue.get("data") or {}).get("userWord")
+        return word_index < len(words) and user_word == words[word_index]
+    return False
+
+
+def _distance(issue: dict[str, Any], word_index: int | None) -> int:
+    at = issue.get("wordIndex")
+    return abs(at - word_index) if at is not None and word_index is not None else 0
+
+
+def _expectation(obs: Observation) -> Expectation | None:
+    if obs.source in NEGATIVE_SOURCES or obs.error_type is None:
+        return None
+    return CODE_TABLE.get(obs.error_type)
+
+
+def _also_present(obs: Observation, issue: dict[str, Any]) -> bool:
+    """Issue khớp một mục `alsoPresent` (mã chính hoặc mã phụ, cùng quy tắc vị trí) (C2, D-09)."""
+    code = issue["code"]
+    for error_type, word_index in obs.also_present:
+        expected = CODE_TABLE.get(error_type)
+        if expected is None:
+            continue
+        options: list[tuple[str | None, Location | None]] = [(expected.primary, expected.location)]
+        options.extend(expected.secondary)
+        for option_code, location in options:
+            if option_code == code and _matches(location, issue, word_index, obs.words):
+                return True
+    return False
+
+
 def classify(obs: Observation) -> list[Verdict]:
-    """Phân loại từng issue của một Observation (tracer: mã chính khớp -> tp, còn lại -> fp)."""
-    primary = _PRIMARY.get(obs.error_type or "") if obs.source == "error" else None
+    """Phân loại từng issue của một Observation theo C1-C3 (thứ tự trả về = thứ tự issue)."""
+    expected = _expectation(obs)
+    primary = expected.primary if expected is not None else None
+    location = expected.location if expected is not None else None
+
+    chosen: int | None = None
+    if primary is not None:
+        candidates = [
+            (position, issue)
+            for position, issue in enumerate(obs.issues)
+            if issue["code"] == primary and _matches(location, issue, obs.word_index, obs.words)
+        ]
+        if candidates:
+            chosen = min(
+                candidates,
+                key=lambda item: (
+                    _distance(item[1], obs.word_index),
+                    item[1].get("wordIndex") or 0,
+                    item[0],
+                ),
+            )[0]
+
     verdicts: list[Verdict] = []
-    taken = False
-    for issue in obs.issues:
+    for position, issue in enumerate(obs.issues):
         code = str(issue["code"])
-        word_index = issue.get("wordIndex")
-        outcome: Outcome = "fp"
-        if code == primary and not taken:
-            outcome, taken = "tp", True
-        verdicts.append(Verdict(code, word_index, outcome, issue))
+        outcome: Outcome
+        if position == chosen:
+            outcome = "tp"
+        elif code == primary and _matches(location, issue, obs.word_index, obs.words):
+            outcome = "fp"  # C1: ứng viên thừa của mã chính
+        elif expected is not None and any(
+            code == sec_code and _matches(sec_location, issue, obs.word_index, obs.words)
+            for sec_code, sec_location in expected.secondary
+        ):
+            outcome = "secondary"
+        elif _also_present(obs, issue):
+            outcome = "also"
+        else:
+            outcome = "fp"
+        verdicts.append(Verdict(code, issue.get("wordIndex"), outcome, issue))
     return verdicts
 
 
 def tally(observations: Sequence[Observation]) -> dict[str, RuleTally]:
-    """TP/FP/expected/found theo mã, cộng dòng `POOLED` gộp mọi mã Lớp C."""
+    """TP/FP/expected/found theo mã, cộng dòng `POOLED` gộp mọi mã Lớp C (C4)."""
     result: dict[str, RuleTally] = defaultdict(RuleTally)
     for code in LAYER_C_CODES:
         result[code] = RuleTally()
@@ -125,11 +267,11 @@ def tally(observations: Sequence[Observation]) -> dict[str, RuleTally]:
                 result[verdict.code].tp += 1
             elif verdict.outcome == "fp":
                 result[verdict.code].fp += 1
-        primary = _PRIMARY.get(obs.error_type or "") if obs.source == "error" else None
-        if primary is not None:
-            result[primary].expected += 1
-            if any(v.outcome == "tp" and v.code == primary for v in verdicts):
-                result[primary].found += 1
+        expected = _expectation(obs)
+        if expected is not None and expected.primary is not None:
+            result[expected.primary].expected += 1
+            if any(v.outcome == "tp" for v in verdicts):
+                result[expected.primary].found += 1
     pooled = RuleTally()
     for code in LAYER_C_CODES:
         pooled.tp += result[code].tp
@@ -138,6 +280,73 @@ def tally(observations: Sequence[Observation]) -> dict[str, RuleTally]:
         pooled.found += result[code].found
     result[POOLED] = pooled
     return dict(result)
+
+
+def _label(obs: Observation) -> str:
+    """Nhãn nhóm của một Observation: errorType, `correct` hoặc `self`."""
+    return obs.error_type if obs.source == "error" and obs.error_type else obs.source
+
+
+def align_failures(observations: Sequence[Observation]) -> dict[tuple[str, str], tuple[int, int]]:
+    """(thất bại, tổng) theo (lessonId, errorType | correct | self); thất bại = căn không ok."""
+    counts: dict[tuple[str, str], list[int]] = {}
+    for obs in observations:
+        failed_total = counts.setdefault((obs.lesson_id, _label(obs)), [0, 0])
+        failed_total[0] += 0 if obs.align_ok else 1
+        failed_total[1] += 1
+    return {key: (value[0], value[1]) for key, value in counts.items()}
+
+
+def _declared(obs: Observation) -> str:
+    if obs.source != "error" or obs.error_type is None:
+        return obs.source
+    if obs.word_index is None:
+        return obs.error_type
+    return f"{obs.error_type}@{obs.word_index}"
+
+
+def fp_rows(observations: Sequence[Observation]) -> list[FpRow]:
+    """Mọi FP trên clip thật (không gồm mốc tự so), sắp theo caseId rồi mã (D-09)."""
+    rows: list[FpRow] = []
+    for obs in observations:
+        if obs.source == "self":
+            continue
+        for verdict in classify(obs):
+            if verdict.outcome != "fp":
+                continue
+            at = verdict.word_index
+            text = obs.words[at] if at is not None and 0 <= at < len(obs.words) else None
+            rows.append(
+                FpRow(
+                    split=obs.split or "?",
+                    case_id=obs.case_id or "-",
+                    clip=obs.clip or "-",
+                    declared=_declared(obs),
+                    code=verdict.code,
+                    word_index=at,
+                    word_text=text,
+                )
+            )
+    return sorted(rows, key=lambda row: (row.case_id, row.code, row.word_index or 0))
+
+
+def coverage_rows(cases: Sequence[EvalCase], scored_ids: set[str]) -> list[CoverageRow]:
+    """Số case theo (errorType | correct) x split: tổng / đã gắn clip / đã chấm (nhóm có case)."""
+    groups: dict[tuple[str, str], list[int]] = {}
+    for case in cases:
+        label = case.error_type.root if case.error_type is not None else "correct"
+        counts = groups.setdefault((label, case.split or "chưa chốt"), [0, 0, 0])
+        counts[0] += 1
+        counts[1] += 1 if case.clip is not None else 0
+        counts[2] += 1 if case.case_id in scored_ids else 0
+    labels = (*ERROR_TYPE_ORDER, "correct")
+    splits = ("tuning", "heldout", "chưa chốt")
+    return [
+        CoverageRow(label, split, *groups[(label, split)])
+        for label in labels
+        for split in splits
+        if (label, split) in groups
+    ]
 
 
 def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float] | None:
