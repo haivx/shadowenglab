@@ -13,6 +13,7 @@ import json
 import math
 import random
 from collections.abc import Iterator, Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -370,3 +371,329 @@ def test_split_fraction_is_the_sha256_prefix_of_lesson_and_segment(cases_mod: Mo
 
     assert cases_mod.split_fraction(LESSON_ID, 3) == int(digest, 16) / 16**16
     assert 0.0 <= cases_mod.split_fraction(LESSON_ID, 3) < 1.0
+
+
+# --- words ----------------------------------------------------------------------------------
+
+
+def _repeated_word_sentence() -> tuple[Any, ...]:
+    """5 từ, từ 1 và từ 3 cùng chữ `bravo`."""
+    return (*DEFAULT_WORDS[:3], replace(DEFAULT_WORDS[3], text="bravo"), DEFAULT_WORDS[4])
+
+
+def test_words_without_a_lesson_lists_the_ready_lessons(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir, [DEFAULT_WORDS, OTHER_WORDS])
+
+    assert _run(tag_clips, data_dir, tmp_path, "words") == 0
+
+    out = capsys.readouterr().out
+    assert LESSON_ID in out and "Synthetic" in out and "2" in out
+
+
+def test_words_with_a_lesson_lists_sentences_and_marks_the_short_ones(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS[:4]])
+
+    assert _run(tag_clips, data_dir, tmp_path, "words", "--lesson", LESSON_ID) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    long_line = next(line for line in lines if line.startswith("#0"))
+    short_line = next(line for line in lines if line.startswith("#1"))
+    assert "(5 từ)" in long_line and sentence_text(DEFAULT_WORDS) in long_line
+    assert "(4 từ)" in short_line and "dưới 5 từ" in short_line
+    assert "dưới 5 từ" not in long_line
+
+
+def test_words_of_one_segment_numbers_each_word_and_marks_repeated_words(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir, [_repeated_word_sentence()])
+
+    assert (
+        _run(tag_clips, data_dir, tmp_path, "words", "--lesson", LESSON_ID, "--segment", "0") == 0
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("0: alpha") and "trùng" not in line for line in lines)
+    assert any(line.startswith("1: bravo") and "trùng" in line for line in lines)
+    assert any(line.startswith("3: bravo") and "trùng" in line for line in lines)
+
+
+# --- add: các lối từ chối --------------------------------------------------------------------
+
+
+def _add(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, *args: str, segment: str = "0"
+) -> int:
+    return _run(
+        tag_clips, data_dir, tmp_path, "add", "--lesson", LESSON_ID, "--segment", segment, *args
+    )
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--error", "flat", "--word", "2"),  # mức câu không có wordIndex
+        ("--error", "pitch_off"),  # lỗi theo từ thiếu wordIndex
+        ("--correct", "--word", "1"),  # case đúng không có wordIndex
+        ("--error", "pitch_off", "--word", "9"),  # wordIndex ngoài câu
+        ("--error", "wrong_stress", "--word", "1"),  # B1-a: chữ xuất hiện hơn một lần
+        ("--error", "flat", "--correct"),  # vừa lỗi vừa đúng
+        (),  # không nói gì
+    ],
+    ids=[
+        "flat+word",
+        "pitch_off-no-word",
+        "correct+word",
+        "word-outside",
+        "b1a",
+        "both",
+        "neither",
+    ],
+)
+def test_add_refuses_an_invalid_case_and_leaves_the_file_alone(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, args: tuple[str, ...]
+) -> None:
+    write_ready_lesson(data_dir, [_repeated_word_sentence()])
+
+    assert _add(tag_clips, data_dir, tmp_path, *args) == 2
+
+    assert not (tmp_path / "cases.jsonl").exists()
+
+
+def test_add_refuses_a_sentence_with_fewer_than_five_words(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir, [DEFAULT_WORDS[:4]])
+
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat") == 2
+
+    assert "5" in capsys.readouterr().err and not (tmp_path / "cases.jsonl").exists()
+
+
+def test_add_accepts_wrong_stress_on_a_word_that_appears_once(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    write_ready_lesson(data_dir, [_repeated_word_sentence()])
+
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "wrong_stress", "--word", "2") == 0
+
+    assert _rows(tmp_path)[0]["wordIndex"] == 2
+
+
+def test_add_after_the_split_inherits_or_decides_the_split_of_a_new_case(
+    tag_clips: ModuleType, cases_mod: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    write_ready_lesson(data_dir, [DEFAULT_WORDS] * 3)
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat", segment="0") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat", segment="1") == 0
+    assert _run(tag_clips, data_dir, tmp_path, "split") == 0
+    settled = {row["segmentIndex"]: row["split"] for row in _rows(tmp_path)}
+
+    assert _add(tag_clips, data_dir, tmp_path, "--correct", segment="0") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--correct", segment="2") == 0
+
+    rows = _rows(tmp_path)
+    assert rows[2]["split"] == settled[0], "câu đã chốt: case mới theo câu"
+    expected = "heldout" if cases_mod.split_fraction(LESSON_ID, 2) < 0.30 else "tuning"
+    assert rows[3]["split"] == expected, "câu mới sau khi chốt: theo D2"
+
+
+# --- tag tương tác ----------------------------------------------------------------------------
+
+
+class _Answers:
+    """`ask` giả lập: trả lần lượt các câu trả lời và ghi lại lời nhắc."""
+
+    def __init__(self, *answers: str) -> None:
+        self.answers = list(answers)
+        self.prompts: list[str] = []
+
+    def __call__(self, prompt: str = "") -> str:
+        self.prompts.append(prompt)
+        if not self.answers:
+            raise EOFError
+        return self.answers.pop(0)
+
+
+def _three_waiting_cases(tag_clips: ModuleType, data_dir: Path, tmp_path: Path) -> list[str]:
+    """Một câu, ba case đang chờ (flat, pitch_off@2, extra_pause@1) và ba clip lưu theo thứ tự."""
+    write_ready_lesson(data_dir)
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "pitch_off", "--word", "2") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "extra_pause", "--word", "1") == 0
+    text = sentence_text(DEFAULT_WORDS)
+    return [
+        write_clip(data_dir, LESSON_ID, 0, attempt, _flat_audio(DEFAULT_WORDS), text=text)
+        for attempt in (1, 2, 3)
+    ]
+
+
+def _tag_argv(data_dir: Path, tmp_path: Path) -> list[str]:
+    return ["tag", "--cases", str(tmp_path / "cases.jsonl"), "--data-dir", str(data_dir)]
+
+
+def test_interactive_tag_assigns_the_chosen_case_skips_and_quits(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stems = _three_waiting_cases(tag_clips, data_dir, tmp_path)
+    ask = _Answers("2", "s", "q")
+
+    assert tag_clips.main(_tag_argv(data_dir, tmp_path), ask=ask) == 0
+
+    assert [row.get("clip") for row in _rows(tmp_path)] == [None, stems[0], None]
+    out = capsys.readouterr().out
+    assert stems[0] in out and "pitch_off@2" in out and "charlie" in out
+    for hidden in ("overall", "điểm", "issue", "FLAT_PITCH"):
+        assert hidden not in out, "không hiển thị điểm hay issue của hệ thống (D-01)"
+    assert len(ask.prompts) == 3
+
+
+def test_interactive_tag_takes_the_first_waiting_case_on_an_empty_answer(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    stems = _three_waiting_cases(tag_clips, data_dir, tmp_path)
+
+    assert tag_clips.main(_tag_argv(data_dir, tmp_path), ask=_Answers("", "q")) == 0
+
+    assert [row.get("clip") for row in _rows(tmp_path)] == [stems[0], None, None]
+
+
+def test_interactive_tag_asks_again_after_an_answer_it_does_not_understand(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    stems = _three_waiting_cases(tag_clips, data_dir, tmp_path)
+    ask = _Answers("9", "x", "3", "q")
+
+    assert tag_clips.main(_tag_argv(data_dir, tmp_path), ask=ask) == 0
+
+    assert [row.get("clip") for row in _rows(tmp_path)] == [None, None, stems[0]]
+
+
+def test_tag_warns_about_a_clip_with_no_waiting_case_and_still_succeeds(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS])
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat", segment="0") == 0
+    stem = write_clip(
+        data_dir, LESSON_ID, 1, 1, _flat_audio(DEFAULT_WORDS), text=sentence_text(DEFAULT_WORDS)
+    )
+    before = (tmp_path / "cases.jsonl").read_bytes()
+
+    assert _run(tag_clips, data_dir, tmp_path, "tag", "--yes") == 0
+
+    assert stem in capsys.readouterr().out
+    assert (tmp_path / "cases.jsonl").read_bytes() == before
+
+
+def test_tag_skips_a_clip_whose_sidecar_is_missing(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stems = _three_waiting_cases(tag_clips, data_dir, tmp_path)
+    (data_dir / "eval_clips" / f"{stems[0]}.json").unlink()
+
+    assert _run(tag_clips, data_dir, tmp_path, "tag", "--yes") == 0
+
+    assert stems[0] in capsys.readouterr().err
+    assert [row.get("clip") for row in _rows(tmp_path)] == [stems[1], stems[2], None]
+
+
+def test_tag_refuses_a_stray_file_name_in_eval_clips(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir)
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat") == 0
+    clips = data_dir / "eval_clips"
+    clips.mkdir()
+    (clips / "stray.wav").write_bytes(b"RIFF")
+
+    assert _run(tag_clips, data_dir, tmp_path, "tag", "--yes") == 2
+
+    assert "stray" in capsys.readouterr().err
+
+
+# --- check ------------------------------------------------------------------------------------
+
+
+def _scripted_set(tag_clips: ModuleType, data_dir: Path, tmp_path: Path) -> None:
+    """2 câu đã chốt split: 2 case flat ở câu 0 (cùng có clip, một nhóm retest), 1 case correct
+    ở câu 1 chưa gắn clip, và một clip của câu 1 chưa được gắn."""
+    write_ready_lesson(data_dir, [DEFAULT_WORDS, DEFAULT_WORDS])
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat", segment="0") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat", segment="0") == 0
+    assert _add(tag_clips, data_dir, tmp_path, "--correct", segment="1") == 0
+    assert _run(tag_clips, data_dir, tmp_path, "split") == 0
+    text = sentence_text(DEFAULT_WORDS)
+    for attempt in (1, 2):
+        write_clip(data_dir, LESSON_ID, 0, attempt, _flat_audio(DEFAULT_WORDS), text=text)
+    assert _run(tag_clips, data_dir, tmp_path, "tag", "--yes") == 0
+    write_clip(data_dir, LESSON_ID, 1, 1, _flat_audio(DEFAULT_WORDS), text=text)
+
+
+def test_check_prints_the_coverage_table_and_exits_zero(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _scripted_set(tag_clips, data_dir, tmp_path)
+    capsys.readouterr()
+
+    assert _run(tag_clips, data_dir, tmp_path, "check") == 0
+
+    out = capsys.readouterr().out
+    flat = next(line for line in out.splitlines() if line.startswith("flat"))
+    assert "2/2" in flat, flat
+    correct = next(line for line in out.splitlines() if line.startswith("correct"))
+    assert "1/0" in correct, correct
+    assert "tuning" in out and "heldout" in out
+    assert "nhóm retest: 1" in out
+    assert "clip chưa gắn: 1" in out
+
+
+def test_check_exits_two_and_names_the_case_when_the_sentence_stamp_is_wrong(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir)
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat") == 0
+    path = tmp_path / "cases.jsonl"
+    row = json.loads(path.read_text(encoding="utf-8"))
+    row["segTextHash"] = "0" * 16
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    assert _run(tag_clips, data_dir, tmp_path, "check") == 2
+
+    assert "c0001" in capsys.readouterr().err
+
+
+def test_check_exits_one_when_a_coverage_threshold_is_not_met(
+    tag_clips: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_ready_lesson(data_dir)
+    assert _add(tag_clips, data_dir, tmp_path, "--error", "flat") == 0
+    write_clip(
+        data_dir, LESSON_ID, 0, 1, _flat_audio(DEFAULT_WORDS), text=sentence_text(DEFAULT_WORDS)
+    )
+    assert _run(tag_clips, data_dir, tmp_path, "tag", "--yes") == 0
+    capsys.readouterr()
+
+    assert _run(tag_clips, data_dir, tmp_path, "check", "--min-error", "1") == 0
+    assert _run(tag_clips, data_dir, tmp_path, "check", "--min-error", "2") == 1
+    assert "clip lỗi" in capsys.readouterr().out
+    assert _run(tag_clips, data_dir, tmp_path, "check", "--min-correct", "1") == 1
+    assert _run(tag_clips, data_dir, tmp_path, "check", "--min-per-type", "1") == 1
+    assert _run(tag_clips, data_dir, tmp_path, "check", "--min-retest", "1") == 1
+
+
+# --- Makefile ---------------------------------------------------------------------------------
+
+
+def test_makefile_has_the_eval_tag_target() -> None:
+    from audio_service.config import REPO_ROOT
+
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    phony = next(line for line in makefile.splitlines() if line.startswith(".PHONY:"))
+
+    assert "eval-tag" in phony.split()
+    assert "\neval-tag:\n" in makefile
+    assert "eval/tag_clips.py tag" in makefile
