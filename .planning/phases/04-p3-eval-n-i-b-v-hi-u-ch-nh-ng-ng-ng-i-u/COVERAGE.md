@@ -1,0 +1,1 @@
+No external API integration: Phase 4 only adds local eval scripts (eval/analyze.py, sweep.py, tag_clips.py) that call the app's own Python scoring functions offline, plus an EvalCase contract and rule flags; no OpenAI, Supabase or other third-party call.

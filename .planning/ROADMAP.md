@@ -178,7 +178,40 @@ Plans:
   2. `make eval` chạy `eval/analyze.py` và sinh `eval/report.md` tự động (precision/recall theo rule, test-retest).
   3. Từ phase này trở đi, mọi thay đổi về model, ngưỡng hoặc rule đều chạy `make eval` và dán bảng metric vào PR.
 
-**Plans**: TBD
+**Plans:** 12 plans
+
+Plans:
+**Wave 1**
+- [ ] 04-01-PLAN.md — Cổng quyết định: Liam duyệt EvalCase, cách đếm D-10, split, khoá held-out, sweep, cờ rule, gate; hiện thực contract (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 04-02-PLAN.md — Tracer make eval: cases.jsonl → kiểm D-05 → chấm lại WAV → đếm TP/FP/FN → report.md (tuning), mốc tự so (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 04-03-PLAN.md — sweep.py: quét ngưỡng trên tuning, đề xuất theo biên 95 %, không ghi file (wave 3)
+- [ ] 04-04-PLAN.md — tag_clips.py: words / add / split / tag / check, make eval-tag (wave 3)
+- [ ] 04-05-PLAN.md — Cờ tắt rule D-15 (thresholds → run_rules → report) và gate D-14/D-21 (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 04-06-PLAN.md — Khoá held-out: make eval HOLDOUT=1, log mở, digest đóng băng nhãn, tag_clips also, make eval-sweep (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 04-07-PLAN.md — Test-retest + ICC, kiểm tất định, đo điểm tổng D-17; ADR 0007, README, CLAUDE.md (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 04-08-PLAN.md — Liam chọn bài, viết kịch bản, chốt split (một chiều), commit cases.jsonl (wave 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 04-09-PLAN.md — Thu 3 clip + tracer thật, rồi Liam thu và gắn toàn bộ (wave 7)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 04-10-PLAN.md — Kiểm phủ, make eval + sweep trên tuning, Liam chọn ngưỡng và alsoPresent (wave 8)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+- [ ] 04-11-PLAN.md — Mở held-out (một chiều), đo SC1, Liam duyệt tắt rule D-15 (wave 9)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+- [ ] 04-12-PLAN.md — Áp D-15, gate held-out xanh, make eval mặc định hai tập, ADR 0007 chấp nhận, cổng cuối (wave 10)
 
 **Notes**:
 - Phạm vi (seed): thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng, `eval/analyze.py` bản đầu, tách 30% held-out, chỉnh ngưỡng. Liam tự thu âm clip.
