@@ -178,7 +178,7 @@ Plans:
   2. `make eval` chạy `eval/analyze.py` và sinh `eval/report.md` tự động (precision/recall theo rule, test-retest).
   3. Từ phase này trở đi, mọi thay đổi về model, ngưỡng hoặc rule đều chạy `make eval` và dán bảng metric vào PR.
 
-**Plans:** 5/12 plans executed
+**Plans:** 6/12 plans executed
 
 Plans:
 **Wave 1**
@@ -193,7 +193,7 @@ Plans:
 - [x] 04-05-PLAN.md — Cờ tắt rule D-15 (thresholds → run_rules → report) và gate D-14/D-21 (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 04-06-PLAN.md — Khoá held-out: make eval HOLDOUT=1, log mở, digest đóng băng nhãn, tag_clips also, make eval-sweep (wave 4)
+- [x] 04-06-PLAN.md — Khoá held-out: make eval HOLDOUT=1, log mở, digest đóng băng nhãn, tag_clips also, make eval-sweep (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 04-07-PLAN.md — Test-retest + ICC, kiểm tất định, đo điểm tổng D-17; ADR 0007, README, CLAUDE.md (wave 5)
@@ -304,7 +304,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
 | 3. P2 · Chấm ngữ điệu | 12/12 | Complete    | 2026-10-11 |
-| 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 5/12 | In Progress | - |
+| 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 6/12 | In Progress | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
 | 7. P6 · Ôn luyện và báo cáo | 0/0 | Not started | - |
