@@ -266,3 +266,42 @@ def test_a_heldout_case_is_never_loaded_even_when_its_clip_does_not_exist(
     report = (tmp_path / "report.md").read_text(encoding="utf-8")
     assert "khoá (D-16)" in report
     assert ghost not in report
+
+
+# --- các mục của report (Task 2) ---------------------------------------------------------------
+
+
+def test_the_report_lists_false_positives_alignment_failure_rates_and_coverage(
+    analyze: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lesson = write_ready_lesson(data_dir)
+    flat_stem = write_clip(data_dir, LESSON_ID, 0, 1, _flat_audio())
+    correct_stem = write_clip(data_dir, LESSON_ID, 0, 2, _flat_audio())
+    write_cases(
+        tmp_path / "cases.jsonl",
+        [
+            _flat_case(lesson, flat_stem),
+            # Một clip "đúng" mà scorer vẫn báo FLAT_PITCH: một FP để Liam nghe lại (D-09, D-18b).
+            _flat_case(lesson, correct_stem, case_id="c0002", kind="correct", error_type=None),
+            _flat_case(lesson, None, case_id="c0003", split="heldout"),
+        ],
+    )
+
+    code = _run(analyze, data_dir, tmp_path)
+
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "FP 1" in out
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    for heading in ("## Danh sách FP", "## Tỉ lệ căn thất bại (D-11b)", "## Phủ"):
+        assert heading in report
+    fp_lines = [line for line in report.splitlines() if line.startswith("|") and "c0002" in line]
+    assert any("FLAT_PITCH" in line and correct_stem in line for line in fp_lines), fp_lines
+    assert any(
+        line.startswith(f"| {LESSON_ID} | flat |") and "0/1" in line for line in report.splitlines()
+    )
+    assert "| flat | heldout | 1 | 0 | 0 |" in report
+    assert "| flat | tuning | 1 | 1 | 1 |" in report

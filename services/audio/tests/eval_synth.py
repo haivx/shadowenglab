@@ -183,6 +183,12 @@ def load_eval(name: str, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+def load_evalkit(name: str, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    """Nạp `evalkit.<name>` (module của gói trong `eval/`) với `eval/` thêm vào `sys.path`."""
+    monkeypatch.syspath_prepend(str(Path(REPO_ROOT) / "eval"))
+    return importlib.import_module(f"evalkit.{name}")
+
+
 def listing(root: Path) -> list[tuple[str, int, int]]:
     """Mọi file và thư mục dưới `root`: (đường dẫn tương đối, kích thước, mtime ns)."""
     entries = []
