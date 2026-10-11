@@ -457,7 +457,8 @@ describe("phase 4 contract edges (EvalCase)", () => {
     expect(
       EvalCase.safeParse({ ...base, segTextHash: "0123456789abcde" }).success,
     ).toBe(false);
-    const { segTextHash: _omit, ...withoutHash } = base;
+    const withoutHash: Record<string, unknown> = { ...base };
+    delete withoutHash.segTextHash;
     expect(EvalCase.safeParse(withoutHash).success).toBe(false);
   });
 
