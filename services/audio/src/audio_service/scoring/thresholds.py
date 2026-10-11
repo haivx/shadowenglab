@@ -1,9 +1,10 @@
 """MỘT file ngưỡng có version cho chấm ngữ điệu P2 (D-12, D-13).
 
-Mọi giá trị dưới đây là giá trị Liam đã duyệt ở 03-01 mục E (2026-10-09, không sửa). Đổi bất kỳ
-giá trị nào ngoài quy trình (Liam duyệt, Phase 4 chỉnh qua eval) là vi phạm CLAUDE.md.
-`THRESHOLDS_VERSION` và `SCORER_VERSION` đi vào `ScoreResult.versions`; khi đổi giá trị thì tăng
-version.
+Mọi giá trị dưới đây là giá trị Liam đã duyệt ở 03-01 mục E (2026-10-09). Giá trị chỉ đổi qua quy
+trình eval của Phase 4 (Liam chọn từ sweep rồi tự sửa file này, D-13, ADR 0007); đổi ngoài quy
+trình là vi phạm CLAUDE.md. Cờ bật/tắt rule cuối file (D-15) chỉ đổi khi Liam duyệt sau held-out.
+`THRESHOLDS_VERSION` và `SCORER_VERSION` đi vào `ScoreResult.versions`; khi đổi giá trị hay cờ thì
+tăng version. Thêm cờ mặc định `True` không đổi hành vi nên không tăng version.
 
 Các hằng số cuối file (rule Lớp C, prominence) chưa dùng ở 03-03; chúng nằm sẵn đây để 03-06
 import mà không phải sửa file này.
@@ -54,3 +55,11 @@ FINAL_SLOPE_MAX_ST_S = 30.0  # |độ dốc| tối đa (Theil-Sen), hai bên ng�
 STRESS_MARGIN_Z = 0.5  # biên z giữa từ nổi nhất và từ thứ hai, cả hai bên (RESEARCH Pattern 4)
 STRESS_MIN_WORDS = 5  # prominence chỉ đáng tin với câu từ 5 từ (RESEARCH Pattern 3)
 PROMINENCE_MIN_VOICED_FRAMES = 3  # từ có ít frame hữu thanh hơn thì không xếp hạng
+
+# --- Bật/tắt rule Lớp C (D-15, ADR 0007) -------------------------------------------------------
+# False: run_rules bỏ rule này, không issue, không tip. Mặc định bật cả năm.
+STRESS_MISMATCH_ENABLED = True
+FINAL_CONTOUR_ENABLED = True
+EXTRA_PAUSE_ENABLED = True
+PITCH_DEVIATION_ENABLED = True
+FLAT_PITCH_ENABLED = True

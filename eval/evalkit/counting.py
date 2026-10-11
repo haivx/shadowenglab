@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -30,6 +30,16 @@ if TYPE_CHECKING:
 # Thứ tự `run_rules` (nền của issueRef).
 LAYER_C_CODES = ("STRESS_MISMATCH", "FINAL_CONTOUR", "EXTRA_PAUSE", "PITCH_DEVIATION", "FLAT_PITCH")
 POOLED = "GỘP"
+
+# Gate (04-01 F2, D-14): rule đang bật đạt khi P held-out >= PRECISION_BAR với đủ MIN_REPORTS lần
+# báo. TUNING_MARGIN là biên an toàn ở tuning (D-13) để một giá trị sweep đáng được đề xuất.
+PRECISION_BAR = 0.90
+MIN_REPORTS = 5
+TUNING_MARGIN = 0.95
+STATUS_OFF = "TẮT"
+STATUS_FAIL = "FAIL"
+STATUS_NOT_ENOUGH = "CHƯA ĐỦ MẪU"
+STATUS_PASS = "PASS"
 ERROR_TYPE_ORDER = (
     "wrong_stress",
     "flat",
@@ -398,6 +408,36 @@ def coverage_rows(cases: Sequence[EvalCase], scored_ids: set[str]) -> list[Cover
         for split in splits
         if (label, split) in groups
     ]
+
+
+def pooled(tallies: Mapping[str, RuleTally], enabled_codes: Iterable[str]) -> RuleTally:
+    """Dòng gộp chỉ của các rule đang bật (D-14): cộng TP/FP/expected/found theo `enabled_codes`."""
+    total = RuleTally()
+    for code in enabled_codes:
+        row = tallies.get(code)
+        if code not in LAYER_C_CODES or row is None:
+            continue
+        total.tp += row.tp
+        total.fp += row.fp
+        total.expected += row.expected
+        total.found += row.found
+    return total
+
+
+def rule_status(tally: RuleTally, enabled: bool) -> str:
+    """Trạng thái held-out của một rule (04-01 F2, D-14): `TẮT`, `FAIL`, `CHƯA ĐỦ MẪU`, `PASS`.
+
+    FAIL: P < `PRECISION_BAR` với n >= 1 (kể cả n < `MIN_REPORTS`: precision trước recall). Dưới
+    `MIN_REPORTS` lần báo mà không FAIL thì `CHƯA ĐỦ MẪU`, không bao giờ PASS.
+    """
+    if not enabled:
+        return STATUS_OFF
+    n = tally.tp + tally.fp
+    if n >= 1 and tally.tp / n < PRECISION_BAR:
+        return STATUS_FAIL
+    if n < MIN_REPORTS:
+        return STATUS_NOT_ENOUGH
+    return STATUS_PASS
 
 
 def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float] | None:

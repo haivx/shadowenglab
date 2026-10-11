@@ -11,7 +11,9 @@
 Chỉ case `split = tuning` được nạp và chấm; WAV của case held-out không bao giờ được đọc ở đây
 (D-16). Case thiếu `split` làm script thoát 2 (D-12).
 
-Thoát 0 và in `EVAL OK` ở dòng cuối. Thoát 2: tham số sai, thiếu file, case sai bất biến, lệch dấu
+Thoát 0 và in `EVAL OK` ở dòng cuối (kèm cảnh báo khi mốc tự so có issue). Thoát 1 chỉ khi chạy có
+held-out và `verdict` thấy rule đang bật FAIL hoặc mốc tự so có issue (D-21; chưa nối ở plan này,
+chạy hiện chỉ tuning). Thoát 2: tham số sai, thiếu file, case sai bất biến, lệch dấu
 nhận diện câu (D-05), bài không còn, thiếu WAV hoặc sidecar không khớp; khi đó `report.md` không bị
 ghi đè (ghi `.part` rồi `os.replace`, chỉ sau khi mọi bước thành công).
 
@@ -26,9 +28,62 @@ import os
 import shutil
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+
+from evalkit.counting import (
+    LAYER_C_CODES,
+    PRECISION_BAR,
+    STATUS_FAIL,
+    RuleTally,
+    SelfRow,
+    rule_status,
+)
+
+OK = "EVAL OK"
+FAILED = "EVAL FAILED: "
+
+
+def verdict(
+    tallies_by_split: Mapping[str, Mapping[str, RuleTally]],
+    self_rows: Sequence[SelfRow],
+    enabled: Sequence[str],
+    *,
+    holdout_included: bool,
+) -> tuple[str, int]:
+    """Kết luận của gate và mã thoát (04-01 F3, D-21). Hàm thuần: số liệu vào, (message, code) ra.
+
+    Chỉ khi chạy có held-out mới trả 1, và chỉ khi có rule ĐANG BẬT `FAIL` trên held-out (P < 0.90
+    với n >= 1; `CHƯA ĐỦ MẪU` và `TẮT` không phải lý do) hoặc mốc tự so có issue (D-18a). Nhiều
+    lý do nối bằng "; ". Chạy chỉ tuning luôn trả 0; mốc tự so có issue thì message vẫn bắt đầu
+    `EVAL OK` nhưng kèm cảnh báo.
+    """
+    self_problems = [
+        f"mốc tự so có issue ở bài {row.lesson_id} câu {row.segment_index} "
+        f"({', '.join(row.codes) if row.codes else row.n_issues})"
+        for row in self_rows
+        if row.n_issues > 0
+    ]
+    if not holdout_included:
+        if self_problems:
+            return f"{OK} (cảnh báo: {'; '.join(self_problems)})", 0
+        return OK, 0
+    held = tallies_by_split.get("heldout", {})
+    problems: list[str] = []
+    for code in LAYER_C_CODES:
+        if code not in enabled:
+            continue
+        tally = held.get(code, RuleTally())
+        if rule_status(tally, True) == STATUS_FAIL:
+            n = tally.tp + tally.fp
+            problems.append(
+                f"{code} precision held-out {tally.tp / n:.2f} (n={n}) < {PRECISION_BAR:.2f}"
+            )
+    problems.extend(self_problems)
+    if problems:
+        return FAILED + "; ".join(problems), 1
+    return OK, 0
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -72,6 +127,7 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     from evalkit import report as report_mod
 
     from audio_service import config
+    from audio_service.rules.engine import enabled_codes
     from audio_service.scoring.features import FEAT_VERSION
     from audio_service.scoring.scorer import score_prosody
     from audio_service.scoring.thresholds import SCORER_VERSION, THRESHOLDS_VERSION
@@ -130,23 +186,28 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         n_untagged=untagged,
     )
     scored_ids = {obs.case_id for obs in observations if obs.case_id is not None}
+    enabled = enabled_codes()
+    self_compare = counting.self_rows(observations)
+    # Held-out chưa được nạp ở đây (04-06 nối `--holdout`): gate chạy ở chế độ chỉ tuning.
+    message, exit_code = verdict({"tuning": tallies}, self_compare, enabled, holdout_included=False)
     text = report_mod.render_report(
         info,
         tallies,
         fps=counting.fp_rows(observations),
         failures=counting.align_failures(observations),
         coverage=counting.coverage_rows(every_case, scored_ids),
-        self_compare=counting.self_rows(observations),
+        self_compare=self_compare,
+        enabled=enabled,
     )
     write_report(report_path, text)
 
-    pooled = tallies[counting.POOLED]
+    total = counting.pooled(tallies, enabled)
     print(
         f"{n_clips} clip tuning đã chấm, {untagged} case chưa gắn clip, "
-        f"{len(observations) - n_clips} câu tự so; TP {pooled.tp}, FP {pooled.fp}"
+        f"{len(observations) - n_clips} câu tự so; TP {total.tp}, FP {total.fp}"
     )
-    print("EVAL OK")
-    return 0
+    print(message)
+    return exit_code
 
 
 def main(argv: Sequence[str] | None = None) -> int:
