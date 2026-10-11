@@ -14,6 +14,10 @@ Mặc định chỉ case `split = tuning` được nạp và chấm; WAV của c
 (mã 0 hoặc 1) thêm đúng một dòng log rồi mới ghi report (report in cả log), và nhãn held-out phải
 còn nguyên so với dòng log đầu (D-09). Case thiếu `split` làm script thoát 2 (D-12).
 
+Report có thêm test-retest và kiểm tất định (D-19: chấm lại `DETERMINISM_SAMPLE` clip đầu theo
+caseId, lệch thì ghi FAIL kèm caseId và cảnh báo stderr, không đổi mã thoát) và mục "Điểm tổng"
+(D-17, chỉ đo: cặp chéo câu theo bài và phân bố overall; không đổi công thức D-04 hay trọng số).
+
 Thoát 0 và in `EVAL OK` ở dòng cuối (kèm cảnh báo khi mốc tự so có issue). Thoát 1 chỉ khi chạy có
 held-out và `verdict` thấy rule đang bật FAIL hoặc mốc tự so có issue (D-21). Thoát 2: tham số sai,
 thiếu file, case sai bất biến, lệch dấu nhận diện câu (D-05), bài không còn, thiếu WAV, sidecar
@@ -34,6 +38,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from evalkit.counting import (
     LAYER_C_CODES,
@@ -42,6 +47,17 @@ from evalkit.counting import (
     RuleTally,
     SelfRow,
     rule_status,
+)
+from evalkit.stats import (
+    DETERMINISM_SAMPLE,
+    CrossPair,
+    Determinism,
+    ScoredClip,
+    TotalsReport,
+    build_retest,
+    cross_rows,
+    distribution_rows,
+    scores_equal,
 )
 
 OK = "EVAL OK"
@@ -125,6 +141,58 @@ def write_report(path: Path, text: str) -> None:
         part.unlink(missing_ok=True)
 
 
+def check_determinism(
+    scored: Sequence[ScoredClip],
+    lessons: Mapping[str, Any],
+    clips_root: Path,
+    rescore: Any,
+) -> Determinism:
+    """Chấm lại `DETERMINISM_SAMPLE` clip đầu (theo caseId) lần hai từ đầu (D-19, T-04-17).
+
+    Nạp lại bằng `load_clip` với `ref_cache` mới nên feature bản gốc cũng được tính lại. Overall
+    phải bằng nhau tuyệt đối và issues bằng nhau theo JSON chuẩn hoá; lệch thì ghi caseId.
+    """
+    sample = sorted(scored, key=lambda item: item.case.case_id)[:DETERMINISM_SAMPLE]
+    failed: list[str] = []
+    for item in sample:
+        clip = rescore.load_clip(item.case, lessons[item.case.lesson_id], clips_root, {})
+        if not scores_equal(item.score, rescore.score_clip(clip)):
+            failed.append(item.case.case_id)
+    return Determinism(len(sample), tuple(failed))
+
+
+def cross_pairs(items: Sequence[Any], score_fn: Any) -> list[CrossPair]:
+    """Cặp chéo câu của mốc tự so (D-17, cùng quy ước `scripts/smoke_score.py`).
+
+    Mỗi bài: các câu có mốc tự so sắp theo segmentIndex; bản ghi của câu i chấm với bản gốc của
+    câu kế tiếp (vòng, i + 1 mod N). Bài dưới 2 câu không có cặp. Câu không có tiếng bị bỏ. Chỉ
+    đo: không đổi công thức hay trọng số.
+    """
+    by_lesson: dict[str, list[Any]] = {}
+    for item in items:
+        by_lesson.setdefault(item.lesson_id, []).append(item)
+    pairs: list[CrossPair] = []
+    for lesson_id in sorted(by_lesson):
+        ordered = sorted(by_lesson[lesson_id], key=lambda item: item.segment_index)
+        if len(ordered) < 2:
+            continue
+        for position, item in enumerate(ordered):
+            if item.user is None:
+                continue
+            other = ordered[(position + 1) % len(ordered)]
+            score = score_fn(other.ref.features, item.user, other.ref.words)
+            pairs.append(
+                CrossPair(
+                    lesson_id=lesson_id,
+                    segment_index=item.segment_index,
+                    other_index=other.segment_index,
+                    overall=score.overall,
+                    align_ok=score.alignment.ok,
+                )
+            )
+    return pairs
+
+
 def _run(args: argparse.Namespace, root: Path) -> int:
     if args.data_dir is not None:
         if not args.data_dir.is_dir():
@@ -175,22 +243,28 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         clips_root = rescore.clips_root()
         ref_cache: rescore.RefCache = {}
         observations: list[counting.Observation] = []
+        scored: list[ScoredClip] = []
         untagged = 0
         for case in scoring:
             if case.clip is None:
                 untagged += 1
                 continue
             clip = rescore.load_clip(case, lessons[case.lesson_id], clips_root, ref_cache)
-            observations.append(counting.observation_from(case, clip, rescore.score_clip(clip)))
+            score = rescore.score_clip(clip)
+            scored.append(ScoredClip(case, score))
+            observations.append(counting.observation_from(case, clip, score))
         n_clips = len(observations)
+        determinism = check_determinism(scored, lessons, clips_root, rescore)
 
         # Mốc tự so (D-18a): mọi câu có case trong tập đang chấm, kể cả case chưa gắn clip.
         keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in scoring]
-        for item in rescore.self_compare_inputs(lessons, keys, root, ref_cache):
+        self_items = rescore.self_compare_inputs(lessons, keys, root, ref_cache)
+        for item in self_items:
             score = None
             if item.user is not None:
                 score = score_prosody(item.ref.features, item.user, item.ref.words)
             observations.append(counting.self_observation(item, score))
+        cross = cross_pairs(self_items, score_prosody)
     except (
         cases_mod.CaseError,
         rescore.DataError,
@@ -209,6 +283,21 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     enabled = enabled_codes()
     self_compare = counting.self_rows(observations)
     message, exit_code = verdict(by_split, self_compare, enabled, holdout_included=opened)
+    retest = build_retest(scored)
+    sentences: dict[str, int] = {}
+    for item in self_items:
+        sentences[item.lesson_id] = sentences.get(item.lesson_id, 0) + 1
+    totals = TotalsReport(
+        cross=tuple(cross_rows(sentences, cross)),
+        distribution=tuple(distribution_rows(observations)),
+    )
+    if not determinism.ok:
+        # Chỉ cảnh báo, không đổi mã thoát (04-01 J, D-21 không liệt kê kiểm tất định).
+        print(
+            "cảnh báo: kiểm tất định FAIL, chấm lại cho kết quả khác ở "
+            + ", ".join(determinism.failed),
+            file=sys.stderr,
+        )
 
     log_entries: list[holdout_mod.HoldoutEntry] | None = None
     if opened:
@@ -248,6 +337,9 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         gate_message=message if opened else None,
         holdout_log=log_entries,
         added_after_first=added_later if opened else None,
+        retest=retest,
+        determinism=determinism,
+        totals=totals,
     )
     write_report(report_path, text)
 
