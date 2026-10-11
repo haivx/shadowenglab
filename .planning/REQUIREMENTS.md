@@ -55,24 +55,24 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 
 ### Ngữ điệu (PRO) — Lớp B
 
-- [ ] **PRO-01**: Service trích F0 ~10 ms bằng parselmouth (chỉ frame hữu thanh, lọc lỗi quãng tám, giới hạn khoảng pitch theo người), đổi sang semitone so với median từng người, nội suy, làm mượt và căn theo ranh giới từ
-- [ ] **PRO-02**: Liam nhận 3 chỉ số Tốc độ, Độ lên xuống, Khớp giai điệu (0..1) và prominence từng từ, tính theo công thức product.md mục 3 Lớp B
-- [ ] **PRO-03**: Bản gốc so với chính nó cho điểm ngữ điệu ≈ 100%; câu đọc sai hẳn cho điểm thấp
-- [ ] **PRO-04**: Chấm ngữ điệu một câu ≤ 3 giây, chỉ xử lý audio người học (feature bản gốc đã tính sẵn)
+- [x] **PRO-01**: Service trích F0 ~10 ms bằng parselmouth (chỉ frame hữu thanh, lọc lỗi quãng tám, giới hạn khoảng pitch theo người), đổi sang semitone so với median từng người, nội suy, làm mượt và căn theo ranh giới từ
+- [x] **PRO-02**: Liam nhận 3 chỉ số Tốc độ, Độ lên xuống, Khớp giai điệu (0..1) và prominence từng từ, tính theo công thức product.md mục 3 Lớp B
+- [x] **PRO-03**: Bản gốc so với chính nó cho điểm ngữ điệu ≈ 100%; câu đọc sai hẳn cho điểm thấp
+- [x] **PRO-04**: Chấm ngữ điệu một câu ≤ 3 giây, chỉ xử lý audio người học (feature bản gốc đã tính sẵn)
 
 ### Rule và gợi ý (RUL) — Lớp C
 
-- [ ] **RUL-01**: Rule engine sinh `issues` cho `STRESS_MISMATCH`, `EXTRA_PAUSE`, `FINAL_CONTOUR`, `FLAT_PITCH`, `PITCH_DEVIATION` với ngưỡng ban đầu trong product.md; không chắc thì không báo
-- [ ] **RUL-02**: Liam nhận 2–3 gợi ý template bằng tiếng Việt, mỗi gợi ý trỏ tới đúng một `issueRef`; không có lỗi → lời khen ngắn
+- [x] **RUL-01**: Rule engine sinh `issues` cho `STRESS_MISMATCH`, `EXTRA_PAUSE`, `FINAL_CONTOUR`, `FLAT_PITCH`, `PITCH_DEVIATION` với ngưỡng ban đầu trong product.md; không chắc thì không báo
+- [x] **RUL-02**: Liam nhận 2–3 gợi ý template bằng tiếng Việt, mỗi gợi ý trỏ tới đúng một `issueRef`; không có lỗi → lời khen ngắn
 
 ### Kết quả chấm (FBK) — M4, S3/S4
 
-- [ ] **FBK-01**: Panel kết quả hiện `ScoreHero` (phần ngữ điệu) và 3 chỉ số
-- [ ] **FBK-02**: Nút "So sánh ngữ điệu" mở `IntonationChart`: 2 contour (bản gốc teal, bạn cam) cùng baseline, thanh trọng âm theo từ và dấu ‖ tại chỗ ngắt thừa
-- [ ] **FBK-03**: `TipList` hiện gợi ý; hover gợi ý → highlight từ liên quan
-- [ ] **FBK-04**: Liam nghe bản gốc, bản của mình, hoặc lần lượt cả hai (`O`, `M`, `B`)
-- [ ] **FBK-05**: Vùng câu hiện tại có đủ 6 trạng thái theo `S3-trang-thai-cau` (đang phát, đang ghi, không thu được tiếng, đang chấm dạng skeleton, có kết quả, lỗi); màu điểm luôn qua `scoreLevel()`
-- [ ] **FBK-06**: `R` thử lại giữ lần chấm tốt nhất và hiển thị đây là lần thử thứ mấy
+- [x] **FBK-01**: Panel kết quả hiện `ScoreHero` (phần ngữ điệu) và 3 chỉ số
+- [x] **FBK-02**: Nút "So sánh ngữ điệu" mở `IntonationChart`: 2 contour (bản gốc teal, bạn cam) cùng baseline, thanh trọng âm theo từ và dấu ‖ tại chỗ ngắt thừa
+- [x] **FBK-03**: `TipList` hiện gợi ý; hover gợi ý → highlight từ liên quan
+- [x] **FBK-04**: Liam nghe bản gốc, bản của mình, hoặc lần lượt cả hai (`O`, `M`, `B`)
+- [x] **FBK-05**: Vùng câu hiện tại có đủ 6 trạng thái theo `S3-trang-thai-cau` (đang phát, đang ghi, không thu được tiếng, đang chấm dạng skeleton, có kết quả, lỗi); màu điểm luôn qua `scoreLevel()`
+- [x] **FBK-06**: `R` thử lại giữ lần chấm tốt nhất và hiển thị đây là lần thử thứ mấy
 
 ### Eval nội bộ (EVL)
 
@@ -187,18 +187,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REC-02 | Phase 2 | Complete |
 | REC-03 | Phase 2 | Complete |
 | REC-04 | Phase 2 | Complete |
-| PRO-01 | Phase 3 | Pending |
-| PRO-02 | Phase 3 | Pending |
-| PRO-03 | Phase 3 | Pending |
-| PRO-04 | Phase 3 | Pending |
-| RUL-01 | Phase 3 | Pending |
-| RUL-02 | Phase 3 | Pending |
-| FBK-01 | Phase 3 | Pending |
-| FBK-02 | Phase 3 | Pending |
-| FBK-03 | Phase 3 | Pending |
-| FBK-04 | Phase 3 | Pending |
-| FBK-05 | Phase 3 | Pending |
-| FBK-06 | Phase 3 | Pending |
+| PRO-01 | Phase 3 | Complete |
+| PRO-02 | Phase 3 | Complete |
+| PRO-03 | Phase 3 | Complete |
+| PRO-04 | Phase 3 | Complete |
+| RUL-01 | Phase 3 | Complete |
+| RUL-02 | Phase 3 | Complete |
+| FBK-01 | Phase 3 | Complete |
+| FBK-02 | Phase 3 | Complete |
+| FBK-03 | Phase 3 | Complete |
+| FBK-04 | Phase 3 | Complete |
+| FBK-05 | Phase 3 | Complete |
+| FBK-06 | Phase 3 | Complete |
 | EVL-01 | Phase 4 | Pending |
 | EVL-02 | Phase 4 | Pending |
 | EVL-03 | Phase 4 | Pending |

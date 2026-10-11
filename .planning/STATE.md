@@ -1,45 +1,45 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 03
-current_phase_name: P2 · Chấm ngữ điệu
-status: executing
-stopped_at: 03-11 complete, UAT pending
-last_updated: "2026-10-10T15:55:19.113Z"
-last_activity: 2026-10-10
-last_activity_desc: Phase 03 execution started
-state_head: 0a62a2c3b221de73cd948c31da7e80928115cb74
+current_phase: 4
+current_phase_name: P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu
+status: planning
+stopped_at: Phase 03 complete, ready to plan Phase 4
+last_updated: "2026-10-11T01:52:40.943Z"
+last_activity: 2026-10-11
+last_activity_desc: Phase 03 complete, transitioned to Phase 4
+state_head: 9b0ceec31c5e9cea9ac493b7160d754d2ec976ee
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 40
-  completed_plans: 39
-  percent: 25
+  completed_plans: 40
+  percent: 38
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-08)
+See: .planning/PROJECT.md (updated 2026-10-11)
 
 **Core value:** Sau mỗi lượt nói, Liam biết đáng tin mình lệch khỏi người nói gốc ở đâu — so audio với audio gốc, precision trước recall.
-**Current focus:** Phase 03 — P2 · Chấm ngữ điệu
+**Current focus:** Phase 4 — P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu
 
 ## Current Position
 
-Phase: 03 (P2 · Chấm ngữ điệu) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 03
-Last activity: 2026-10-10 — Phase 03 execution started
+Phase: 4 — P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-10-11 — Phase 03 complete, transitioned to Phase 4
 
-Next step: Liam làm UAT 03-11 (5 mục trong `03-11-SUMMARY.md`, `make dev`), rồi `/gsd-verify-work 3`.
+Next step: `/gsd-discuss-phase 4`.
 
-Progress: [███░░░░░░░] 25%
+Progress: [████░░░░░░] 38%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
+- Total plans completed: 40
 - Average duration: - min
 - Total execution time: 0.0 hours
 
@@ -49,6 +49,7 @@ Progress: [███░░░░░░░] 25%
 |-------|-------|-------|----------|
 | 1 | 9 | - | - |
 | 02 | 19 | - | - |
+| 03 | 12 | - | - |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -99,7 +100,7 @@ None yet.
 - [Phase 2]: Code review fix (2026-10-08): 8/8 warning đã sửa (`02-REVIEW-FIX.md`); 9 info còn `open`. test `database is locked` chập chờn đã sửa ở 03-11 (WAL đặt một lần mỗi DB)
 - [Phase 2]: Chờ Liam chốt: `EXTEND_MAX_MS = 3000`. Đã chốt: WR-04 (`live_video`/`video_unavailable` ở POST /lessons), WR-05 (`MAX_RANGE_S = 360`; RangePicker chưa chặn > 6 phút ở UI)
 - [Phase 2]: `extract_audio` (Phase 1) gọi ffmpeg không timeout; chất lượng dịch `gpt-6-luna` chưa eval
-- [Phase 3]: Bài QWYCtbho-vY (một người nói) có trung vị chéo câu 0.616 ≥ 0.6: câu sai cùng người nói ~60 % (D-04); Phase 4/8 cân trọng số. `ALIGN_COST_MAX` 1.10 chưa đo trên giọng thật
+- [Phase 3]: Bài QWYCtbho-vY (một người nói) có trung vị chéo câu 0.616 ≥ 0.6: câu sai cùng người nói ~60 % (D-04); Liam chấp nhận ở UAT 2026-10-11; Phase 4/8 cân trọng số. `ALIGN_COST_MAX` 1.10 đã qua UAT giọng thật, cần đo lại trên bộ eval
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
 
@@ -113,6 +114,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-10
-Stopped at: 03-11 complete, UAT pending
-Resume file: .planning/phases/03-p2-ch-m-ng-i-u/03-11-SUMMARY.md
+Last session: 2026-10-11
+Stopped at: Phase 03 complete (UAT 7/7, security 28/28 closed), ready to plan Phase 4
+Resume file: None

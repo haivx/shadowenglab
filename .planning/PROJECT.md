@@ -20,10 +20,10 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 - ✓ `make setup && make dev` chạy trên máy sạch macOS Apple Silicon, có/không API key — Phase 1
 - ✓ Tạo bài từ link YouTube (yt-dlp → Demucs theo đoạn chọn → mlx-whisper → tách câu D-21 3 s/8 s/18 từ → feature bản gốc), job nền có tiến độ, retry, khôi phục khi restart; 5 phút video xử lý ~103 s — Phase 2
 - ✓ Trình phát theo câu (XState), ghi âm + VAD, lưu lượt vào SQLite `attempts`, IPA nhận dạng từ PPG của người nói, sửa câu, nới cuối câu, dịch câu (OpenAI, tuỳ chọn), màn S1/S2/S3/S8 theo `docs/design/` — Phase 2
+- ✓ Chấm ngữ điệu (Lớp B: MFCC-DTW, Tốc độ / Độ lên xuống / Khớp giai điệu) + rule engine template (Lớp C: STRESS_MISMATCH, EXTRA_PAUSE, FINAL_CONTOUR, FLAT_PITCH, PITCH_DEVIATION) + UI kết quả (biểu đồ contour, tip trỏ `issueRef`, chip lượt, tiến độ theo điểm tốt nhất); chấm ≤ 3 s, chạy khi thiếu key — Phase 3 (ADR 0006)
 
 ### Active
 
-- [ ] Chấm ngữ điệu (Lớp B) + rule engine template (Lớp C) + UI kết quả
 - [ ] Eval nội bộ với ~100 clip lỗi cố ý, `make eval` → `report.md`, precision rule ngữ điệu ≥ 90% trên held-out
 - [ ] Chấm âm PPG + DTW (Lớp A), `ref_unclear`, giải thích bằng chuỗi phone
 - [ ] App eval online (Supabase + Vercel) và đợt chấm của 2 người bản xứ, kappa ≥ 0.4
@@ -88,6 +88,10 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 | Job runner trong process: tải song song, bước model tuần tự FIFO dưới model gate; SQLite `attempts`; dataDir: settings.json > DATA_DIR > ~/shadowenglab-data (ADR 0005) | Một máy 8 GB, không chồng model | ✓ Good (Phase 2) |
 | Dịch câu: `TRANSLATE_MODEL = gpt-6-luna`, `reasoning.effort: none`, httpx (không SDK), chỉ gửi text | Ứng viên RESEARCH (gpt-5-nano/mini, gpt-5.4-nano) đã deprecated; rẻ nhất có structured output — Liam chọn 2026-10-08 | — Pending (chất lượng dịch cần theo dõi) |
 | Nới cuối câu bước 300 ms, trần `EXTEND_MAX_MS = 3000` | Planner đề xuất ở 02-15, chưa có trong CONTEXT | — Pending (chờ Liam xác nhận) |
+| Căn thời gian Lớp B bằng MFCC-DTW sau giao diện `Aligner`; cổng `ALIGN_COST_MAX = 1.10`, tỉ lệ độ dài [0.5, 2] kiểm trước ma trận (ADR 0006) | Hàm thuần không model; Phase 5 thay bằng PPG-DTW mà không sửa rule/scorer | ✓ Good (Phase 3 UAT, giọng thật) |
+| Một `prepare_features` cho cả bản gốc và người học; cắt lặng `max(p95 − 30, −60)` dB, lọc cụm quãng tám (FEAT_VERSION pf-2); pitchRange theo 1.4826·MAD (SCORER_VERSION prosody-2) | Smoke 03-11 trên dữ liệu thật: quy tắc cũ làm tự so lệch | ✓ Good (Phase 3) |
+| Tiêu chí D-a: trung vị chéo câu < 0.6; bài QWYCtbho-vY đo 0.616 được chấp nhận là rủi ro | Câu sai cùng người nói vẫn giống ~60 %; Liam chấp nhận SC2 ở UAT 2026-10-11 | — Pending (cân trọng số ở Phase 4/8) |
+| Tip template có biến thể theo lượt, lưu trong `result_json` lúc chấm; nhận xét theo chỉ số khi không có issue | Lượt lặp không đọc giống nhau; lịch sử không bị viết lại | ✓ Good (Phase 3 UAT) |
 
 ## Evolution
 
@@ -107,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-08 after Phase 2*
+*Last updated: 2026-10-11 after Phase 3*
