@@ -8,6 +8,8 @@ import {
   AttemptAck,
   AttemptSummary,
   ClipManifest,
+  ErrorType,
+  EvalCase,
   ExtraPauseData,
   IssueCode,
   Label,
@@ -40,7 +42,7 @@ const fixtureFiles = readdirSync(FIXTURE_DIR).filter((f) =>
 );
 
 describe("fixtures", () => {
-  it("covers all sixteen fixture files", () => {
+  it("covers all seventeen fixture files", () => {
     expect(fixtureFiles.sort()).toEqual([
       "ApiError.json",
       "AppSettings.json",
@@ -48,6 +50,7 @@ describe("fixtures", () => {
       "AttemptSummary.json",
       "ClipManifest.json",
       "CreateLessonRequest.json",
+      "EvalCase.json",
       "Label.json",
       "Lesson.json",
       "LessonListItem.json",
@@ -403,6 +406,77 @@ describe("phase 3 contract edges", () => {
   });
 });
 
+describe("phase 4 contract edges (EvalCase)", () => {
+  const base = {
+    caseId: "c0001",
+    lessonId: "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+    segmentIndex: 3,
+    segStartMs: 12000,
+    segEndMs: 15500,
+    segEndExtraMs: 15800,
+    segTextHash: "0123456789abcdef",
+    kind: "error",
+    errorType: "wrong_stress",
+    wordIndex: 3,
+  };
+
+  it("ErrorType has exactly the 7 values of D-03, in order", () => {
+    expect(ErrorType.options).toEqual([
+      "wrong_stress",
+      "flat",
+      "extra_pause",
+      "final_rise",
+      "pitch_off",
+      "weak_form",
+      "final_drop",
+    ]);
+  });
+
+  it("registers EvalCase and ErrorType in Schemas", () => {
+    expect(Object.keys(Schemas)).toContain("EvalCase");
+    expect(Object.keys(Schemas)).toContain("ErrorType");
+  });
+
+  it("parses the minimal pending case (no split, no clip)", () => {
+    expect(EvalCase.safeParse(base).success).toBe(true);
+  });
+
+  it("rejects an unknown kind, errorType or split", () => {
+    expect(EvalCase.safeParse({ ...base, kind: "oops" }).success).toBe(false);
+    expect(EvalCase.safeParse({ ...base, errorType: "mumble" }).success).toBe(
+      false,
+    );
+    expect(EvalCase.safeParse({ ...base, split: "test" }).success).toBe(false);
+  });
+
+  it("rejects a negative wordIndex", () => {
+    expect(EvalCase.safeParse({ ...base, wordIndex: -1 }).success).toBe(false);
+  });
+
+  it("segTextHash must be exactly 16 characters and is required", () => {
+    expect(
+      EvalCase.safeParse({ ...base, segTextHash: "0123456789abcde" }).success,
+    ).toBe(false);
+    const { segTextHash: _omit, ...withoutHash } = base;
+    expect(EvalCase.safeParse(withoutHash).success).toBe(false);
+  });
+
+  it("optional fields are absent, never null (note, split, clip)", () => {
+    expect(EvalCase.safeParse({ ...base, note: null }).success).toBe(false);
+    expect(EvalCase.safeParse({ ...base, split: null }).success).toBe(false);
+    expect(EvalCase.safeParse({ ...base, clip: null }).success).toBe(false);
+  });
+
+  it("alsoPresent items need a valid errorType and a non-negative wordIndex", () => {
+    const also = (item: unknown) =>
+      EvalCase.safeParse({ ...base, alsoPresent: [item] }).success;
+    expect(also({ errorType: "extra_pause", wordIndex: 4 })).toBe(true);
+    expect(also({ errorType: "flat" })).toBe(true);
+    expect(also({ errorType: "mumble" })).toBe(false);
+    expect(also({ errorType: "extra_pause", wordIndex: -1 })).toBe(false);
+  });
+});
+
 describe("committed schema naming", () => {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, "utf-8")) as {
     $defs: Record<string, unknown>;
@@ -417,6 +491,9 @@ describe("committed schema naming", () => {
       "IssueCode",
       "ClipManifest",
       "Label",
+      "EvalCase",
+      "ErrorType",
+      "EvalAlsoPresent",
       "Word",
       "Issue",
       "WordFlags",
