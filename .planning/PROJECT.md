@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào: dán link, tập từng câu, và biết chính xác mình nói khác **chính người nói trong video** ở đâu (âm, trọng âm, lên xuống giọng, ngắt nghỉ), kèm gợi ý cụ thể để sửa. Đi kèm một app eval nhỏ deploy online để 2 người chấm bản xứ kiểm chứng điểm của hệ thống (human review). Đồng thời là dự án portfolio AI Engineering, public trên GitHub.
+Web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào: dán link, tập từng câu, và biết chính xác mình nói khác **chính người nói trong video** ở đâu (âm, trọng âm, lên xuống giọng, ngắt nghỉ), kèm gợi ý cụ thể để sửa. Đi kèm một app eval nhỏ deploy online để 2 người chấm bản xứ kiểm chứng điểm của hệ thống (human review).
 
 Spec sản phẩm chi tiết: `docs/product.md` (nguồn sự thật cấp sản phẩm). Luồng: `docs/flows.md`. UI: `docs/design/`.
 
@@ -28,11 +28,11 @@ Sau mỗi lượt nói, Liam biết **đáng tin** mình lệch khỏi người 
 - [ ] Chấm âm PPG + DTW (Lớp A), `ref_unclear`, giải thích bằng chuỗi phone
 - [ ] App eval online (Supabase + Vercel) và đợt chấm của 2 người bản xứ, kappa ≥ 0.4
 - [ ] Ôn luyện (1 → 3 → 7 ngày), TTS đọc chậm, chế độ chỉ ngữ điệu, tổng kết buổi, dashboard tiến bộ, thư viện có nhãn
-- [ ] Hiệu chỉnh điểm % (logistic) theo nhãn người chấm, gợi ý bằng LLM (structured output), README portfolio
+- [ ] Hiệu chỉnh điểm % (logistic) theo nhãn người chấm, gợi ý bằng LLM (structured output), README
 
 ### Out of Scope
 
-- Nhiều người dùng, thương mại hoá — dự án học cá nhân + portfolio, cho phép lấy nguồn từ YouTube
+- Nhiều người dùng, thương mại hoá — dự án học cá nhân, cho phép lấy nguồn từ YouTube
 - Mobile app chính, dark mode — ngoài phạm vi Step 1 (app eval vẫn phải responsive mobile)
 - "Nói với AI", chế độ chính tả — mở rộng xa hơn (product.md mục 9)
 - Giọng UK — Step 1 tập trung US; bộ eval và ngưỡng theo giọng Mỹ

@@ -122,7 +122,7 @@ Step 1: app đầy đủ tính năng để học hằng ngày. Mỗi requirement
 - [ ] **CAL-02**: Spearman giữa điểm hệ thống và người chấm xấp xỉ mức đồng thuận giữa hai người chấm; `report.md` có calibration curve, precision/recall theo loại cờ và kiểm tra trung thực của gợi ý
 - [ ] **CAL-03**: Gợi ý bằng LLM (OpenAI model nhỏ, structured output) chỉ nhận JSON `issues`, mỗi tip trỏ tới một `issueRef` hợp lệ; thiếu key hoặc LLM lỗi → rơi về template, không gắn nhãn "AI"
 - [ ] **CAL-04**: Các mục 🔴/🟡 tích luỹ trong `docs/feedback.md` được xử lý
-- [ ] **CAL-05**: README portfolio trình bày pipeline và số liệu eval (ghi chung là có human review); máy mới clone, điền `.env`, `make setup && make dev` là dùng được
+- [ ] **CAL-05**: README trình bày pipeline và số liệu eval (ghi chung là có human review); máy mới clone, điền `.env`, `make setup && make dev` là dùng được
 
 ## v2 Requirements
 
@@ -142,7 +142,7 @@ Step 2 — Hardening (milestone sau, bắt đầu khi Step 1 đã dùng ổn đ�
 
 | Feature | Reason |
 |---------|--------|
-| Nhiều người dùng, thương mại hoá | Dự án học cá nhân + portfolio, chạy local |
+| Nhiều người dùng, thương mại hoá | Dự án học cá nhân, chạy local |
 | Mobile app chính | Step 1 là web app desktop; chỉ app eval cần mobile |
 | Dark mode | Ngoài phạm vi Step 1 (docs/design/README.md) |
 | "Nói với AI", chế độ chính tả | Mở rộng xa hơn (product.md mục 9) |

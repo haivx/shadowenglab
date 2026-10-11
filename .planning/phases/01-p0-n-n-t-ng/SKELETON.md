@@ -61,4 +61,4 @@ Mỗi phase sau thêm một lát dọc lên skeleton này mà không đổi các
 - Phase 5: Lớp A (PPG + DTW, `ref_unclear`), `ScoredSentence`/`PhonemeDiff`
 - Phase 6: `apps/eval` + Supabase + `export_clips.py` theo `ClipManifest`/`Label`
 - Phase 7: hàng ôn, tổng kết buổi, dashboard, thư viện có nhãn
-- Phase 8: logistic điểm %, gợi ý LLM, README portfolio
+- Phase 8: logistic điểm %, gợi ý LLM, README

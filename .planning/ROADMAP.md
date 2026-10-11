@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hành trình Step 1 đi từ nền móng đến một app luyện shadowing dùng được hằng ngày và có số liệu đáng tin. Trước hết dựng monorepo, contract (Zod) và chứng minh pipeline audio chạy đầu–cuối bằng script (Phase 1). Tiếp theo là tạo bài từ YouTube và trình phát theo câu để tập trọn một video, chưa chấm điểm (Phase 2), rồi chấm ngữ điệu có phản hồi đầu tiên dùng được (Phase 3). Ngưỡng ngữ điệu được chứng minh bằng eval nội bộ trên held-out (Phase 4). Sau đó hai nhánh độc lập chạy song song được: chấm âm bằng PPG + DTW, giải thích được (Phase 5) và app eval online cùng đợt chấm của 2 người bản xứ (Phase 6). Ôn luyện và báo cáo biến app thành công cụ học duy nhất (Phase 7), cuối cùng hiệu chỉnh điểm % theo nhãn người chấm, gợi ý bằng LLM và README portfolio (Phase 8).
+Hành trình Step 1 đi từ nền móng đến một app luyện shadowing dùng được hằng ngày và có số liệu đáng tin. Trước hết dựng monorepo, contract (Zod) và chứng minh pipeline audio chạy đầu–cuối bằng script (Phase 1). Tiếp theo là tạo bài từ YouTube và trình phát theo câu để tập trọn một video, chưa chấm điểm (Phase 2), rồi chấm ngữ điệu có phản hồi đầu tiên dùng được (Phase 3). Ngưỡng ngữ điệu được chứng minh bằng eval nội bộ trên held-out (Phase 4). Sau đó hai nhánh độc lập chạy song song được: chấm âm bằng PPG + DTW, giải thích được (Phase 5) và app eval online cùng đợt chấm của 2 người bản xứ (Phase 6). Ôn luyện và báo cáo biến app thành công cụ học duy nhất (Phase 7), cuối cùng hiệu chỉnh điểm % theo nhãn người chấm, gợi ý bằng LLM và README (Phase 8).
 
 Cấu trúc phase do Liam chốt trong `docs/gsd/roadmap-seed.md`. File này là nguồn sự thật về kế hoạch và tiến độ; seed chỉ để tham khảo.
 
@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: P4 · Chấm âm (PPG + DTW)** - Lớp A đầy đủ, `ref_unclear`, giải thích bằng chuỗi phone, UI `ScoredSentence` / `PhonemeDiff` (song song được với Phase 6)
 - [ ] **Phase 6: P5 · App eval và đợt chấm** - App eval online (Supabase + Vercel), `export_clips.py`, 2 người chấm bản xứ, kappa ≥ 0.4 (song song được với Phase 5)
 - [ ] **Phase 7: P6 · Ôn luyện và báo cáo** - Hàng ôn 1 → 3 → 7 ngày, TTS đọc chậm, chế độ chỉ ngữ điệu, tổng kết buổi, dashboard, thư viện có nhãn
-- [ ] **Phase 8: P7 · Hiệu chỉnh và hoàn thiện** - Logistic điểm %, ngưỡng theo nhãn người chấm, gợi ý LLM, sửa UX từ feedback, README portfolio
+- [ ] **Phase 8: P7 · Hiệu chỉnh và hoàn thiện** - Logistic điểm %, ngưỡng theo nhãn người chấm, gợi ý LLM, sửa UX từ feedback, README
 
 ## Phase Details
 
@@ -259,7 +259,7 @@ Plans:
 **UI hint**: yes
 
 **Notes**:
-- Phạm vi (seed): fit logistic cho điểm %, chỉnh ngưỡng theo nhãn người chấm, gợi ý bằng LLM (OpenAI model nhỏ, structured output; chỉ nhận JSON `issues`, mỗi tip trỏ một `issueRef` hợp lệ; thiếu key hoặc LLM lỗi thì rơi về template), sửa lỗi UX 🔴/🟡 từ `docs/feedback.md`, `report.md`, README portfolio (ghi chung là có human review).
+- Phạm vi (seed): fit logistic cho điểm %, chỉnh ngưỡng theo nhãn người chấm, gợi ý bằng LLM (OpenAI model nhỏ, structured output; chỉ nhận JSON `issues`, mỗi tip trỏ một `issueRef` hợp lệ; thiếu key hoặc LLM lỗi thì rơi về template), sửa lỗi UX 🔴/🟡 từ `docs/feedback.md`, `report.md`, README (ghi chung là có human review).
 
 ## Progress
 

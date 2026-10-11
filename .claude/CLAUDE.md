@@ -4,7 +4,7 @@
 
 **ShadowEngLab**
 
-Web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào: dán link, tập từng câu, và biết chính xác mình nói khác **chính người nói trong video** ở đâu (âm, trọng âm, lên xuống giọng, ngắt nghỉ), kèm gợi ý cụ thể để sửa. Đi kèm một app eval nhỏ deploy online để 2 người chấm bản xứ kiểm chứng điểm của hệ thống (human review). Đồng thời là dự án portfolio AI Engineering, public trên GitHub.
+Web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào: dán link, tập từng câu, và biết chính xác mình nói khác **chính người nói trong video** ở đâu (âm, trọng âm, lên xuống giọng, ngắt nghỉ), kèm gợi ý cụ thể để sửa. Đi kèm một app eval nhỏ deploy online để 2 người chấm bản xứ kiểm chứng điểm của hệ thống (human review).
 
 Spec sản phẩm chi tiết: `docs/product.md` (nguồn sự thật cấp sản phẩm). Luồng: `docs/flows.md`. UI: `docs/design/`.
 

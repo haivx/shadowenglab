@@ -5,7 +5,7 @@
 
 ## Mục tiêu dự án (cho phần vision / project context)
 
-ShadowEngLab: web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào. Chấm điểm bằng cách so audio của người học với **audio của chính người nói trong video** (âm, ngữ điệu, trọng âm, ngắt nghỉ), không so với từ điển. Kèm app eval online để 2 người chấm bản xứ kiểm chứng điểm (human review). Đồng thời là dự án portfolio AI Engineering, public trên GitHub.
+ShadowEngLab: web app chạy local để Liam tự luyện shadowing tiếng Anh (giọng Mỹ) từ bất kỳ video YouTube nào. Chấm điểm bằng cách so audio của người học với **audio của chính người nói trong video** (âm, ngữ điệu, trọng âm, ngắt nghỉ), không so với từ điển. Kèm app eval online để 2 người chấm bản xứ kiểm chứng điểm (human review).
 
 **Step 1** (roadmap này): app đầy đủ tính năng để học hằng ngày; clone, điền `.env`, `make setup && make dev` là dùng được.
 **Step 2** (milestone sau): hardening (test, CI eval regression, logging, job queue, backup, Docker).
@@ -89,7 +89,7 @@ Mỗi phase: mục tiêu · phạm vi · tiêu chí hoàn thành (dùng cho bư�
 ### P7 · Hiệu chỉnh và hoàn thiện
 
 - **Mục tiêu:** điểm số đáng tin, repo sẵn sàng public.
-- **Phạm vi:** fit logistic cho điểm %, chỉnh ngưỡng theo nhãn người chấm, gợi ý bằng LLM (structured output), sửa lỗi UX từ `docs/feedback.md`, `report.md`, README portfolio (ghi chung là có human review).
+- **Phạm vi:** fit logistic cho điểm %, chỉnh ngưỡng theo nhãn người chấm, gợi ý bằng LLM (structured output), sửa lỗi UX từ `docs/feedback.md`, `report.md`, README (ghi chung là có human review).
 - **Tiêu chí hoàn thành:** Spearman hệ thống–người chấm xấp xỉ mức đồng thuận giữa hai người chấm; máy mới clone, điền `.env`, `make setup && make dev` là dùng được.
 - **Phụ thuộc:** P4, P5, P6.
 

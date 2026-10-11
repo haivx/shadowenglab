@@ -15,7 +15,6 @@ Dán một link YouTube, tập từng câu, và biết chính xác mình đang n
 
 1. **Học:** Liam dùng app để tự luyện tiếng Anh hằng ngày, khoảng 30 câu mỗi ngày.
 2. **Chất lượng chấm:** điểm của hệ thống khớp với cảm nhận của người nghe bản xứ, được đo bằng app eval.
-3. **Portfolio AI Engineering:** pipeline chấm so audio với audio, có bộ eval tự gán nhãn và số liệu cụ thể trong README.
 
 ### Người dùng
 
@@ -458,7 +457,7 @@ Step 1 khoảng 11 tuần làm solo cùng Claude Code, Step 2 thêm 3–4 tuần
 
 | Quyết định | Lý do |
 | --- | --- |
-| Dự án cá nhân, không thương mại hoá, chạy local | Học cá nhân và làm portfolio. Cho phép lấy toàn bộ nguồn từ YouTube |
+| Dự án cá nhân, không thương mại hoá, chạy local | Học cá nhân. Cho phép lấy toàn bộ nguồn từ YouTube |
 | Chấm hoàn toàn theo audio gốc, bỏ từ điển | Mục tiêu là bắt chước chính người nói, kể cả weak form và nuốt âm |
 | PPG + DTW là bộ chấm âm chính. Chuỗi phone chỉ để giải thích | So phân phối xác suất thì dễ dãi ở những chỗ bản gốc mơ hồ, không cần đáp án cứng |
 | Tự host video (không dùng IFrame, ADR 0004) | Seek chính xác, không quảng cáo, dùng chung file nguồn với pipeline chấm |
@@ -488,7 +487,7 @@ Step 1 khoảng 11 tuần làm solo cùng Claude Code, Step 2 thêm 3–4 tuần
 
 ## 9. Action improve (sau Step 1 và Step 2)
 
-Xếp theo giá trị học trước, sau đó đến giá trị portfolio. Chỉ làm khi eval cho thấy phần lõi đã đáng tin.
+Xếp theo giá trị học. Chỉ làm khi eval cho thấy phần lõi đã đáng tin.
 
 ### Cải thiện chất lượng chấm
 
