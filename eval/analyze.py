@@ -34,6 +34,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from evalkit.counting import (
     LAYER_C_CODES,
@@ -42,6 +43,13 @@ from evalkit.counting import (
     RuleTally,
     SelfRow,
     rule_status,
+)
+from evalkit.stats import (
+    DETERMINISM_SAMPLE,
+    Determinism,
+    ScoredClip,
+    build_retest,
+    scores_equal,
 )
 
 OK = "EVAL OK"
@@ -125,6 +133,26 @@ def write_report(path: Path, text: str) -> None:
         part.unlink(missing_ok=True)
 
 
+def check_determinism(
+    scored: Sequence[ScoredClip],
+    lessons: Mapping[str, Any],
+    clips_root: Path,
+    rescore: Any,
+) -> Determinism:
+    """Chấm lại `DETERMINISM_SAMPLE` clip đầu (theo caseId) lần hai từ đầu (D-19, T-04-17).
+
+    Nạp lại bằng `load_clip` với `ref_cache` mới nên feature bản gốc cũng được tính lại. Overall
+    phải bằng nhau tuyệt đối và issues bằng nhau theo JSON chuẩn hoá; lệch thì ghi caseId.
+    """
+    sample = sorted(scored, key=lambda item: item.case.case_id)[:DETERMINISM_SAMPLE]
+    failed: list[str] = []
+    for item in sample:
+        clip = rescore.load_clip(item.case, lessons[item.case.lesson_id], clips_root, {})
+        if not scores_equal(item.score, rescore.score_clip(clip)):
+            failed.append(item.case.case_id)
+    return Determinism(len(sample), tuple(failed))
+
+
 def _run(args: argparse.Namespace, root: Path) -> int:
     if args.data_dir is not None:
         if not args.data_dir.is_dir():
@@ -175,14 +203,18 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         clips_root = rescore.clips_root()
         ref_cache: rescore.RefCache = {}
         observations: list[counting.Observation] = []
+        scored: list[ScoredClip] = []
         untagged = 0
         for case in scoring:
             if case.clip is None:
                 untagged += 1
                 continue
             clip = rescore.load_clip(case, lessons[case.lesson_id], clips_root, ref_cache)
-            observations.append(counting.observation_from(case, clip, rescore.score_clip(clip)))
+            score = rescore.score_clip(clip)
+            scored.append(ScoredClip(case, score))
+            observations.append(counting.observation_from(case, clip, score))
         n_clips = len(observations)
+        determinism = check_determinism(scored, lessons, clips_root, rescore)
 
         # Mốc tự so (D-18a): mọi câu có case trong tập đang chấm, kể cả case chưa gắn clip.
         keys = [(case.lesson_id, case.segment_index, str(case.split)) for case in scoring]
@@ -209,6 +241,14 @@ def _run(args: argparse.Namespace, root: Path) -> int:
     enabled = enabled_codes()
     self_compare = counting.self_rows(observations)
     message, exit_code = verdict(by_split, self_compare, enabled, holdout_included=opened)
+    retest = build_retest(scored)
+    if not determinism.ok:
+        # Chỉ cảnh báo, không đổi mã thoát (04-01 J, D-21 không liệt kê kiểm tất định).
+        print(
+            "cảnh báo: kiểm tất định FAIL, chấm lại cho kết quả khác ở "
+            + ", ".join(determinism.failed),
+            file=sys.stderr,
+        )
 
     log_entries: list[holdout_mod.HoldoutEntry] | None = None
     if opened:
@@ -248,6 +288,8 @@ def _run(args: argparse.Namespace, root: Path) -> int:
         gate_message=message if opened else None,
         holdout_log=log_entries,
         added_after_first=added_later if opened else None,
+        retest=retest,
+        determinism=determinism,
     )
     write_report(report_path, text)
 

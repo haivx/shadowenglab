@@ -25,6 +25,13 @@ from evalkit.counting import (
     wilson,
 )
 from evalkit.holdout import HoldoutEntry
+from evalkit.stats import (
+    RETEST_METRICS,
+    RETEST_MIN_GROUPS_FOR_ICC,
+    Determinism,
+    RetestGroup,
+    RetestSummary,
+)
 
 HELDOUT_LOCKED = "khoá (D-16)"
 RULE_OFF = "TẮT (D-15)"
@@ -213,6 +220,71 @@ def _self_section(rows: Sequence[SelfRow]) -> list[str]:
     return [*lines, ""]
 
 
+def _group_label(group: RetestGroup) -> tuple[str, str]:
+    """(kind, errorType[@wordIndex] hoặc `correct`) của một nhóm test-retest."""
+    _lesson, _segment, kind, error_type, word = group.key
+    if error_type is None:
+        return kind, "correct"
+    return kind, error_type if word is None else f"{error_type}@{word}"
+
+
+def _icc_text(retest: RetestSummary) -> str:
+    n_groups = len(retest.groups)
+    if n_groups < RETEST_MIN_GROUPS_FOR_ICC:
+        return f"chưa đủ mẫu ({n_groups} nhóm)"
+    if retest.icc is None:
+        return f"không tính được ({n_groups} nhóm)"
+    return f"{retest.icc:.3f} ({n_groups} nhóm)"
+
+
+def _retest_section(retest: RetestSummary, determinism: Determinism | None) -> list[str]:
+    lines = [
+        "## Test-retest (D-19)",
+        "",
+        "Nhóm = (bài, câu, kind, errorType@wordIndex) có >= 2 clip đã gắn và có tiếng trong tập "
+        "đang chấm. SD mẫu (ddof 1) của điểm giữa các lượt; Jaccard trung bình theo cặp của tập "
+        "(mã issue, wordIndex).",
+        "",
+    ]
+    if not retest.groups:
+        lines += ["Chưa có nhóm nào đủ 2 clip.", ""]
+    else:
+        lines += [
+            "| bài | câu | kind | errorType@w | k | SD overall | SD speed | SD pitchRange "
+            "| SD melodyMatch | Jaccard |",
+            "|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for group in retest.groups:
+            kind, label = _group_label(group)
+            sds = " | ".join(f"{group.sd[metric]:.3f}" for metric in RETEST_METRICS)
+            lines.append(
+                f"| {_cell(group.key[0])} | {group.key[1]} | {_cell(kind)} | {_cell(label)} | "
+                f"{group.k} | {sds} | {group.jaccard:.2f} |"
+            )
+        pooled = " | ".join(
+            "—" if retest.pooled[metric] is None else f"{retest.pooled[metric]:.3f}"
+            for metric in RETEST_METRICS
+        )
+        mean_jaccard = "—" if retest.mean_jaccard is None else f"{retest.mean_jaccard:.2f}"
+        total_k = sum(group.k for group in retest.groups)
+        lines.append(f"| gộp | | | | {total_k} | {pooled} | {mean_jaccard} |")
+        lines += [
+            "",
+            f"tổng: {len(retest.groups)} nhóm · ICC(1,1) overall: {_icc_text(retest)}",
+        ]
+    lines.append("")
+    if determinism is None:
+        return lines
+    if determinism.checked == 0:
+        lines += ["Tất định: — (chưa có clip nào được chấm)", ""]
+    elif determinism.ok:
+        lines += [f"Tất định: PASS ({determinism.checked}/{determinism.checked})", ""]
+    else:
+        failed = ", ".join(_cell(case_id) for case_id in determinism.failed)
+        lines += [f"Tất định: FAIL — {failed}", ""]
+    return lines
+
+
 def _coverage_section(coverage: Sequence[CoverageRow]) -> list[str]:
     lines = [
         "## Phủ",
@@ -275,6 +347,8 @@ def render_report(
     gate_message: str | None = None,
     holdout_log: Sequence[HoldoutEntry] | None = None,
     added_after_first: Sequence[str] | None = None,
+    retest: RetestSummary | None = None,
+    determinism: Determinism | None = None,
 ) -> str:
     """Nội dung `report.md`: versions/git/chế độ, bảng rule x P/R/n/CI Wilson, FP, căn, phủ.
 
@@ -283,7 +357,9 @@ def render_report(
     cột trạng thái là "—". `gate_message`: kết quả `analyze.verdict` khi chạy có held-out; thiếu thì
     dòng gate ghi "không áp dụng (chỉ tuning)". `holdout_log`: toàn bộ log mở held-out, chỉ có khi
     chạy `--holdout` (D-16); thiếu thì không in mục nhật ký. `added_after_first`: caseId held-out
-    không có ở dòng log đầu (mục con "thêm sau lần mở đầu", rỗng thì ghi "không có").
+    không có ở dòng log đầu (mục con "thêm sau lần mở đầu", rỗng thì ghi "không có"). `retest` và
+    `determinism` (04-07, D-19): mục "Test-retest" và dòng "Tất định"; thiếu `retest` thì không in
+    mục.
     """
     if enabled is None:
         from audio_service.rules.engine import enabled_codes
@@ -314,8 +390,10 @@ def render_report(
         *_fp_section(fps),
         *_failure_section(failures or {}),
         *_self_section(self_compare),
-        *_coverage_section(coverage),
     ]
+    if retest is not None:
+        lines += _retest_section(retest, determinism)
+    lines += _coverage_section(coverage)
     if holdout_log is not None:
         lines += _holdout_log_section(holdout_log, added_after_first)
     return "\n".join(lines)

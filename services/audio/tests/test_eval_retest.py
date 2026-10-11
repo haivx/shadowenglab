@@ -188,9 +188,7 @@ def _write_two_flat_clips_and_a_correct_one(data_dir: Path, tmp_path: Path) -> N
         [
             case_dict(lesson, 0, case_id="c0001", clip=first, **flat),
             case_dict(lesson, 0, case_id="c0002", clip=second, **flat),
-            case_dict(
-                lesson, 0, case_id="c0003", kind="correct", split="tuning", clip=other
-            ),
+            case_dict(lesson, 0, case_id="c0003", kind="correct", split="tuning", clip=other),
         ],
     )
 
