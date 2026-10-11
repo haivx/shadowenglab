@@ -21,7 +21,7 @@ export function AppHeader() {
         className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.02em] text-foreground hover:text-muted-foreground"
       >
         <Image
-          src="/LOGO-512x512.png"
+          src="/LOGO-2-512x512.png"
           alt=""
           width={32}
           height={32}
