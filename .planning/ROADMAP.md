@@ -178,14 +178,14 @@ Plans:
   2. `make eval` chạy `eval/analyze.py` và sinh `eval/report.md` tự động (precision/recall theo rule, test-retest).
   3. Từ phase này trở đi, mọi thay đổi về model, ngưỡng hoặc rule đều chạy `make eval` và dán bảng metric vào PR.
 
-**Plans:** 1/12 plans executed
+**Plans:** 2/12 plans executed
 
 Plans:
 **Wave 1**
 - [x] 04-01-PLAN.md — Cổng quyết định: Liam duyệt EvalCase, cách đếm D-10, split, khoá held-out, sweep, cờ rule, gate; hiện thực contract (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 04-02-PLAN.md — Tracer make eval: cases.jsonl → kiểm D-05 → chấm lại WAV → đếm TP/FP/FN → report.md (tuning), mốc tự so (wave 2)
+- [x] 04-02-PLAN.md — Tracer make eval: cases.jsonl → kiểm D-05 → chấm lại WAV → đếm TP/FP/FN → report.md (tuning), mốc tự so (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 04-03-PLAN.md — sweep.py: quét ngưỡng trên tuning, đề xuất theo biên 95 %, không ghi file (wave 3)
@@ -304,7 +304,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Ng
 | 1. P0 · Nền tảng | 9/9 | Complete    | 2026-10-06 |
 | 2. P1 · Tạo bài và trình phát | 19/19 | Complete    | 2026-10-08 |
 | 3. P2 · Chấm ngữ điệu | 12/12 | Complete    | 2026-10-11 |
-| 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 1/12 | In Progress | - |
+| 4. P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu | 2/12 | In Progress | - |
 | 5. P4 · Chấm âm (PPG + DTW) | 0/0 | Not started | - |
 | 6. P5 · App eval và đợt chấm | 0/0 | Not started | - |
 | 7. P6 · Ôn luyện và báo cáo | 0/0 | Not started | - |
