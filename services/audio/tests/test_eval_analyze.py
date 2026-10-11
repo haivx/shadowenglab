@@ -18,6 +18,7 @@ import pytest
 from eval_synth import (
     DEFAULT_WORDS,
     LESSON_ID,
+    OTHER_WORDS,
     case_dict,
     clip_stem,
     listing,
@@ -29,6 +30,7 @@ from eval_synth import (
 from synth import synth_sentence
 
 from audio_service.config import get_settings
+from audio_service.lesson import pipeline
 from audio_service.scoring.features import FEAT_VERSION
 from audio_service.scoring.thresholds import SCORER_VERSION, THRESHOLDS_VERSION
 
@@ -305,3 +307,87 @@ def test_the_report_lists_false_positives_alignment_failure_rates_and_coverage(
     )
     assert "| flat | heldout | 1 | 0 | 0 |" in report
     assert "| flat | tuning | 1 | 1 | 1 |" in report
+
+
+# --- mốc tự so (Task 3, D-18a) -------------------------------------------------------------------
+
+
+def _section(report: str, heading: str) -> list[str]:
+    """Các dòng của mục `## <heading>` cho tới mục kế tiếp."""
+    lines = report.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith(f"## {heading}"))
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    return lines[start:end]
+
+
+def _self_rows(report: str) -> list[list[str]]:
+    rows = []
+    for line in _section(report, "Mốc tự so (D-18a)"):
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if line.startswith(f"| {LESSON_ID} |"):
+            rows.append(cells)
+    return rows
+
+
+def test_every_tuning_sentence_gets_a_self_compare_row_that_is_clean(
+    analyze: ModuleType,
+    data_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, OTHER_WORDS])
+    stem = write_clip(data_dir, LESSON_ID, 0, 1, _flat_audio())
+    write_cases(
+        tmp_path / "cases.jsonl",
+        [
+            _flat_case(lesson, stem),
+            # Câu 1 chỉ có một case chưa gắn clip: vẫn có mốc tự so (mọi câu có case trong tập).
+            case_dict(lesson, 1, case_id="c0002", kind="correct"),
+        ],
+    )
+
+    code = _run(analyze, data_dir, tmp_path)
+
+    assert code == 0, capsys.readouterr()
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    rows = _self_rows(report)
+    assert [row[1] for row in rows] == ["0", "1"], rows
+    for row in rows:
+        assert row[2] == "tuning"
+        assert float(row[3]) >= 0.9, row
+        assert row[4] == "0", row  # không issue nào trên mốc tự so
+    assert "tự so: 2 câu" in "\n".join(_section(report, "Mốc tự so (D-18a)"))
+
+
+def test_a_sentence_that_only_has_a_heldout_case_gets_no_self_compare_in_a_tuning_run(
+    analyze: ModuleType, data_dir: Path, tmp_path: Path
+) -> None:
+    lesson = write_ready_lesson(data_dir, [DEFAULT_WORDS, OTHER_WORDS])
+    stem = write_clip(data_dir, LESSON_ID, 0, 1, _flat_audio())
+    write_cases(
+        tmp_path / "cases.jsonl",
+        [
+            _flat_case(lesson, stem),
+            case_dict(lesson, 1, case_id="c0002", kind="correct", split="heldout"),
+        ],
+    )
+
+    assert _run(analyze, data_dir, tmp_path) == 0
+
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    assert [row[1] for row in _self_rows(report)] == ["0"]
+
+
+def test_missing_vocal_stem_stops_the_self_compare_with_exit_two(
+    analyze: ModuleType, data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lesson = write_ready_lesson(data_dir)
+    for stem_file in data_dir.rglob("vocals.wav"):
+        stem_file.unlink()
+    write_cases(tmp_path / "cases.jsonl", [_flat_case(lesson, None)])
+
+    code = _run(analyze, data_dir, tmp_path)
+
+    assert code == 2
+    assert pipeline.STEMS_MISSING_MESSAGE in capsys.readouterr().err
+    assert not (tmp_path / "report.md").exists()
