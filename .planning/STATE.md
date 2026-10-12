@@ -4,10 +4,10 @@ current_phase: 04
 current_phase_name: P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu
 status: executing
 stopped_at: Phase 4 context gathered
-last_updated: "2026-10-11T16:04:26.926Z"
-last_activity: 2026-10-11
+last_updated: "2026-10-12T04:00:27.064Z"
+last_activity: 2026-10-12
 last_activity_desc: Phase 04 execution started
-state_head: 225700747972b1dfce029fc0c4473be86abafe1c
+state_head: 309d3fc7adf0162a48fdc7915314763b1f7c22b1
 progress:
   total_phases: 8
   completed_phases: 3
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-11)
 Phase: 04 (P3 · Eval nội bộ và hiệu chỉnh ngưỡng ngữ điệu) — EXECUTING
 Plan: 1 of 12
 Status: Executing Phase 04
-Last activity: 2026-10-11 — Phase 04 execution started
+Last activity: 2026-10-12 - Completed quick task 261012-f1x: Normalize playback volume of learner recording
 
 Next step: `/gsd-discuss-phase 4`.
 
@@ -103,6 +103,12 @@ None yet.
 - [Phase 3]: Bài QWYCtbho-vY (một người nói) có trung vị chéo câu 0.616 ≥ 0.6: câu sai cùng người nói ~60 % (D-04); Liam chấp nhận ở UAT 2026-10-11; Phase 4/8 cân trọng số. `ALIGN_COST_MAX` 1.10 đã qua UAT giọng thật, cần đo lại trên bộ eval
 - [Phase 4]: Liam tự thu ~100 clip lỗi cố ý (mỗi clip 1 lỗi) cùng ~8 clip mốc đúng
 - [Phase 6]: Cần 2 người chấm bản xứ Mỹ sẵn sàng (email allowlist) trước đợt chấm
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 261012-f1x | Normalize playback volume of learner recording (listen-back only) | 2026-10-12 | 309d3fc | [261012-f1x-normalize-playback-volume-of-learner-rec](./quick/261012-f1x-normalize-playback-volume-of-learner-rec/) |
 
 ## Deferred Items
 
