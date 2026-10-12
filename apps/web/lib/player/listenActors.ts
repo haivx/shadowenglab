@@ -1,7 +1,10 @@
 // Actor nghe lại ở reviewing / noVoice / error / scoring (PLY-07): `Của bạn` phát bản ghi trong bộ nhớ,
 // `Lần lượt cả hai` phát bản gốc một lần rồi bản ghi. Bản ghi không bao giờ rời bộ nhớ trình duyệt
-// (D-07, T-02-39): object URL được thu hồi ở mọi đường thoát.
+// (D-07, T-02-39): AudioContext được đóng ở mọi đường thoát. Bản ghi thô (tắt AGC/NS/AEC để chấm
+// điểm) thường nhỏ hơn audio YouTube nên khi NGHE LẠI được chuẩn hoá âm lượng bằng Web Audio;
+// Blob gửi đi chấm giữ nguyên.
 import { fromPromise } from "xstate";
+import { playbackGain } from "../audio/playbackGain";
 import type { PlayBlobInput, PlayBothInput } from "./playerMachine";
 import {
   browserRaf,
@@ -13,49 +16,102 @@ import {
   type VideoLike,
 } from "./playRange";
 
-/** Phần của phần tử audio mà việc phát lại cần. */
-export interface AudioLike {
-  play(): Promise<void>;
-  pause(): void;
+/** Nguồn phát đã nối vào đồ thị âm thanh. */
+export interface SourceLike {
   onended: (() => void) | null;
-  onerror: (() => void) | null;
+  start(): Promise<void>;
+  stop(): void;
+}
+
+/** Bản ghi đã giải mã: các kênh mẫu và cách nối vào loa qua một gain. */
+export interface DecodedLike {
+  channels: readonly Float32Array[];
+  connect(gain: number): SourceLike;
+}
+
+export interface PlaybackContextLike {
+  decode(data: ArrayBuffer): Promise<DecodedLike>;
+  close(): void;
 }
 
 export interface BlobPlaybackDeps {
-  createUrl: (blob: Blob) => string;
-  revokeUrl: (url: string) => void;
-  createAudio: (url: string) => AudioLike;
+  readBlob: (blob: Blob) => Promise<ArrayBuffer>;
+  createContext: () => PlaybackContextLike;
 }
 
-function browserAudio(url: string): AudioLike {
-  const audio = new Audio(url);
+/**
+ * Adapter trình duyệt: source -> GainNode -> DynamicsCompressorNode (limiter) -> loa.
+ * Mỗi lượt phát dùng một AudioContext mới, đóng khi xong.
+ */
+function browserPlaybackContext(): PlaybackContextLike {
+  const context = new AudioContext();
+  let closed = false;
   return {
-    play: () => audio.play(),
-    pause: () => audio.pause(),
-    set onended(handler: (() => void) | null) {
-      audio.onended = handler;
+    async decode(data) {
+      const buffer = await context.decodeAudioData(data);
+      const channels: Float32Array[] = [];
+      for (let i = 0; i < buffer.numberOfChannels; i += 1) {
+        channels.push(buffer.getChannelData(i));
+      }
+      return {
+        channels,
+        connect(gain) {
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          const gainNode = context.createGain();
+          gainNode.gain.value = gain;
+          // Limiter đặt tường minh: mặc định (threshold -24, knee 30, ratio 12) sẽ nén mạnh giọng nói.
+          const limiter = context.createDynamicsCompressor();
+          limiter.threshold.value = -1;
+          limiter.knee.value = 0;
+          limiter.ratio.value = 20;
+          limiter.attack.value = 0.003;
+          limiter.release.value = 0.1;
+          source.connect(gainNode);
+          gainNode.connect(limiter);
+          limiter.connect(context.destination);
+          return {
+            set onended(handler: (() => void) | null) {
+              source.onended = handler;
+            },
+            get onended() {
+              return source.onended as (() => void) | null;
+            },
+            async start() {
+              await context.resume();
+              source.start();
+            },
+            stop() {
+              try {
+                source.stop();
+              } catch {
+                // stop() trước start() ném InvalidStateError; bỏ qua.
+              }
+            },
+          };
+        },
+      };
     },
-    get onended() {
-      return audio.onended as (() => void) | null;
-    },
-    set onerror(handler: (() => void) | null) {
-      audio.onerror = handler;
-    },
-    get onerror() {
-      return audio.onerror as (() => void) | null;
+    close() {
+      if (closed) return;
+      closed = true;
+      if (context.state !== "closed") {
+        context.close().catch(() => undefined);
+      }
     },
   };
 }
 
 const browserBlobDeps: BlobPlaybackDeps = {
-  createUrl: (blob) => URL.createObjectURL(blob),
-  revokeUrl: (url) => URL.revokeObjectURL(url),
-  createAudio: browserAudio,
+  // `arrayBuffer()` trả BẢN SAO mới mỗi lần; decodeAudioData detach buffer truyền vào nên không
+  // được cache hay dùng lại, và không bao giờ ghi vào Blob (Blob gửi chấm và "Lưu clip cho eval").
+  readBlob: (blob) => blob.arrayBuffer(),
+  createContext: browserPlaybackContext,
 };
 
 /**
- * Phát một Blob tới hết. Resolve khi `ended`; reject khi lỗi giải mã/phát hoặc `signal` bị huỷ
- * (rời trạng thái → pause). Luôn thu hồi object URL.
+ * Phát một Blob tới hết với âm lượng đã chuẩn hoá. Resolve khi phát xong; reject khi lỗi đọc/giải
+ * mã/phát hoặc `signal` bị huỷ (rời trạng thái → dừng nguồn). AudioContext luôn được đóng đúng một lần.
  */
 export function playBlobOnce(
   blob: Blob,
@@ -67,32 +123,43 @@ export function playBlobOnce(
       reject(new DOMException("aborted", "AbortError"));
       return;
     }
-    const url = deps.createUrl(blob);
-    const audio = deps.createAudio(url);
+    // Tạo context đồng bộ, còn trong cử chỉ bấm nút (chính sách autoplay).
+    const context = deps.createContext();
+    let source: SourceLike | undefined;
     let settled = false;
 
     const finish = (error?: unknown) => {
       if (settled) return;
       settled = true;
       signal.removeEventListener("abort", onAbort);
-      audio.onended = null;
-      audio.onerror = null;
-      deps.revokeUrl(url);
+      if (source) {
+        source.onended = null;
+        if (error !== undefined) source.stop();
+      }
+      context.close();
       if (error === undefined) resolve();
       else reject(error);
     };
-    const onAbort = () => {
-      audio.pause();
-      finish(new DOMException("aborted", "AbortError"));
-    };
+    const onAbort = () => finish(new DOMException("aborted", "AbortError"));
 
     signal.addEventListener("abort", onAbort, { once: true });
-    audio.onended = () => finish();
-    audio.onerror = () => finish(new Error("Không phát được bản ghi"));
-    audio.play().catch((error: unknown) => {
-      audio.pause();
-      finish(error);
-    });
+
+    void (async () => {
+      let started: SourceLike;
+      try {
+        const data = await deps.readBlob(blob);
+        if (settled) return;
+        const decoded = await context.decode(data);
+        if (settled) return;
+        started = decoded.connect(playbackGain(decoded.channels));
+      } catch {
+        finish(new Error("Không phát được bản ghi"));
+        return;
+      }
+      source = started;
+      started.onended = () => finish();
+      started.start().catch((error: unknown) => finish(error));
+    })();
   });
 }
 
