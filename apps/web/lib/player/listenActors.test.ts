@@ -134,4 +134,97 @@ describe("playBlobOnce", () => {
     ).rejects.toThrow("blocked");
     expect(state.closes).toBe(1);
   });
+
+  it("decode bị từ chối thì reject thông điệp cũ, không connect và đóng context một lần", async () => {
+    const { deps, state } = fakeDeps();
+    const failing: BlobPlaybackDeps = {
+      ...deps,
+      createContext: () => {
+        state.createContexts += 1;
+        return {
+          decode: () => Promise.reject(new Error("bad data")),
+          close: () => {
+            state.closes += 1;
+          },
+        };
+      },
+    };
+    await expect(
+      playBlobOnce(new Blob(["x"]), new AbortController().signal, failing),
+    ).rejects.toThrow("Không phát được bản ghi");
+    expect(state.decoded.gains).toHaveLength(0);
+    expect(state.closes).toBe(1);
+  });
+
+  it("readBlob bị từ chối thì cùng hành vi như decode lỗi", async () => {
+    const { deps, state } = fakeDeps();
+    const failing: BlobPlaybackDeps = {
+      ...deps,
+      readBlob: () => Promise.reject(new Error("unreadable")),
+    };
+    await expect(
+      playBlobOnce(new Blob(["x"]), new AbortController().signal, failing),
+    ).rejects.toThrow("Không phát được bản ghi");
+    expect(state.decoded.gains).toHaveLength(0);
+    expect(state.closes).toBe(1);
+  });
+
+  it("huỷ trong lúc decode đang chờ thì reject ngay và không connect/start sau đó", async () => {
+    const { deps, state } = fakeDeps();
+    let resolveDecode: (decoded: DecodedLike) => void = () => undefined;
+    const pending: BlobPlaybackDeps = {
+      ...deps,
+      createContext: () => {
+        state.createContexts += 1;
+        return {
+          decode: () =>
+            new Promise<DecodedLike>((resolve) => {
+              resolveDecode = resolve;
+            }),
+          close: () => {
+            state.closes += 1;
+          },
+        };
+      },
+    };
+    const controller = new AbortController();
+    const done = playBlobOnce(new Blob(["x"]), controller.signal, pending);
+    await flush();
+    controller.abort();
+    await expect(done).rejects.toMatchObject({ name: "AbortError" });
+    resolveDecode(state.decoded);
+    await flush();
+    expect(state.decoded.gains).toHaveLength(0);
+    expect(state.decoded.source).toBeUndefined();
+    expect(state.closes).toBe(1);
+  });
+
+  it("Blob nguyên vẹn sau khi phát và readBlob nhận đúng đối tượng Blob", async () => {
+    const { deps, state } = fakeDeps();
+    const blob = new Blob(["xin chào"], { type: "audio/webm" });
+    const sizeBefore = blob.size;
+    const done = playBlobOnce(blob, new AbortController().signal, deps);
+    await flush();
+    state.decoded.source?.onended?.();
+    await done;
+    expect(state.readBlobs).toHaveLength(1);
+    expect(state.readBlobs[0]).toBe(blob);
+    expect(blob.size).toBe(sizeBefore);
+    expect(blob.type).toBe("audio/webm");
+    expect(await blob.text()).toBe("xin chào");
+  });
+
+  it("onended trễ sau khi huỷ không đổi kết quả và không đóng context lần nữa", async () => {
+    const { deps, state } = fakeDeps();
+    const controller = new AbortController();
+    const done = playBlobOnce(new Blob(["x"]), controller.signal, deps);
+    await flush();
+    const source = state.decoded.source;
+    const lateEnded = source?.onended;
+    controller.abort();
+    await expect(done).rejects.toMatchObject({ name: "AbortError" });
+    lateEnded?.();
+    expect(state.closes).toBe(1);
+    expect(source?.stops).toBe(1);
+  });
 });
