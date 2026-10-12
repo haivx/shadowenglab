@@ -1,81 +1,137 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { playbackGain } from "../audio/playbackGain";
 import {
   playBlobOnce,
-  type AudioLike,
   type BlobPlaybackDeps,
+  type DecodedLike,
+  type PlaybackContextLike,
+  type SourceLike,
 } from "./listenActors";
 
-function fakeDeps(options: { playRejects?: boolean } = {}) {
-  const revoked: string[] = [];
-  let audio: FakeAudio | undefined;
-  class FakeAudio implements AudioLike {
-    onended: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-    paused = 0;
-    play() {
-      return options.playRejects
-        ? Promise.reject(new Error("blocked"))
-        : Promise.resolve();
-    }
-    pause() {
-      this.paused += 1;
-    }
+const SAMPLE_RATE = 16_000;
+
+/** Sóng sin biên độ `amplitude` dài 1 s. */
+function sine(amplitude: number): Float32Array {
+  const out = new Float32Array(SAMPLE_RATE);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = amplitude * Math.sin((2 * Math.PI * 440 * i) / SAMPLE_RATE);
   }
-  const deps: BlobPlaybackDeps = {
-    createUrl: () => "blob:fake-1",
-    revokeUrl: (url) => revoked.push(url),
-    createAudio: () => {
-      audio = new FakeAudio();
-      return audio;
+  return out;
+}
+
+/** Chờ các microtask của chuỗi readBlob -> decode -> connect chạy xong. */
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+class FakeSource implements SourceLike {
+  onended: (() => void) | null = null;
+  stops = 0;
+  starts = 0;
+  constructor(private readonly startRejects: boolean) {}
+  start() {
+    this.starts += 1;
+    return this.startRejects
+      ? Promise.reject(new Error("blocked"))
+      : Promise.resolve();
+  }
+  stop() {
+    this.stops += 1;
+  }
+}
+
+class FakeDecoded implements DecodedLike {
+  gains: number[] = [];
+  source: FakeSource | undefined;
+  constructor(
+    readonly channels: readonly Float32Array[],
+    private readonly startRejects: boolean,
+  ) {}
+  connect(gain: number): SourceLike {
+    this.gains.push(gain);
+    this.source = new FakeSource(this.startRejects);
+    return this.source;
+  }
+}
+
+interface FakeOptions {
+  channels?: readonly Float32Array[];
+  startRejects?: boolean;
+}
+
+function fakeDeps(options: FakeOptions = {}) {
+  const decoded = new FakeDecoded(
+    options.channels ?? [sine(0.02)],
+    options.startRejects ?? false,
+  );
+  const state = {
+    closes: 0,
+    createContexts: 0,
+    readBlobs: [] as Blob[],
+    decoded,
+  };
+  const context: PlaybackContextLike = {
+    decode: () => Promise.resolve(decoded),
+    close: () => {
+      state.closes += 1;
     },
   };
-  return { deps, revoked, getAudio: () => audio };
+  const deps: BlobPlaybackDeps = {
+    readBlob: (blob) => {
+      state.readBlobs.push(blob);
+      return Promise.resolve(new ArrayBuffer(8));
+    },
+    createContext: () => {
+      state.createContexts += 1;
+      return context;
+    },
+  };
+  return { deps, state };
 }
 
 describe("playBlobOnce", () => {
-  it("resolve khi phát xong và thu hồi object URL", async () => {
-    const { deps, revoked, getAudio } = fakeDeps();
+  it("resolve khi phát xong, connect nhận đúng gain chuẩn hoá và đóng context một lần", async () => {
+    const { deps, state } = fakeDeps();
     const done = playBlobOnce(
       new Blob(["x"]),
       new AbortController().signal,
       deps,
     );
-    getAudio()?.onended?.();
+    await flush();
+    state.decoded.source?.onended?.();
     await expect(done).resolves.toBeUndefined();
-    expect(revoked).toEqual(["blob:fake-1"]);
+    expect(state.decoded.gains).toEqual([playbackGain(state.decoded.channels)]);
+    expect(state.decoded.gains[0]).toBeGreaterThan(1);
+    expect(state.closes).toBe(1);
   });
 
-  it("huỷ giữa chừng thì pause, reject AbortError và thu hồi URL", async () => {
-    const { deps, revoked, getAudio } = fakeDeps();
+  it("huỷ giữa chừng thì stop đúng một lần, reject AbortError và đóng context một lần", async () => {
+    const { deps, state } = fakeDeps();
     const controller = new AbortController();
     const done = playBlobOnce(new Blob(["x"]), controller.signal, deps);
+    await flush();
     controller.abort();
     await expect(done).rejects.toMatchObject({ name: "AbortError" });
-    expect(getAudio()?.paused).toBe(1);
-    expect(revoked).toEqual(["blob:fake-1"]);
+    expect(state.decoded.source?.stops).toBe(1);
+    expect(state.closes).toBe(1);
   });
 
-  it("signal đã huỷ từ trước thì không tạo URL", async () => {
-    const createUrl = vi.fn(() => "blob:never");
+  it("signal đã huỷ từ trước thì không tạo context và không đọc Blob", async () => {
+    const { deps, state } = fakeDeps();
     const controller = new AbortController();
     controller.abort();
     await expect(
-      playBlobOnce(new Blob(["x"]), controller.signal, {
-        createUrl,
-        revokeUrl: () => undefined,
-        createAudio: () => {
-          throw new Error("không được tạo audio");
-        },
-      }),
+      playBlobOnce(new Blob(["x"]), controller.signal, deps),
     ).rejects.toMatchObject({ name: "AbortError" });
-    expect(createUrl).not.toHaveBeenCalled();
+    expect(state.createContexts).toBe(0);
+    expect(state.readBlobs).toHaveLength(0);
   });
 
-  it("play() bị từ chối thì reject và vẫn thu hồi URL", async () => {
-    const { deps, revoked } = fakeDeps({ playRejects: true });
+  it("start() bị từ chối thì reject đúng lỗi đó và vẫn đóng context", async () => {
+    const { deps, state } = fakeDeps({ startRejects: true });
     await expect(
       playBlobOnce(new Blob(["x"]), new AbortController().signal, deps),
     ).rejects.toThrow("blocked");
-    expect(revoked).toEqual(["blob:fake-1"]);
+    expect(state.closes).toBe(1);
   });
 });
