@@ -963,6 +963,115 @@
         "flags"
       ]
     },
+    "ErrorType": {
+      "type": "string",
+      "enum": [
+        "wrong_stress",
+        "flat",
+        "extra_pause",
+        "final_rise",
+        "pitch_off",
+        "weak_form",
+        "final_drop"
+      ]
+    },
+    "EvalCase": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lessonId": {
+          "type": "string"
+        },
+        "segmentIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "segStartMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "segEndMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "segEndExtraMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "segTextHash": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "error",
+            "correct"
+          ]
+        },
+        "errorType": {
+          "$ref": "#/$defs/ErrorType"
+        },
+        "wordIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "alsoPresent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvalAlsoPresent"
+          }
+        },
+        "split": {
+          "type": "string",
+          "enum": [
+            "tuning",
+            "heldout"
+          ]
+        },
+        "clip": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "lessonId",
+        "segmentIndex",
+        "segStartMs",
+        "segEndMs",
+        "segEndExtraMs",
+        "segTextHash",
+        "kind"
+      ]
+    },
+    "EvalAlsoPresent": {
+      "type": "object",
+      "properties": {
+        "errorType": {
+          "$ref": "#/$defs/ErrorType"
+        },
+        "wordIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "errorType"
+      ]
+    },
     "AttemptAck": {
       "type": "object",
       "properties": {

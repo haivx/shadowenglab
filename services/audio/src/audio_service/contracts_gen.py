@@ -218,6 +218,32 @@ class WordFlags(BaseModel):
     flags: list[Literal["sound", "stress", "pitch", "pause", "speed"]]
 
 
+class ErrorType(
+    RootModel[
+        Literal[
+            "wrong_stress",
+            "flat",
+            "extra_pause",
+            "final_rise",
+            "pitch_off",
+            "weak_form",
+            "final_drop",
+        ]
+    ]
+):
+    root: Literal[
+        "wrong_stress", "flat", "extra_pause", "final_rise", "pitch_off", "weak_form", "final_drop"
+    ]
+
+
+class EvalAlsoPresent(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    error_type: Annotated[ErrorType, Field(alias="errorType")]
+    word_index: Annotated[int | None, Field(alias="wordIndex", ge=0, le=9007199254740991)] = None
+
+
 class AttemptAck(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -518,6 +544,26 @@ class Label(BaseModel):
     note: str | None = None
     duration_ms: Annotated[int, Field(alias="durationMs", ge=0, le=9007199254740991)]
     created_at: Annotated[str, Field(alias="createdAt")]
+
+
+class EvalCase(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    case_id: Annotated[str, Field(alias="caseId", min_length=1)]
+    lesson_id: Annotated[str, Field(alias="lessonId")]
+    segment_index: Annotated[int, Field(alias="segmentIndex", ge=0, le=9007199254740991)]
+    seg_start_ms: Annotated[int, Field(alias="segStartMs", ge=0, le=9007199254740991)]
+    seg_end_ms: Annotated[int, Field(alias="segEndMs", ge=0, le=9007199254740991)]
+    seg_end_extra_ms: Annotated[int, Field(alias="segEndExtraMs", ge=0, le=9007199254740991)]
+    seg_text_hash: Annotated[str, Field(alias="segTextHash", max_length=16, min_length=16)]
+    kind: Literal["error", "correct"]
+    error_type: Annotated[ErrorType | None, Field(alias="errorType")] = None
+    word_index: Annotated[int | None, Field(alias="wordIndex", ge=0, le=9007199254740991)] = None
+    also_present: Annotated[list[EvalAlsoPresent] | None, Field(alias="alsoPresent")] = None
+    split: Literal["tuning", "heldout"] | None = None
+    clip: str | None = None
+    note: str | None = None
 
 
 class LessonListItem(BaseModel):

@@ -1,7 +1,8 @@
 """Rule engine Lớp C: issue ngữ điệu từ feature và căn thời gian (RUL-01, D-02, D-12, D-13).
 
-Hàm thuần: `RuleInput` vào, `RuleIssue` ra, không model, không file. Mọi ngưỡng đọc từ
-`audio_service.scoring.thresholds` (một file có version, D-12); file này không có số ngưỡng nào.
+Hàm thuần: `RuleInput` vào, `RuleIssue` ra, không model, không file. Mọi ngưỡng và cờ bật/tắt
+rule (D-15) đọc từ `audio_service.scoring.thresholds` (một file có version, D-12); file này không có
+số ngưỡng nào.
 Mỗi rule có cổng chắc chắn: không đủ chắc thì không báo (CLAUDE.md, precision trước recall).
 
 Khi căn thời gian kém (`word_issues_allowed` False, D-02) chỉ FLAT_PITCH và FINAL_CONTOUR (rule
@@ -25,10 +26,13 @@ from audio_service.scoring.prominence import (
     silent_runs,
 )
 from audio_service.scoring.thresholds import (
+    EXTRA_PAUSE_ENABLED,
+    FINAL_CONTOUR_ENABLED,
     FINAL_MIN_VOICED_FRAMES,
     FINAL_SLOPE_MAX_ST_S,
     FINAL_SLOPE_MIN_ST_S,
     FINAL_WINDOW_FRAMES,
+    FLAT_PITCH_ENABLED,
     FLAT_RATIO,
     FLAT_REF_MIN_STD_ST,
     MIN_COMMON_VOICED_FRAMES,
@@ -38,9 +42,11 @@ from audio_service.scoring.thresholds import (
     PD_MIN_FRAMES,
     PD_SIGN_CONSISTENCY,
     PD_VOICED_RATIO,
+    PITCH_DEVIATION_ENABLED,
     PITCH_DEVIATION_ST,
     STRESS_MARGIN_Z,
     STRESS_MIN_WORDS,
+    STRESS_MISMATCH_ENABLED,
 )
 
 # Hình học của EXTRA_PAUSE theo kế hoạch 03-06 (không phải ngưỡng chấm): đoạn lặng phải cách hai
@@ -289,18 +295,45 @@ def stress_mismatch(inp: RuleInput) -> RuleIssue | None:
     )
 
 
+def enabled_codes() -> tuple[str, ...]:
+    """Mã các rule đang bật theo thứ tự cố định của `run_rules` (D-15).
+
+    Đọc các cờ đã import trong module này (không đọc lại `thresholds`) để test và sweep đổi được
+    bằng `monkeypatch.setattr(engine, "<MÃ>_ENABLED", ...)`.
+    """
+    flags = (
+        ("STRESS_MISMATCH", STRESS_MISMATCH_ENABLED),
+        ("FINAL_CONTOUR", FINAL_CONTOUR_ENABLED),
+        ("EXTRA_PAUSE", EXTRA_PAUSE_ENABLED),
+        ("PITCH_DEVIATION", PITCH_DEVIATION_ENABLED),
+        ("FLAT_PITCH", FLAT_PITCH_ENABLED),
+    )
+    return tuple(code for code, enabled in flags if enabled)
+
+
 def run_rules(inp: RuleInput) -> list[RuleIssue]:
     """Chạy các rule theo thứ tự cố định STRESS_MISMATCH, FINAL_CONTOUR, EXTRA_PAUSE,
     PITCH_DEVIATION, FLAT_PITCH; trong một mã theo chỉ số từ. Thứ tự này là thứ tự `issues`
     (và là cơ sở của `issueRef`).
+
+    Rule có cờ `*_ENABLED` False (D-15) không được gọi: không issue, nên không tip; thứ tự của các
+    rule còn lại không đổi. Hàm rule riêng lẻ vẫn chạy khi gọi trực tiếp.
     """
     issues: list[RuleIssue] = []
-    for single in (stress_mismatch(inp), final_contour(inp)):
-        if single is not None:
-            issues.append(single)
-    issues.extend(extra_pause(inp))
-    issues.extend(pitch_deviation(inp))
-    flat = flat_pitch(inp)
-    if flat is not None:
-        issues.append(flat)
+    if STRESS_MISMATCH_ENABLED:
+        stress = stress_mismatch(inp)
+        if stress is not None:
+            issues.append(stress)
+    if FINAL_CONTOUR_ENABLED:
+        final = final_contour(inp)
+        if final is not None:
+            issues.append(final)
+    if EXTRA_PAUSE_ENABLED:
+        issues.extend(extra_pause(inp))
+    if PITCH_DEVIATION_ENABLED:
+        issues.extend(pitch_deviation(inp))
+    if FLAT_PITCH_ENABLED:
+        flat = flat_pitch(inp)
+        if flat is not None:
+            issues.append(flat)
     return issues

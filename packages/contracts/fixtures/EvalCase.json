@@ -1,0 +1,84 @@
+[
+  {
+    "name": "error-word",
+    "data": {
+      "caseId": "c0001",
+      "lessonId": "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+      "segmentIndex": 3,
+      "segStartMs": 12000,
+      "segEndMs": 15500,
+      "segEndExtraMs": 15800,
+      "segTextHash": "9f86d081884c7d65",
+      "kind": "error",
+      "errorType": "wrong_stress",
+      "wordIndex": 3,
+      "split": "tuning",
+      "clip": "01HZX3Y7Q8K2M4N6P8R0S2T4V6_0003_02"
+    }
+  },
+  {
+    "name": "error-sentence-heldout",
+    "data": {
+      "caseId": "c0002",
+      "lessonId": "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+      "segmentIndex": 5,
+      "segStartMs": 21400,
+      "segEndMs": 25100,
+      "segEndExtraMs": 25400,
+      "segTextHash": "2c26b46b68ffc68f",
+      "kind": "error",
+      "errorType": "flat",
+      "split": "heldout",
+      "clip": "01HZX3Y7Q8K2M4N6P8R0S2T4V6_0005_01"
+    }
+  },
+  {
+    "name": "correct",
+    "data": {
+      "caseId": "c0003",
+      "lessonId": "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+      "segmentIndex": 3,
+      "segStartMs": 12000,
+      "segEndMs": 15500,
+      "segEndExtraMs": 15800,
+      "segTextHash": "9f86d081884c7d65",
+      "kind": "correct",
+      "split": "tuning",
+      "clip": "01HZX3Y7Q8K2M4N6P8R0S2T4V6_0003_03"
+    }
+  },
+  {
+    "name": "pending",
+    "data": {
+      "caseId": "c0004",
+      "lessonId": "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+      "segmentIndex": 7,
+      "segStartMs": 31000,
+      "segEndMs": 35200,
+      "segEndExtraMs": 35500,
+      "segTextHash": "fcde2b2edba56bf4",
+      "kind": "error",
+      "errorType": "extra_pause",
+      "wordIndex": 2,
+      "note": "Ngắt hơi sau từ thứ ba, chưa thu và chưa chốt split"
+    }
+  },
+  {
+    "name": "also-present",
+    "data": {
+      "caseId": "c0005",
+      "lessonId": "01HZX3Y7Q8K2M4N6P8R0S2T4V6",
+      "segmentIndex": 9,
+      "segStartMs": 44000,
+      "segEndMs": 48300,
+      "segEndExtraMs": 48600,
+      "segTextHash": "4e07408562bedb8b",
+      "kind": "error",
+      "errorType": "pitch_off",
+      "wordIndex": 1,
+      "alsoPresent": [{ "errorType": "extra_pause", "wordIndex": 4 }],
+      "split": "tuning",
+      "clip": "01HZX3Y7Q8K2M4N6P8R0S2T4V6_0009_01"
+    }
+  }
+]

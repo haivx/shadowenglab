@@ -50,7 +50,9 @@ make setup     # kiểm tra system deps (thiếu thì in lệnh brew rồi dừn
 make dev       # chạy FastAPI (127.0.0.1:8000) + Next.js (localhost:3000)
 make test      # drift gate contract + vitest + pytest
 make lint      # eslint, prettier, tsc, ruff
-make eval      # stub ở P0; Phase 4: python eval/analyze.py → eval/report.md
+make eval      # chấm lại bộ eval nội bộ → eval/report.md (tuning; HOLDOUT=1 mở held-out, có log) (Phase 4)
+make eval-tag  # ghép clip "Lưu clip cho eval" với kịch bản eval/cases.jsonl (Phase 4)
+make eval-sweep # quét ngưỡng trên tuning, chỉ in; PARAM= tuỳ chọn (Phase 4)
 make smoke     # scripts/smoke_lesson.py trên scripts/smoke_video.url (tuỳ chọn: URL=, START=, END=, BUDGET=)
 make smoke-jobs # 2 bài tạo liên tiếp qua API thật, không key: kiểm tra không chặn nhau (Phase 2)
 make smoke-score # chấm tự so + chéo câu trên một bài thật (chỉ đọc DATA_DIR), in timingMs; tuỳ chọn LESSON= (Phase 3)
